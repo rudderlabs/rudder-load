@@ -23,7 +23,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/rudderlabs/rudder-go-kit/profiler"
 	kitrand "github.com/rudderlabs/rudder-go-kit/testhelper/rand"
@@ -389,35 +388,23 @@ func main() {
 	fmt.Printf("Estimated total data size: %s\n", byteCount(uint64(len(sampleMsg)*totalMessages)))
 
 	startPublishingTime = time.Now()
-	group, gCtx := errgroup.WithContext(ctx)
-	group.SetLimit(concurrency + 1)
-
 	fmt.Printf("Publishing %d messages...\n", totalMessages)
 
+	// TODO add some concurrency, you can use traffic distribution map to understand how many routines to use here
 	for i := 0; i < totalMessages; i++ {
-		group.Go(func() error {
-			msg, anonymousID := getRudderEvent(samplePayload, rudderEventsBatchSize)
+		msg, anonymousID := getRudderEvent(samplePayload, rudderEventsBatchSize)
+		processedBytes.Add(int64(len(msg)))
 
-			processedBytes.Add(int64(len(msg)))
-
-			select {
-			case <-gCtx.Done():
-				close(messages)
-				return gCtx.Err()
-			case messages <- &message{
-				payload:     msg,
-				anonymousID: anonymousID,
-			}:
-			}
-
-			return nil
-		})
+		select {
+		case <-ctx.Done():
+			close(messages)
+			return
+		case messages <- &message{
+			payload:     msg,
+			anonymousID: anonymousID,
+		}:
+		}
 	}
-
-	if err := group.Wait(); err != nil {
-		fatal(fmt.Errorf("cannot generate messages: %v", err))
-	}
-	close(messages)
 }
 
 type slot struct {
