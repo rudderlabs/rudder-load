@@ -1,0 +1,8 @@
+artifacts
+.dockerignore
+.gitignore
+Dockerfile
+Makefile
+README.md
+rudder-ingester
+samples
