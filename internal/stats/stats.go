@@ -27,7 +27,6 @@ type Stats struct {
 type Data struct {
 	Mode        string
 	Concurrency int
-	TotalTopics int
 	TotalKeys   int
 }
 
@@ -48,11 +47,9 @@ func NewFactory(reg *prometheus.Registry, data Data) (*Factory, error) {
 	}
 
 	constLabels := map[string]string{
-		"mode":               data.Mode,
-		"concurrency":        strconv.Itoa(data.Concurrency),
-		"topics_total":       strconv.Itoa(data.TotalTopics),
-		"keys_total":         strconv.Itoa(data.TotalKeys),
-		"avg_keys_per_topic": strconv.FormatFloat(float64(data.TotalKeys)/float64(data.TotalTopics), 'f', 2, 64),
+		"mode":        data.Mode,
+		"concurrency": strconv.Itoa(data.Concurrency),
+		"total_keys":  strconv.Itoa(data.TotalKeys),
 	}
 
 	publishDurationSecondsLabels := []string{errorLabel}

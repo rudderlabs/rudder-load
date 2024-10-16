@@ -110,8 +110,7 @@ func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, 
 	if auth, ok := extra["auth"]; ok {
 		req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(auth+":")))
 	}
-	anonymousID, ok := extra["anonymous_id"]
-	if ok {
+	if anonymousID, ok := extra["anonymous_id"]; ok {
 		req.Header.Set("AnonymousId", anonymousID)
 	}
 

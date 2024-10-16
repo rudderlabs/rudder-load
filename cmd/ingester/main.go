@@ -56,7 +56,6 @@ func main() {
 		hostname                      = mustString("HOSTNAME")
 		mode                          = mustString("MODE")
 		concurrency                   = mustInt("CONCURRENCY")
-		bufferingPerSlot              = optionalInt("BUFFERING_PER_SLOT", 1)
 		randomKeyNames                = mustBool("RANDOM_KEY_NAMES", false)
 		keysPerSlotMap                = mustMap("KEYS_PER_SLOT_MAP")
 		trafficDistributionPercentage = mustMap("TRAFFIC_DISTRIBUTION_PERCENTAGE")
@@ -93,6 +92,20 @@ func main() {
 		fatal(fmt.Errorf("instance number %d is greater than the number of sources %d", instanceNumber, len(sourcesList)))
 	}
 
+	totalPercentage := 0
+	for _, v := range trafficDistributionPercentage {
+		totalPercentage += v
+	}
+	if totalPercentage != 100 {
+		fatal(fmt.Errorf("total percentage is not 100: %d", totalPercentage))
+	}
+	if concurrency%100 != 0 {
+		fatal(fmt.Errorf("concurrency is not a multiple of 100: %d", concurrency))
+	}
+	if concurrency < 100 {
+		fatal(fmt.Errorf("concurrency is less than 100: %d", concurrency))
+	}
+
 	var newMemoryLimit int64
 	if enableSoftMemoryLimit {
 		// set up the memory limit to be 80% of the SOFT_MEMORY_LIMIT value
@@ -103,7 +116,6 @@ func main() {
 	fmt.Printf("CPUs: %d\n", runtime.NumCPU())
 	fmt.Printf("Mode: %s\n", mode)
 	fmt.Printf("Instance number: %d\n", instanceNumber)
-	fmt.Printf("Buffering per source: %d\n", bufferingPerSlot)
 	fmt.Printf("Keys per source map: %v\n", keysPerSlotMap)
 	fmt.Printf("Traffic distribution percentage: %v\n", trafficDistributionPercentage)
 	fmt.Printf("Random key names: %v\n", randomKeyNames)
@@ -217,8 +229,7 @@ func main() {
 		sf, err := stats.NewFactory(reg, stats.Data{
 			Mode:        mode,
 			Concurrency: concurrency,
-			// TotalTopics: noOfTopics, // TODO clean up
-			TotalKeys: totalKeys,
+			TotalKeys:   totalKeys,
 		})
 		if err != nil {
 			fatal(fmt.Errorf("cannot create stats factory: %v", err))
@@ -237,8 +248,7 @@ func main() {
 		sf, err := stats.NewFactory(reg, stats.Data{
 			Mode:        mode,
 			Concurrency: concurrency,
-			// TotalTopics: noOfTopics, // TODO clean up
-			TotalKeys: totalKeys,
+			TotalKeys:   totalKeys,
 		})
 		if err != nil {
 			printErr(fmt.Errorf("cannot create stats factory: %v", err))
@@ -300,34 +310,38 @@ func main() {
 
 	fmt.Printf("Preparing %d slots with concurrency %d...\n", len(slots), concurrency)
 
-	messages := make(chan *message, concurrency)
+	channels := make([]chan *message, 0, 100)
+	for i := 0; i < 100; i++ {
+		channels = append(channels, make(chan *message, 100))
+	}
 
-	for i := 0; i < len(slots); i++ {
-		wg.Add(1)
-		go func(s *slot, i int) {
-			defer wg.Done()
+	startIdx := 0
+	for _, percentage := range trafficDistributionPercentage {
+		// Calculate how many goroutines for this percentage
+		groupCount := (concurrency * percentage) / 100
 
-			buffer := make([]*message, 0, bufferingPerSlot)
+		// Launch goroutines for the current group
+		for i := 0; i < groupCount; i++ {
+			ch := channels[startIdx+(i%percentage)]  // Cycle through the assigned channels
+			slotIndex := startIdx + (i % percentage) // Correct slot index based on the group
 
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case msg, ok := <-messages:
-					if !ok {
+			wg.Add(1)
+			go func(ch chan *message, s *slot) {
+				defer wg.Done()
+
+				for {
+					select {
+					case <-ctx.Done():
 						return
-					}
+					case msg, ok := <-ch:
+						if !ok {
+							return
+						}
 
-					publishRatePerSecond.Set(
-						float64(publishedMessages.Load()) / time.Since(startPublishingTime).Seconds(),
-					)
+						publishRatePerSecond.Set(
+							float64(publishedMessages.Load()) / time.Since(startPublishingTime).Seconds(),
+						)
 
-					buffer = append(buffer, msg)
-					if len(buffer) < bufferingPerSlot {
-						continue
-					}
-
-					for _, msg := range buffer {
 						key := s.keys[rand.Intn(len(s.keys))]
 						err := s.client.PublishTo(ctx, key, msg.payload, map[string]string{
 							"auth":         s.writeKey,
@@ -335,11 +349,11 @@ func main() {
 						})
 						if ctx.Err() != nil {
 							printErr(ctx.Err())
-							break
+							continue
 						}
 						if err == nil {
 							publishedMessages.Add(1)
-							break
+							continue
 						}
 
 						switch mode {
@@ -352,25 +366,25 @@ func main() {
 						printErr(fmt.Errorf("[non-retryable] error for slot %d: %w", i, err))
 						break
 					}
-				}
 
-				buffer = make([]*message, 0, bufferingPerSlot)
-
-				if totalDuration > 0 { // Calculate the expected finish time for this message
-					expectedFinishTime := startPublishingTime.Add(
-						totalDuration / time.Duration(totalMessages) * time.Duration(publishedMessages.Load()),
-					)
-					sleepDuration := time.Until(expectedFinishTime)
-					if sleepDuration > 0 {
-						select {
-						case <-ctx.Done():
-							return
-						case <-time.After(sleepDuration):
+					if totalDuration > 0 { // Calculate the expected finish time for this message
+						expectedFinishTime := startPublishingTime.Add(
+							totalDuration / time.Duration(totalMessages) * time.Duration(publishedMessages.Load()),
+						)
+						sleepDuration := time.Until(expectedFinishTime)
+						if sleepDuration > 0 {
+							select {
+							case <-ctx.Done():
+								return
+							case <-time.After(sleepDuration):
+							}
 						}
 					}
 				}
-			}
-		}(slots[i], i)
+			}(ch, slots[slotIndex]) // Pass the correct slot
+		}
+
+		startIdx += percentage // Update the starting index for the next distribution
 	}
 
 	samplePayload, err := os.ReadFile("./samples/page.json")
@@ -390,19 +404,24 @@ func main() {
 	startPublishingTime = time.Now()
 	fmt.Printf("Publishing %d messages...\n", totalMessages)
 
-	// TODO add some concurrency, you can use traffic distribution map to understand how many routines to use here
-	for i := 0; i < totalMessages; i++ {
+	// TODO use some concurrency here, configurable like 10 by default
+	for i, j := 0, 0; i < totalMessages; i++ {
 		msg, anonymousID := getRudderEvent(samplePayload, rudderEventsBatchSize)
 		processedBytes.Add(int64(len(msg)))
 
 		select {
 		case <-ctx.Done():
-			close(messages)
+			// TODO close all channels
 			return
-		case messages <- &message{
+		case channels[j] <- &message{
 			payload:     msg,
 			anonymousID: anonymousID,
 		}:
+		}
+
+		j++
+		if j == 100 {
+			j = 0
 		}
 	}
 }
@@ -418,6 +437,8 @@ type message struct {
 	anonymousID string
 }
 
+// TODO add a way to have diversity in the events that we send (could be event size, could be type, etc)
+// TODO optimize the event generation
 func getRudderEvent(payload []byte, batchSize int) ([]byte, string) {
 	anonID := []byte(uuid.New().String())
 	process := func(payload, anonID []byte) []byte {

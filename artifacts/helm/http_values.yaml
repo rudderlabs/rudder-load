@@ -21,8 +21,8 @@ deployment:
     MODE: http
     # CONCURRENCY determines how many slots are used to send data to the server.
     # Each slot is a unique pair of "source <-> user_id".
+    # CONCURRENCY should always be a multiple of 100 and be greater or equal to 100.
     CONCURRENCY: "1000"
-    BUFFERING_PER_SLOT: "1"
     # SOURCES should be a comma separated list of writeKeys
     # e.g. SOURCES: "2QHhS3EFTCToqESYyMA9kATFHu1,2i91hj9BP61vpHw3tNTCp2840AZ"
     # This goes together with the number of replicas. You'll need one source per replica here.
@@ -31,7 +31,7 @@ deployment:
     # Keys per slot map e.g. 50, 30, 20 means the 1st group gets 50 keys each, the 2nd 30 and the 3rd 20.
     # If single value then everybody gets the same number of keys.
     KEYS_PER_SLOT_MAP: "50"
-    # Traffic distribution e.g. 50, 30, 20 means the 1st group gets 50% of the topics, the 2nd 30% and the 3rd 20%.
+    # Traffic distribution e.g. 50, 30, 20 means the 1st group gets 50% of the traffic, the 2nd 30% and the 3rd 20%.
     # If single value then everybody gets the same percentage.
     TRAFFIC_DISTRIBUTION_PERCENTAGE: "100"
     USE_ONE_CLIENT_PER_SLOT: "true"
@@ -41,13 +41,11 @@ deployment:
     TOTAL_DURATION: "0" # 0 => finish as fast as possible
     RUDDER_EVENTS_BATCH_SIZE: 2 # do 0 to send single "page" event
     HTTP_ENDPOINT: "http://prousmtdev-ingestion.prousmtdev:8080/v1/batch"
-    HTTP_CLIENT_TYPE: "fasthttp"
     HTTP_READ_TIMEOUT: "5s"
     HTTP_WRITE_TIMEOUT: "5s"
     HTTP_MAX_IDLE_CONN: "1h"
     HTTP_MAX_CONNS_PER_HOST: "5000"
     HTTP_CONCURRENCY: "1000"
     HTTP_CONTENT_TYPE: "application/json"
-    HTTP_TOPIC_AS_AUTH: "true"
   restartPolicy: Always
   backoffLimit: 1
