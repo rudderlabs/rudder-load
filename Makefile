@@ -1,5 +1,6 @@
 REPLICAS:=2
-SOURCES:=2mVozMPrZkfu7TAVffXj9ORR9k8,2mVozPRyclR0iD3Csawsvwx8L7u
+# Make sure to escape commas in the SOURCES variable like so: writeKey1\,writeKey2
+SOURCES:=2mVozMPrZkfu7TAVffXj9ORR9k8\,2mVozPRyclR0iD3Csawsvwx8L7u
 
 ifneq (,$(or $(findstring deploy-,$(MAKECMDGOALS)),$(findstring update-,$(MAKECMDGOALS))))
     ifeq ($(DOCKER_USER),)
@@ -31,28 +32,28 @@ build:
 deploy-%: build
 	# Dynamically determine the service name (e.g., "http", "pulsar"...) from the target name
 	@$(eval SERVICE_NAME=$*)
-	@$(eval VALUES_FILE=$(PWD)/helm/${SERVICE_NAME}_values.yaml)
+	@$(eval VALUES_FILE=$(PWD)/artifacts/helm/${SERVICE_NAME}_values.yaml)
 	@echo Deploying using $(VALUES_FILE)
-	helm install rudder-ingester $(PWD)/helm \
+	helm install rudder-ingester $(PWD)/artifacts/helm \
 		--namespace $(K8S_NAMESPACE) \
 		--set namespace=$(K8S_NAMESPACE) \
 		--set dockerUser=$(DOCKER_USER) \
 		--set deployment.replicas=$(REPLICAS) \
-		--set deployment.env.SOURCES=$(SOURCES) \
+		--set deployment.env.SOURCES="$(SOURCES)" \
 		--values $(VALUES_FILE)
 
 .PHONY: update-%
 update-%: build
 	# Dynamically determine the service name (e.g., "http", "pulsar"...) from the target name
 	@$(eval SERVICE_NAME=$*)
-	@$(eval VALUES_FILE=$(PWD)/helm/${SERVICE_NAME}_values.yaml)
+	@$(eval VALUES_FILE=$(PWD)/artifacts/helm/${SERVICE_NAME}_values.yaml)
 	@echo Deploying using $(VALUES_FILE)
-	helm upgrade rudder-ingester $(PWD)/helm \
+	helm upgrade rudder-ingester $(PWD)/artifacts/helm \
 		--namespace $(K8S_NAMESPACE) \
 		--set namespace=$(K8S_NAMESPACE) \
 		--set dockerUser=$(DOCKER_USER) \
 		--set deployment.replicas=$(REPLICAS) \
-		--set deployment.env.SOURCES=$(SOURCES) \
+		--set deployment.env.SOURCES="$(SOURCES)" \
 		--values $(VALUES_FILE)
 
 .PHONY: delete

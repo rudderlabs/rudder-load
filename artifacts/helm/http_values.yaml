@@ -5,7 +5,9 @@ deployment:
   name: rudder-ingester
   image: rudder-ingester:latest
   imagePullPolicy: Always
+  restartPolicy: Always
   command: ["/rudder-ingester"]
+  backoffLimit: 1
   replicas: 2
   resources:
     cpuLimits: 2
@@ -49,5 +51,3 @@ deployment:
     HTTP_MAX_CONNS_PER_HOST: "5000"
     HTTP_CONCURRENCY: "1000"
     HTTP_CONTENT_TYPE: "application/json"
-  restartPolicy: Always
-  backoffLimit: 1
