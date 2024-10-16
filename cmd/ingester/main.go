@@ -114,13 +114,18 @@ func main() {
 		_ = debug.SetMemoryLimit(newMemoryLimit)
 	}
 
+	fmt.Printf("Hostname: %s\n", hostname)
 	fmt.Printf("CPUs: %d\n", runtime.NumCPU())
 	fmt.Printf("Mode: %s\n", mode)
-	fmt.Printf("Instance number: %d\n", instanceNumber)
-	fmt.Printf("Keys per source map: %v\n", keysPerSlotMap)
-	fmt.Printf("Traffic distribution percentage: %v\n", trafficDistributionPercentage)
+	fmt.Printf("Concurrency: %d\n", concurrency)
+	fmt.Printf("Message generators: %d\n", messageGenerators)
 	fmt.Printf("Random key names: %v\n", randomKeyNames)
+	fmt.Printf("Keys per slot map: %v\n", keysPerSlotMap)
+	fmt.Printf("Traffic distribution percentage: %v\n", trafficDistributionPercentage)
 	fmt.Printf("Use one client per slot: %v\n", useOneClientPerSlot)
+	fmt.Printf("Instance number: %d\n", instanceNumber)
+	fmt.Printf("WriteKey handled by this replica: %s\n", sourcesList[instanceNumber])
+	fmt.Printf("Rudder events batch size: %d\n", rudderEventsBatchSize)
 	if enableSoftMemoryLimit {
 		fmt.Printf("Soft memory limit at 80%% of %s: %s\n", byteCount(uint64(softMemoryLimit)), byteCount(uint64(newMemoryLimit)))
 	}
@@ -492,7 +497,10 @@ func getRudderEvent(payload []byte, batchSize int) ([]byte, string) {
 }
 
 func getSlots(writeKey string, concurrency int, keysPerSlotMap []int, randomKeyNames bool) ([]*slot, int) {
-	slots := make([]*slot, concurrency)
+	var (
+		totalKeys int
+		slots     = make([]*slot, concurrency)
+	)
 	for i := range slots {
 		slots[i] = &slot{writeKey: writeKey}
 
@@ -501,6 +509,7 @@ func getSlots(writeKey string, concurrency int, keysPerSlotMap []int, randomKeyN
 			panic(fmt.Sprintf("keysPerSlotMap[%d] is 0", i%len(keysPerSlotMap)))
 		}
 
+		totalKeys += keysForCurrentSlot
 		keys := make([]string, 0, keysForCurrentSlot)
 		for j := 0; j < keysForCurrentSlot; j++ {
 			if randomKeyNames {
@@ -510,7 +519,7 @@ func getSlots(writeKey string, concurrency int, keysPerSlotMap []int, randomKeyN
 			}
 		}
 	}
-	return slots, 0
+	return slots, totalKeys
 }
 
 func byteCount(b uint64) string {

@@ -64,5 +64,4 @@ delete:
 
 .PHONY: logs
 logs:
-	# TODO
-	kubectl logs -f -n $(K8S_NAMESPACE) -l run=rudder-tests-ingestion-producer
+	kubectl logs -f -n $(K8S_NAMESPACE) -l run=rudder-ingester
