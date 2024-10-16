@@ -505,17 +505,17 @@ func getSlots(writeKey string, concurrency int, keysPerSlotMap []int, randomKeyN
 		slots[i] = &slot{writeKey: writeKey}
 
 		keysForCurrentSlot := keysPerSlotMap[i%len(keysPerSlotMap)]
-		if keysForCurrentSlot == 0 {
-			panic(fmt.Sprintf("keysPerSlotMap[%d] is 0", i%len(keysPerSlotMap)))
+		if keysForCurrentSlot < 1 {
+			panic(fmt.Sprintf("keysPerSlotMap[%d] is < 1", i%len(keysPerSlotMap)))
 		}
 
 		totalKeys += keysForCurrentSlot
-		keys := make([]string, 0, keysForCurrentSlot)
+		slots[i].keys = make([]string, 0, keysForCurrentSlot)
 		for j := 0; j < keysForCurrentSlot; j++ {
 			if randomKeyNames {
-				keys = append(keys, kitrand.UniqueString(10))
+				slots[i].keys = append(slots[i].keys, kitrand.UniqueString(10))
 			} else {
-				keys = append(keys, writeKey+"-key-"+strconv.Itoa(i)+"-"+strconv.Itoa(j))
+				slots[i].keys = append(slots[i].keys, writeKey+"-key-"+strconv.Itoa(i)+"-"+strconv.Itoa(j))
 			}
 		}
 	}
