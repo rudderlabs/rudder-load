@@ -25,6 +25,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/rudderlabs/rudder-go-kit/profiler"
+	kitsync "github.com/rudderlabs/rudder-go-kit/sync"
 	kitrand "github.com/rudderlabs/rudder-go-kit/testhelper/rand"
 
 	"rudder-ingester/internal/producer"
@@ -56,6 +57,7 @@ func main() {
 		hostname                      = mustString("HOSTNAME")
 		mode                          = mustString("MODE")
 		concurrency                   = mustInt("CONCURRENCY")
+		messageGenerators             = mustInt("MESSAGE_GENERATORS")
 		randomKeyNames                = mustBool("RANDOM_KEY_NAMES", false)
 		keysPerSlotMap                = mustMap("KEYS_PER_SLOT_MAP")
 		trafficDistributionPercentage = mustMap("TRAFFIC_DISTRIBUTION_PERCENTAGE")
@@ -152,6 +154,7 @@ func main() {
 	reg.MustRegister(publishRatePerSecond)
 	// PROMETHEUS REGISTRY - END
 
+	// TODO compression
 	publisherFactory := func(clientID string) (publisherCloser, error) {
 		switch mode {
 		case modeHTTP:
@@ -177,6 +180,11 @@ func main() {
 		printer                  = make(chan struct{})
 		leakyErrors              = make(chan error, 1)
 	)
+
+	channels := make([]chan *message, 0, 100)
+	for i := 0; i < 100; i++ {
+		channels = append(channels, make(chan *message, 1))
+	}
 
 	go func() {
 		for {
@@ -310,11 +318,6 @@ func main() {
 
 	fmt.Printf("Preparing %d slots with concurrency %d...\n", len(slots), concurrency)
 
-	channels := make([]chan *message, 0, 100)
-	for i := 0; i < 100; i++ {
-		channels = append(channels, make(chan *message, 100))
-	}
-
 	startIdx := 0
 	for _, percentage := range trafficDistributionPercentage {
 		// Calculate how many goroutines for this percentage
@@ -404,25 +407,34 @@ func main() {
 	startPublishingTime = time.Now()
 	fmt.Printf("Publishing %d messages...\n", totalMessages)
 
-	// TODO use some concurrency here, configurable like 10 by default
-	for i, j := 0, 0; i < totalMessages; i++ {
-		msg, anonymousID := getRudderEvent(samplePayload, rudderEventsBatchSize)
-		processedBytes.Add(int64(len(msg)))
+	group, gCtx := kitsync.NewEagerGroup(ctx, messageGenerators)
 
-		select {
-		case <-ctx.Done():
-			// TODO close all channels
-			return
-		case channels[j] <- &message{
-			payload:     msg,
-			anonymousID: anonymousID,
-		}:
-		}
+	for i, j := 0, 0; i < totalMessages; i++ {
+		group.Go(func() error {
+			msg, anonymousID := getRudderEvent(samplePayload, rudderEventsBatchSize)
+			processedBytes.Add(int64(len(msg)))
+
+			select {
+			case <-gCtx.Done():
+				return nil
+			case channels[j] <- &message{
+				payload:     msg,
+				anonymousID: anonymousID,
+			}:
+			}
+			return nil
+		})
 
 		j++
 		if j == 100 {
 			j = 0
 		}
+	}
+	if err := group.Wait(); err != nil {
+		printErr(fmt.Errorf("error generating messages: %w", err))
+	}
+	for _, ch := range channels {
+		close(ch)
 	}
 }
 

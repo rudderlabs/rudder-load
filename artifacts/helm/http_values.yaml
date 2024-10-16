@@ -23,6 +23,7 @@ deployment:
     # Each slot is a unique pair of "source <-> user_id".
     # CONCURRENCY should always be a multiple of 100 and be greater or equal to 100.
     CONCURRENCY: "1000"
+    MESSAGE_GENERATORS: "10"
     # SOURCES should be a comma separated list of writeKeys
     # e.g. SOURCES: "2QHhS3EFTCToqESYyMA9kATFHu1,2i91hj9BP61vpHw3tNTCp2840AZ"
     # This goes together with the number of replicas. You'll need one source per replica here.
