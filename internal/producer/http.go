@@ -22,6 +22,7 @@ type HTTPProducer struct {
 	contentType string
 	keyHeader   string
 	clientType  string
+	compression bool
 }
 
 func NewHTTPProducer(environ []string) (*HTTPProducer, error) {
@@ -64,6 +65,10 @@ func NewHTTPProducer(environ []string) (*HTTPProducer, error) {
 	if err != nil {
 		return nil, err
 	}
+	compression, err := getOptionalBoolSetting(conf, "compression", false)
+	if err != nil {
+		return nil, err
+	}
 
 	client := &fasthttp.Client{
 		ReadTimeout:                   readTimeout,
@@ -95,13 +100,23 @@ func NewHTTPProducer(environ []string) (*HTTPProducer, error) {
 		contentType: contentType,
 		keyHeader:   keyHeader,
 		clientType:  clientType,
+		compression: compression,
 	}, nil
 }
 
-func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, extra map[string]string) error {
+func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, extra map[string]string) (int, error) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI(p.endpoint)
-	req.SetBody(message)
+
+	if p.compression {
+		_, err := fasthttp.WriteGzipLevel(req.BodyWriter(), message, fasthttp.CompressBestSpeed)
+		if err != nil {
+			return 0, fmt.Errorf("cannot compress message: %w", err)
+		}
+	} else {
+		req.SetBody(message)
+	}
+
 	req.Header.SetMethod(fasthttp.MethodPost)
 	req.Header.SetContentType(p.contentType)
 	if p.keyHeader != "" {
@@ -116,17 +131,18 @@ func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, 
 
 	res := fasthttp.AcquireResponse()
 	err := p.c.Do(req, res)
+	n := len(req.Body())
 	fasthttp.ReleaseRequest(req)
 	defer fasthttp.ReleaseResponse(res)
 
 	if err != nil {
-		return fmt.Errorf("http request failed: %w", err)
+		return 0, fmt.Errorf("http request failed: %w", err)
 	}
 	if res.StatusCode() != http.StatusOK {
-		return fmt.Errorf("http request failed with status code: %d: %s", res.StatusCode(), res.Body())
+		return 0, fmt.Errorf("http request failed with status code: %d: %s", res.StatusCode(), res.Body())
 	}
 
-	return err
+	return n, err
 }
 
 func (p *HTTPProducer) Close() error {

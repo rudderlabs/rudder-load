@@ -40,7 +40,7 @@ const (
 )
 
 type publisher interface {
-	PublishTo(ctx context.Context, key string, messages []byte, extra map[string]string) error
+	PublishTo(ctx context.Context, key string, messages []byte, extra map[string]string) (int, error)
 }
 
 type closer interface {
@@ -62,7 +62,6 @@ func main() {
 		keysPerSlotMap                = mustMap("KEYS_PER_SLOT_MAP")
 		trafficDistributionPercentage = mustMap("TRAFFIC_DISTRIBUTION_PERCENTAGE")
 		useOneClientPerSlot           = optionalBool("USE_ONE_CLIENT_PER_SLOT", false)
-		compressBeforePublish         = optionalBool("COMPRESS_BEFORE_PUBLISH", false)
 		enableSoftMemoryLimit         = optionalBool("ENABLE_SOFT_MEMORY_LIMIT", false)
 		totalMessages                 = mustInt("TOTAL_MESSAGES")
 		totalDuration                 = optionalDuration("TOTAL_DURATION", 0) // 0 means complete as fast as possible
@@ -122,7 +121,6 @@ func main() {
 	fmt.Printf("Traffic distribution percentage: %v\n", trafficDistributionPercentage)
 	fmt.Printf("Random key names: %v\n", randomKeyNames)
 	fmt.Printf("Use one client per slot: %v\n", useOneClientPerSlot)
-	fmt.Printf("Compress before publish: %v\n", compressBeforePublish)
 	if enableSoftMemoryLimit {
 		fmt.Printf("Soft memory limit at 80%% of %s: %s\n", byteCount(uint64(softMemoryLimit)), byteCount(uint64(newMemoryLimit)))
 	}
@@ -154,7 +152,6 @@ func main() {
 	reg.MustRegister(publishRatePerSecond)
 	// PROMETHEUS REGISTRY - END
 
-	// TODO compression
 	publisherFactory := func(clientID string) (publisherCloser, error) {
 		switch mode {
 		case modeHTTP:
@@ -172,13 +169,13 @@ func main() {
 	defer cancel()
 
 	var (
-		wg                       sync.WaitGroup
-		httpServersWG            sync.WaitGroup
-		publishedMessages        atomic.Int64
-		processedBytes           atomic.Int64
-		processedCompressedBytes atomic.Int64
-		printer                  = make(chan struct{})
-		leakyErrors              = make(chan error, 1)
+		wg                sync.WaitGroup
+		httpServersWG     sync.WaitGroup
+		publishedMessages atomic.Int64
+		processedBytes    atomic.Int64
+		sentBytes         atomic.Int64
+		printer           = make(chan struct{})
+		leakyErrors       = make(chan error, 1)
 	)
 
 	channels := make([]chan *message, 0, 100)
@@ -223,7 +220,7 @@ func main() {
 		fmt.Printf("Time to publish: %s\n", time.Since(startPublishingTime).Round(time.Millisecond))
 		fmt.Printf("Published messages: %d\n", publishedMessages.Load())
 		fmt.Printf("Processed bytes (%d): %s\n", processedBytes.Load(), byteCount(uint64(processedBytes.Load())))
-		fmt.Printf("Processed compressed bytes (%d): %s\n", processedCompressedBytes.Load(), byteCount(uint64(processedCompressedBytes.Load())))
+		fmt.Printf("Sent bytes (%d): %s\n", sentBytes.Load(), byteCount(uint64(sentBytes.Load())))
 		fmt.Printf("Publishing rate (msg/s): %.2f\n",
 			float64(publishedMessages.Load())/time.Since(startPublishingTime).Seconds(),
 		)
@@ -346,7 +343,7 @@ func main() {
 						)
 
 						key := s.keys[rand.Intn(len(s.keys))]
-						err := s.client.PublishTo(ctx, key, msg.payload, map[string]string{
+						n, err := s.client.PublishTo(ctx, key, msg.payload, map[string]string{
 							"auth":         s.writeKey,
 							"anonymous_id": msg.anonymousID,
 						})
@@ -356,6 +353,7 @@ func main() {
 						}
 						if err == nil {
 							publishedMessages.Add(1)
+							sentBytes.Add(int64(n))
 							continue
 						}
 
@@ -625,18 +623,6 @@ func optionalBool(s string, def bool) bool {
 		return def
 	}
 	return b
-}
-
-func optionalBytes(s string, def int) int {
-	v := os.Getenv(s)
-	if v == "" {
-		return def
-	}
-	i, err := convertToBytes(v)
-	if err != nil {
-		return def
-	}
-	return i
 }
 
 func mustString(s string) string {
