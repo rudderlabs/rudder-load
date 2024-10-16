@@ -38,7 +38,6 @@ deployment:
     # If single value then everybody gets the same percentage.
     TRAFFIC_DISTRIBUTION_PERCENTAGE: "60,40"
     USE_ONE_CLIENT_PER_SLOT: "true"
-    COMPRESS_BEFORE_PUBLISH: "true"
     ENABLE_SOFT_MEMORY_LIMIT: "true"
     TOTAL_MESSAGES: "1000000"
     TOTAL_DURATION: "0" # 0 => finish as fast as possible
