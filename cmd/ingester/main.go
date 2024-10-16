@@ -481,7 +481,6 @@ func getRudderEvent(payload []byte, batchSize int) ([]byte, string) {
 	return buf.Bytes(), string(anonID)
 }
 
-// getSlots evenly distributes topics among slots, respecting the traffic distribution
 func getSlots(writeKey string, concurrency int, keysPerSlotMap []int, randomKeyNames bool) ([]*slot, int) {
 	slots := make([]*slot, concurrency)
 	for i := range slots {
