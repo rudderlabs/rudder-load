@@ -1,8 +1,9 @@
 artifacts
 .dockerignore
+.git
 .gitignore
 Dockerfile
+.idea
 Makefile
 README.md
 rudder-ingester
-samples
