@@ -40,6 +40,7 @@ deploy-%: build
 		--set dockerUser=$(DOCKER_USER) \
 		--set deployment.replicas=$(REPLICAS) \
 		--set deployment.env.SOURCES="$(SOURCES)" \
+		--set deployment.env.HTTP_ENDPOINT="http://$(K8S_NAMESPACE)-ingestion.$(K8S_NAMESPACE):8080/v1/batch" \
 		--values $(VALUES_FILE)
 
 .PHONY: update-%
@@ -54,6 +55,7 @@ update-%: build
 		--set dockerUser=$(DOCKER_USER) \
 		--set deployment.replicas=$(REPLICAS) \
 		--set deployment.env.SOURCES="$(SOURCES)" \
+		--set deployment.env.HTTP_ENDPOINT="http://$(K8S_NAMESPACE)-ingestion.$(K8S_NAMESPACE):8080/v1/batch" \
 		--values $(VALUES_FILE)
 
 .PHONY: delete
