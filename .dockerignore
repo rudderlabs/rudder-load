@@ -6,4 +6,4 @@ Dockerfile
 .idea
 Makefile
 README.md
-rudder-ingester
+rudder-load-producer

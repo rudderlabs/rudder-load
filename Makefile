@@ -25,8 +25,8 @@ endif
 
 .PHONY: build
 build:
-	docker build --progress plain -t $(DOCKER_USER)/rudder-ingester .
-	docker push $(DOCKER_USER)/rudder-ingester:latest
+	docker build --progress plain -t $(DOCKER_USER)/rudder-load .
+	docker push $(DOCKER_USER)/rudder-load:latest
 
 .PHONY: deploy-%
 deploy-%: build
@@ -34,7 +34,7 @@ deploy-%: build
 	@$(eval SERVICE_NAME=$*)
 	@$(eval VALUES_FILE=$(PWD)/artifacts/helm/${SERVICE_NAME}_values.yaml)
 	@echo Deploying using $(VALUES_FILE)
-	helm install rudder-ingester $(PWD)/artifacts/helm \
+	helm install rudder-load $(PWD)/artifacts/helm \
 		--namespace $(K8S_NAMESPACE) \
 		--set namespace=$(K8S_NAMESPACE) \
 		--set dockerUser=$(DOCKER_USER) \
@@ -49,7 +49,7 @@ update-%: build
 	@$(eval SERVICE_NAME=$*)
 	@$(eval VALUES_FILE=$(PWD)/artifacts/helm/${SERVICE_NAME}_values.yaml)
 	@echo Deploying using $(VALUES_FILE)
-	helm upgrade rudder-ingester $(PWD)/artifacts/helm \
+	helm upgrade rudder-load $(PWD)/artifacts/helm \
 		--namespace $(K8S_NAMESPACE) \
 		--set namespace=$(K8S_NAMESPACE) \
 		--set dockerUser=$(DOCKER_USER) \
@@ -60,8 +60,8 @@ update-%: build
 
 .PHONY: delete
 delete:
-	helm uninstall rudder-ingester --namespace $(K8S_NAMESPACE)
+	helm uninstall rudder-load --namespace $(K8S_NAMESPACE)
 
 .PHONY: logs
 logs:
-	kubectl logs -f -n $(K8S_NAMESPACE) -l run=rudder-ingester
+	kubectl logs -f -n $(K8S_NAMESPACE) -l run=rudder-load

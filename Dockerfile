@@ -26,8 +26,8 @@ COPY samples samples
 
 # Build binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix -ldflags="-s -w" \
-    -o ./rudder-ingester \
-    cmd/ingester/main.go
+    -o ./rudder-load-producer \
+    cmd/producer/main.go
 
 FROM ubuntu:noble
 
@@ -39,6 +39,6 @@ WORKDIR /
 
 RUN mkdir samples
 COPY --from=builder /app/samples samples
-COPY --from=builder /app/rudder-ingester .
+COPY --from=builder /app/rudder-load-producer .
 
-CMD ["/rudder-producer"]
+CMD ["/rudder-load-producer"]

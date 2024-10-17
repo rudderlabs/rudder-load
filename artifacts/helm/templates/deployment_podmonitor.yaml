@@ -4,9 +4,9 @@ apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
   labels:
-    app: dummy-ingester-scraper
+    app: dummy-load-scraper
     scrape-by: cluster-grafana-agent
-  name: dummy-ingester-podmonitor
+  name: dummy-load-podmonitor
 spec:
   podMetricsEndpoints:
   - port: metrics

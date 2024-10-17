@@ -1,3 +1,3 @@
-# rudder-ingester
+# rudder-load
 
-TODO: Add description
+This repository is used to generate an artificial load to test the RudderStack architecture under intense traffic.

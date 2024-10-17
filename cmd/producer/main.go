@@ -28,15 +28,15 @@ import (
 	kitsync "github.com/rudderlabs/rudder-go-kit/sync"
 	kitrand "github.com/rudderlabs/rudder-go-kit/testhelper/rand"
 
-	"rudder-ingester/internal/producer"
-	"rudder-ingester/internal/stats"
+	"rudder-load/internal/producer"
+	"rudder-load/internal/stats"
 )
 
 const (
 	modeStdout = "stdout"
 	modeHTTP   = "http"
 
-	hostnameSep = "rudder-ingester-"
+	hostnameSep = "rudder-load-"
 )
 
 type publisher interface {
@@ -78,7 +78,7 @@ func main() {
 		fatal(fmt.Errorf("hostname should start with %s", hostnameSep))
 	}
 
-	re := regexp.MustCompile(`rudder-ingester-(\d+)`)
+	re := regexp.MustCompile(`rudder-load-(\d+)`)
 	match := re.FindStringSubmatch(hostname)
 	if len(match) <= 1 {
 		fatal(fmt.Errorf("hostname is invalid: %s", hostname))

@@ -2,11 +2,11 @@ namespace: default
 dockerUser: your_docker_user
 
 deployment:
-  name: rudder-ingester
-  image: rudder-ingester:latest
+  name: rudder-load
+  image: rudder-load:latest
   imagePullPolicy: Always
   restartPolicy: Always
-  command: ["/rudder-ingester"]
+  command: ["/rudder-load-producer"]
   backoffLimit: 1
   replicas: 2
   resources:
