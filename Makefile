@@ -1,6 +1,6 @@
 REPLICAS:=2
 # Make sure to escape commas in the SOURCES variable like so: writeKey1\,writeKey2
-SOURCES:=2mVozMPrZkfu7TAVffXj9ORR9k8\,2mVozPRyclR0iD3Csawsvwx8L7u
+SOURCES:=2m8pTOW8tHPZkjMXI0neUq9CGMt\,2m8pWqHVEudTqKIaGPDHBE0rzCz
 
 ifneq (,$(or $(findstring deploy-,$(MAKECMDGOALS)),$(findstring update-,$(MAKECMDGOALS))))
     ifeq ($(DOCKER_USER),)
