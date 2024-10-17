@@ -1,14 +1,10 @@
 # syntax=docker/dockerfile:1
 ARG GO_VERSION=1.23.2
 ARG ALPINE_VERSION=3.20
-FROM golang:${GO_VERSION} AS builder
+FROM golang:${GO_VERSION}-alpine${ALPINE_VERSION} AS builder
 
-RUN apt-get update
-RUN apt-get install -y \
-    git \
-    gcc \
-    musl-dev \
-    libvips-dev
+# Install dependencies
+RUN apk --no-cache add --update make tzdata ca-certificates gcc musl-dev zstd-dev
 
 # Create app directory
 RUN mkdir /app
@@ -29,11 +25,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix -ldflags="-s -w" \
     -o ./rudder-load-producer \
     cmd/producer/main.go
 
-FROM ubuntu:noble
+FROM alpine:${ALPINE_VERSION}
 
-RUN apt-get update
-RUN apt-get install -y \
-    tzdata ca-certificates curl
+# Install dependencies
+RUN apk --no-cache upgrade && \
+    apk --no-cache add tzdata curl bash zstd-libs
 
 WORKDIR /
 
