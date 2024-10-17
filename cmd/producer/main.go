@@ -115,7 +115,7 @@ func main() {
 	}
 
 	fmt.Printf("Hostname: %s\n", hostname)
-	fmt.Printf("CPUs: %d\n", runtime.NumCPU())
+	fmt.Printf("CPUs: %d\n", runtime.GOMAXPROCS(-1))
 	fmt.Printf("Mode: %s\n", mode)
 	fmt.Printf("Concurrency: %d\n", concurrency)
 	fmt.Printf("Message generators: %d\n", messageGenerators)
