@@ -20,6 +20,9 @@ owning a set of keys. This way we can guarantee in-order delivery of events per 
    a. number of go routines that will generate events and send them to the **slots** (see point 3)
 5. Keys per slot map: 50
    a. number of **unique** keys that each slot will own
+      * if you use `RANDOM_KEY_NAMES: "true"` (see `http_values.yaml`) then the keys will be random strings
+      * if you use `RANDOM_KEY_NAMES: "false"` (see `http_values.yaml`) then the keys will be
+        `writeKey+"-key-"+strconv.Itoa(i)+"-"+strconv.Itoa(j)` where `i` is the slot number and `j` is the key number
    b. this can be a map as well like 10_20_30_40 which would mean that 50 slots will own 10 keys, 
       50 slots will own 20 keys, 50 slots 30 keys and 50 slots 40 keys (because we create 4 groups,
       and we have 200 slots)
