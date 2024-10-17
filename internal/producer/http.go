@@ -113,6 +113,7 @@ func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, 
 		if err != nil {
 			return 0, fmt.Errorf("cannot compress message: %w", err)
 		}
+		req.Header.Set("Content-Encoding", "gzip")
 	} else {
 		req.SetBody(message)
 	}
