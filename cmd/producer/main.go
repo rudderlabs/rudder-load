@@ -149,9 +149,10 @@ func main() {
 		Name: "publish_rate_per_second",
 		Help: "Publish rate per second",
 		ConstLabels: map[string]string{
-			"mode":       mode,
-			"slots":      strconv.Itoa(len(slots)),
-			"total_keys": strconv.Itoa(totalKeys),
+			"mode":       mode,                            // publisher type: e.g. http, stdout, etc...
+			"msg_gen":    strconv.Itoa(messageGenerators), // number of go routines generating messages for the "slots"
+			"slots":      strconv.Itoa(len(slots)),        // number of concurrent go routines publishing for the same writeKey
+			"total_keys": strconv.Itoa(totalKeys),         // total number of unique keys used across all go routines
 		},
 	})
 	reg.MustRegister(publishRatePerSecond)
