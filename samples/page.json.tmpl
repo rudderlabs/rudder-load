@@ -1,14 +1,15 @@
 {
   "type": "page",
-  "name": "Home",
+  "name": "{{.Name}}",
   "properties": {
     "title": "Home | RudderStack",
     "url": "https://www.rudderstack.com"
   },
-  "messageId": "<MSG_ID>",
-  "anonymousId": "<ANON_ID>",
+  "messageId": "{{.MessageID}}",
+  "anonymousId": "{{.AnonymousID}}",
   "channel": "android-sdk",
   "context": {
+    "load_run_id": "{{.LoadRunID}}",
     "app": {
       "build": "1",
       "name": "RudderAndroidClient",
@@ -16,6 +17,6 @@
       "version": "1.0"
     }
   },
-  "originalTimestamp": "<TIMESTAMP>",
-  "sentAt": "<TIMESTAMP>"
+  "originalTimestamp": "{{.OriginalTimestamp}}",
+  "sentAt": "{{.SentAt}}"
 }

@@ -3,13 +3,13 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"runtime/debug"
@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"text/template"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,6 +38,9 @@ const (
 	modeHTTP   = "http"
 
 	hostnameSep = "rudder-load-"
+
+	samplesPath      = "./samples/"
+	samplesExtension = ".json.tmpl"
 )
 
 type publisher interface {
@@ -394,20 +398,7 @@ func main() {
 		startIdx += percentage // Update the starting index for the next distribution
 	}
 
-	samplePayload, err := os.ReadFile("./samples/page.json")
-	if err != nil {
-		printErr(fmt.Errorf("cannot read sample.json file: %w", err))
-		return
-	}
-	buf := bytes.NewBuffer(nil)
-	if err = json.Compact(buf, samplePayload); err != nil {
-		printErr(fmt.Errorf("cannot compact sample.json: %w", err))
-		return
-	}
-	samplePayload = buf.Bytes()
-	sampleMsg, _ := getRudderEvent(samplePayload, rudderEventsBatchSize)
-	fmt.Printf("Estimated total data size: %s\n", byteCount(uint64(len(sampleMsg)*totalMessages)))
-
+	samples, err := getSamples(samplesPath)
 	startPublishingTime = time.Now()
 	fmt.Printf("Publishing %d messages...\n", totalMessages)
 
@@ -415,7 +406,7 @@ func main() {
 
 	for i, j := 0, 0; i < totalMessages; i++ {
 		group.Go(func() error {
-			msg, anonymousID := getRudderEvent(samplePayload, rudderEventsBatchSize)
+			msg, anonymousID := getRudderEvent(samples["page"], rudderEventsBatchSize)
 			processedBytes.Add(int64(len(msg)))
 
 			select {
@@ -453,48 +444,52 @@ type message struct {
 	anonymousID string
 }
 
+// TODO add property to distinguish between runs e.g. load_run_id
+// TODO message_generators decide userId concentration etc...
 // TODO add a way to have diversity in the events that we send (could be event size, could be type, etc)
-// TODO optimize the event generation
-func getRudderEvent(payload []byte, batchSize int) ([]byte, string) {
-	anonID := []byte(uuid.New().String())
-	process := func(payload, anonID []byte) []byte {
-		msgID := []byte(uuid.New().String())
+// TODO use range for batch events
+func getRudderEvent(tmpl *template.Template, batchSize int) ([]byte, string) {
+	var (
+		buf       bytes.Buffer
+		anonID    = uuid.New().String()
+		timestamp = time.Now().Format("2006-01-02T15:04:05.999Z")
+	)
+	err := tmpl.Execute(&buf, map[string]string{
+		"MessageID":         uuid.New().String(),
+		"AnonymousID":       anonID,
+		"OriginalTimestamp": timestamp,
+		"SentAt":            timestamp,
+	})
+	if err != nil {
+		panic(fmt.Errorf("cannot execute template: %w", err))
+	}
+	return buf.Bytes(), anonID
+}
 
-		timestamp := time.Now().Format("2006-01-02T15:04:05.999Z")
-
-		buf := make([]byte, len(payload))
-		_ = copy(buf, payload)
-
-		buf = bytes.ReplaceAll(buf, []byte(`<MSG_ID>`), msgID)
-		buf = bytes.ReplaceAll(buf, []byte(`<ANON_ID>`), anonID)
-		buf = bytes.ReplaceAll(buf, []byte(`<TIMESTAMP>`), []byte(timestamp))
-
-		return buf
+func getSamples(samplesPath string) (map[string]*template.Template, error) {
+	files, err := os.ReadDir(samplesPath)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read samples directory: %w", err)
 	}
 
-	if batchSize < 1 {
-		return process(payload, anonID), string(anonID)
+	funcMap := template.FuncMap{
+		"Sub1": func(n int) int { return n - 1 },
 	}
 
-	buf := bytes.NewBuffer(nil)
-	write := func(s []byte) {
-		_, err := buf.Write(s)
-		if err != nil {
-			panic(fmt.Errorf("cannot write to buffer: %w", err))
+	samples := make(map[string]*template.Template)
+	for _, file := range files {
+		if !file.IsDir() {
+			tmpl, err := template.New(file.Name()).Funcs(funcMap).ParseFiles(filepath.Join(samplesPath, file.Name()))
+			if err != nil {
+				return nil, fmt.Errorf("cannot parse template file: %w", err)
+			}
+
+			eventType := strings.Replace(file.Name(), samplesExtension, "", 1)
+			samples[eventType] = tmpl
 		}
 	}
-	write([]byte(`{"batch":[`))
-	for i := 0; i < batchSize; i++ {
-		payloadCopy := make([]byte, len(payload))
-		_ = copy(payloadCopy, payload)
-		write(process(payloadCopy, anonID))
-		if i < batchSize-1 {
-			write([]byte(`,`))
-		}
-	}
-	write([]byte(`]}`))
 
-	return buf.Bytes(), string(anonID)
+	return samples, nil
 }
 
 func getSlots(writeKey string, concurrency int, keysPerSlotMap []int, randomKeyNames bool) ([]*slot, int) {
