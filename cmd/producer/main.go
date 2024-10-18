@@ -71,6 +71,7 @@ func main() {
 		totalDuration                 = optionalDuration("TOTAL_DURATION", 0) // 0 means complete as fast as possible
 		softMemoryLimit               = mustBytes("SOFT_MEMORY_LIMIT")
 		rudderEventsBatchSize         = optionalInt("RUDDER_EVENTS_BATCH_SIZE", 0) // 0 means send as single events
+		loadRunID                     = optionalString("LOAD_RUN_ID", uuid.New().String())
 	)
 
 	sourcesList := strings.Split(os.Getenv("SOURCES"), ",")
@@ -406,7 +407,7 @@ func main() {
 
 	for i, j := 0, 0; i < totalMessages; i++ {
 		group.Go(func() error {
-			msg, anonymousID := getRudderEvent(samples["page"], rudderEventsBatchSize)
+			msg, anonymousID := getRudderEvent(samples["page"], loadRunID, rudderEventsBatchSize)
 			processedBytes.Add(int64(len(msg)))
 
 			select {
@@ -444,11 +445,8 @@ type message struct {
 	anonymousID string
 }
 
-// TODO add property to distinguish between runs e.g. load_run_id
 // TODO message_generators decide userId concentration etc...
-// TODO add a way to have diversity in the events that we send (could be event size, could be type, etc)
-// TODO use range for batch events
-func getRudderEvent(tmpl *template.Template, batchSize int) ([]byte, string) {
+func getRudderEvent(tmpl *template.Template, loadRunID string, batchSize int) ([]byte, string) {
 	var (
 		buf       bytes.Buffer
 		anonID    = uuid.New().String()
@@ -628,6 +626,14 @@ func optionalBool(s string, def bool) bool {
 		return def
 	}
 	return b
+}
+
+func optionalString(s, def string) string {
+	v := os.Getenv(s)
+	if v == "" {
+		return def
+	}
+	return v
 }
 
 func mustString(s string) string {

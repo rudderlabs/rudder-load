@@ -21,6 +21,7 @@ deployment:
       containerPort: 7777
   env:
     MODE: http
+    LOAD_RUN_ID: "" # if empty, a random UUID will be generated
     # CONCURRENCY determines how many slots are used to send data to the server.
     # Each slot is a unique pair of "source <-> user_id".
     # CONCURRENCY should always be a multiple of 100 and be greater or equal to 100.
