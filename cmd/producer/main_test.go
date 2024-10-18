@@ -266,24 +266,24 @@ func TestGetUserIDs(t *testing.T) {
 	userIDs := getUserIDs(1000, []int{50, 20, 20, 10}, false)
 	require.Len(t, userIDs, 100)
 
-	repeat := 100
+	repeat := 10000
 	for i := 0; i < repeat; i++ {
-		for k := 0; k < 50; k++ { // 1st group
+		for k := 0; k < 50; k++ { // 1st group (0-49)
 			userID, err := strconv.Atoi(userIDs[k]())
 			require.NoError(t, err)
 			require.True(t, userID >= 0 && userID < 500, userID)
 		}
-		for k := 50; k < 50+20; k++ { // 2nd group
+		for k := 50; k < 70; k++ { // 2nd group (50-69)
 			userID, err := strconv.Atoi(userIDs[k]())
 			require.NoError(t, err)
 			require.True(t, userID >= 500 && userID < 700, userID)
 		}
-		for k := 70; k < 70+20; k++ { // 3rd group
+		for k := 70; k < 90; k++ { // 3rd group (70-89)
 			userID, err := strconv.Atoi(userIDs[k]())
 			require.NoError(t, err)
 			require.True(t, userID >= 700 && userID < 900, userID)
 		}
-		for k := 90; k < 90+10; k++ { // 4th group
+		for k := 90; k < 100; k++ { // 4th group (90-99)
 			userID, err := strconv.Atoi(userIDs[k]())
 			require.NoError(t, err)
 			require.True(t, userID >= 900 && userID < 1000, userID)

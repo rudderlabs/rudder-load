@@ -362,23 +362,7 @@ func main() {
 	startPublishingTime = time.Now()
 	fmt.Printf("Publishing messages...\n")
 
-	userIDs := make([]string, totalUsers)
-	for i := 0; i < totalUsers; i++ {
-		userIDs[i] = uuid.New().String()
-	}
-	var (
-		userIDsConcentration = make([][2]int, 0, 100)
-		userGroupSize        = totalUsers / len(hotUserGroups)
-	)
-
-	startUserID := 0
-	for _, hotUserGroup := range hotUserGroups {
-		usersInGroup := userGroupSize * hotUserGroup / 100
-		for i := 0; i < usersInGroup; i++ {
-			userIDsConcentration = append(userIDsConcentration, [2]int{startUserID, startUserID + usersInGroup})
-		}
-		startUserID += usersInGroup
-	}
+	// userIDs := getUserIDs(totalUsers, hotUserGroups, true)
 
 	group, gCtx := kitsync.NewEagerGroup(ctx, messageGenerators)
 	for i := 0; i < messageGenerators; i++ {

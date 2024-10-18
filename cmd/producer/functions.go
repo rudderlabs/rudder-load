@@ -84,24 +84,25 @@ func getUserIDs(totalUsers int, hotUserGroups []int, random bool) []func() strin
 		}
 	}
 
-	funcs := make([]func() string, 100)
-	userGroupStart := 0
-
-	for _, groupPercentage := range hotUserGroups {
-		groupSize := totalUsers * groupPercentage / 100
-		userGroupEnd := userGroupStart + groupSize - 1
-
-		for j := 0; j < groupSize; j++ { // Change this to groupSize
-			funcs[userGroupStart+j] = func(start, end int) func() string {
-				return func() string {
-					return userIDs[rand.Intn(end-start+1)+start]
-				}
-			}(userGroupStart, userGroupEnd)
+	var (
+		startUserID          = 0
+		startConcentration   = 0
+		userIDsConcentration = make([]func() string, 100)
+	)
+	for _, hotUserGroup := range hotUserGroups {
+		usersInGroup := totalUsers * hotUserGroup / 100
+		startUserIDCopy := startUserID
+		f := func() string {
+			return userIDs[rand.Intn(usersInGroup)+startUserIDCopy]
 		}
-		userGroupStart += groupSize // Update the start for the next group
+		for i := startConcentration; i < hotUserGroup+startConcentration; i++ {
+			userIDsConcentration[i] = f
+		}
+		startUserID += usersInGroup
+		startConcentration += hotUserGroup
 	}
 
-	return funcs
+	return userIDsConcentration
 }
 
 func byteCount(b uint64) string {
