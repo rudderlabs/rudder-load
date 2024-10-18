@@ -51,3 +51,38 @@ func parseEventTypes(input string) ([]eventType, error) {
 	}
 	return events, nil
 }
+
+func getEventTypesConcentration(
+	eventTypes []eventType,
+	hotEventTypes []int,
+	eventGenerators map[string]eventGenerator,
+	templates map[string]*template.Template,
+) []func(userID string) string {
+	totalPercentage := 0
+	for _, percentage := range hotEventTypes {
+		totalPercentage += percentage
+	}
+	if totalPercentage != 100 {
+		panic("hot event types percentages do not sum up to 100")
+	}
+	if len(eventTypes) != len(hotEventTypes) {
+		panic("event types and hot event types must have the same length")
+	}
+
+	var (
+		startID             = 0
+		eventsConcentration = make([]func(string) string, 100)
+	)
+	for i, hotEventPercentage := range hotEventTypes {
+		et := eventTypes[i]
+		f := func(userID string) string {
+			return eventGenerators[et.Type](templates[et.Type], userID, et.Values)
+		}
+		for i := startID; i < hotEventPercentage+startID; i++ {
+			eventsConcentration[i] = f
+		}
+		startID += hotEventPercentage
+	}
+
+	return eventsConcentration
+}

@@ -362,7 +362,7 @@ func main() {
 	startPublishingTime = time.Now()
 	fmt.Printf("Publishing messages...\n")
 
-	// userIDs := getUserIDs(totalUsers, hotUserGroups, true)
+	// userIDsConcentration := getUserIDsConcentration(totalUsers, hotUserGroups, true)
 
 	group, gCtx := kitsync.NewEagerGroup(ctx, messageGenerators)
 	for i := 0; i < messageGenerators; i++ {

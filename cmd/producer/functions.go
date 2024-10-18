@@ -63,7 +63,7 @@ func getTemplates(templatesPath string) (map[string]*template.Template, error) {
 	return templates, nil
 }
 
-func getUserIDs(totalUsers int, hotUserGroups []int, random bool) []func() string {
+func getUserIDsConcentration(totalUsers int, hotUserGroups []int, random bool) []func() string {
 	totalPercentage := 0
 	for _, percentage := range hotUserGroups {
 		totalPercentage += percentage

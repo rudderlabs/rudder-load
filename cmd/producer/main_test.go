@@ -2,8 +2,11 @@ package main
 
 import (
 	"bytes"
+	"fmt"
+	"math/rand"
 	"strconv"
 	"testing"
+	"text/template"
 
 	"github.com/stretchr/testify/require"
 )
@@ -263,7 +266,7 @@ func TestParseEventTypes(t *testing.T) {
 }
 
 func TestGetUserIDs(t *testing.T) {
-	userIDs := getUserIDs(1000, []int{50, 20, 20, 10}, false)
+	userIDs := getUserIDsConcentration(1000, []int{50, 20, 20, 10}, false)
 	require.Len(t, userIDs, 100)
 
 	repeat := 10000
@@ -287,6 +290,52 @@ func TestGetUserIDs(t *testing.T) {
 			userID, err := strconv.Atoi(userIDs[k]())
 			require.NoError(t, err)
 			require.True(t, userID >= 900 && userID < 1000, userID)
+		}
+	}
+}
+
+func TestGetEventTypesConcentration(t *testing.T) {
+	eventTypes := []eventType{
+		{Type: "page", Values: nil},
+		{Type: "batch", Values: []int{1, 2, 3}},
+	}
+	eventGenerators := map[string]eventGenerator{
+		"page": func(tmpl *template.Template, userID string, values []int) string {
+			return fmt.Sprintf("page-%s-%+v", userID, values)
+		},
+		"batch": func(tmpl *template.Template, userID string, values []int) string {
+			return fmt.Sprintf("batch-%s-%+v", userID, values)
+		},
+	}
+	templates := map[string]*template.Template{
+		"page":  nil,
+		"batch": nil,
+	}
+	eventsConcentration := getEventTypesConcentration(eventTypes, []int{50, 50}, eventGenerators, templates)
+	require.Len(t, eventsConcentration, 100)
+
+	repeat := 10000
+	for i := 0; i < repeat; i++ {
+		for k := 0; k < 50; k++ { // 1st group (0-49)
+			event := eventsConcentration[k]("123")
+			require.Equal(t, "page-123-[]", event)
+		}
+		for k := 50; k < 100; k++ { // 2nd group (50-99)
+			event := eventsConcentration[k]("123")
+			require.Equal(t, "batch-123-[1 2 3]", event)
+		}
+	}
+
+	for { // repeat until you get a page and then again until you get a batch
+		event := eventsConcentration[rand.Intn(100)]("123")
+		if event == "page-123-[]" {
+			break
+		}
+	}
+	for { // repeat until you get a page and then again until you get a batch
+		event := eventsConcentration[rand.Intn(100)]("123")
+		if event == "batch-123-[1 2 3]" {
+			break
 		}
 	}
 }
