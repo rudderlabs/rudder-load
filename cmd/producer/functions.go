@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"math/rand"
 	"os"
@@ -15,26 +14,8 @@ import (
 )
 
 type message struct {
-	Payload     []byte
-	AnonymousID string
-}
-
-func getRudderEvent(tmpl *template.Template, loadRunID string) ([]byte, string) {
-	var (
-		buf       bytes.Buffer
-		anonID    = uuid.New().String()
-		timestamp = time.Now().Format("2006-01-02T15:04:05.999Z")
-	)
-	err := tmpl.Execute(&buf, map[string]string{
-		"MessageID":         uuid.New().String(),
-		"AnonymousID":       anonID,
-		"OriginalTimestamp": timestamp,
-		"SentAt":            timestamp,
-	})
-	if err != nil {
-		panic(fmt.Errorf("cannot execute template: %w", err))
-	}
-	return buf.Bytes(), anonID
+	Payload []byte
+	UserID  string
 }
 
 func getTemplates(templatesPath string) (map[string]*template.Template, error) {

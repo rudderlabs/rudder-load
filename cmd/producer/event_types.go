@@ -7,7 +7,7 @@ import (
 	"text/template"
 )
 
-type eventGenerator func(t *template.Template, userID string, n []int) string
+type eventGenerator func(t *template.Template, userID, loadRunID string, n []int) []byte
 
 var eventGenerators = map[string]eventGenerator{
 	"page":  pageFunc,
@@ -15,11 +15,11 @@ var eventGenerators = map[string]eventGenerator{
 }
 
 var (
-	pageFunc eventGenerator = func(t *template.Template, userID string, n []int) string {
-		return ""
+	pageFunc eventGenerator = func(t *template.Template, userID, loadRunID string, n []int) []byte {
+		return nil
 	}
-	batchFunc eventGenerator = func(t *template.Template, userID string, n []int) string {
-		return ""
+	batchFunc eventGenerator = func(t *template.Template, userID, loadRunID string, n []int) []byte {
+		return nil
 	}
 
 	eventTypesRegexp = regexp.MustCompile(`(\w+)(\(([\d,]+)\))?`)
@@ -53,11 +53,12 @@ func parseEventTypes(input string) ([]eventType, error) {
 }
 
 func getEventTypesConcentration(
+	loadRunID string,
 	eventTypes []eventType,
 	hotEventTypes []int,
 	eventGenerators map[string]eventGenerator,
 	templates map[string]*template.Template,
-) []func(userID string) string {
+) []func(userID string) []byte {
 	totalPercentage := 0
 	for _, percentage := range hotEventTypes {
 		totalPercentage += percentage
@@ -71,12 +72,12 @@ func getEventTypesConcentration(
 
 	var (
 		startID             = 0
-		eventsConcentration = make([]func(string) string, 100)
+		eventsConcentration = make([]func(string) []byte, 100)
 	)
 	for i, hotEventPercentage := range hotEventTypes {
 		et := eventTypes[i]
-		f := func(userID string) string {
-			return eventGenerators[et.Type](templates[et.Type], userID, et.Values)
+		f := func(userID string) []byte {
+			return eventGenerators[et.Type](templates[et.Type], userID, loadRunID, et.Values)
 		}
 		for i := startID; i < hotEventPercentage+startID; i++ {
 			eventsConcentration[i] = f

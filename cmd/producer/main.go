@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -125,6 +126,10 @@ func main() {
 	}
 	if totalUsers&len(hotUserGroups) != 0 {
 		fatal(fmt.Errorf("total users should be a multiple of the number of hot user groups"))
+	}
+	parsedEventTypes, err := parseEventTypes(eventTypes)
+	if err != nil {
+		fatal(fmt.Errorf("error parsing event types: %v", err))
 	}
 
 	writeKey := sourcesList[instanceNumber]
@@ -331,7 +336,7 @@ func main() {
 					key := "TODO"
 					n, err := client.PublishTo(ctx, key, msg.Payload, map[string]string{
 						"auth":         writeKey,
-						"anonymous_id": msg.AnonymousID,
+						"anonymous_id": msg.UserID,
 					})
 					if ctx.Err() != nil {
 						printErr(ctx.Err())
@@ -359,23 +364,24 @@ func main() {
 	// Starting the go routines - END
 
 	templates, err := getTemplates(templatesPath)
-	startPublishingTime = time.Now()
+	userIDsConcentration := getUserIDsConcentration(totalUsers, hotUserGroups, true)
+	eventTypesConcentration := getEventTypesConcentration(loadRunID, parsedEventTypes, hotEventTypes, eventGenerators, templates)
+
 	fmt.Printf("Publishing messages...\n")
-
-	// userIDsConcentration := getUserIDsConcentration(totalUsers, hotUserGroups, true)
-
+	startPublishingTime = time.Now()
 	group, gCtx := kitsync.NewEagerGroup(ctx, messageGenerators)
 	for i := 0; i < messageGenerators; i++ {
 		group.Go(func() error {
 			for {
-				msg, anonymousID := getRudderEvent(templates["page"], loadRunID) // TODO: add more events
+				userID := userIDsConcentration[rand.Intn(100)]()
+				msg := eventTypesConcentration[rand.Intn(100)](userID)
 				processedBytes.Add(int64(len(msg)))
 
 				select {
 				case <-gCtx.Done():
 				case messages <- &message{
-					Payload:     msg,
-					AnonymousID: anonymousID,
+					Payload: msg,
+					UserID:  userID,
 				}:
 				}
 				return nil
