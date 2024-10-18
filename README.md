@@ -15,20 +15,30 @@ owning a set of keys. This way we can guarantee in-order delivery of events per 
 
 1. Replicas: 3
 2. WriteKeys: 3
-3. Concurrency: 200 (number of go routines per replica, we'll call them **slots**)
+   * it is a good idea to have enough writeKeys for the replicas since replica 0 will use writeKey 0,
+     replica 1 will use writeKey 1, etc.
+3. Concurrency: 200 (number of go routines sending messages per replica, aka "producers")
 4. Message generators: 10
-   a. number of go routines that will generate events and send them to the **slots** (see point 3)
-5. Keys per slot map: 50
-   a. number of **unique** keys that each slot will own
-      * if you use `RANDOM_KEY_NAMES: "true"` (see `http_values.yaml`) then the keys will be random strings
-      * if you use `RANDOM_KEY_NAMES: "false"` (see `http_values.yaml`) then the keys will be
-        `writeKey+"-key-"+strconv.Itoa(i)+"-"+strconv.Itoa(j)` where `i` is the slot number and `j` is the key number
-   b. this can be a map as well like 10_20_30_40 which would mean that 50 slots will own 10 keys, 
-      50 slots will own 20 keys, 50 slots 30 keys and 50 slots 40 keys (because we create 4 groups,
-      and we have 200 slots)
-6. Traffic distribution percentage: 60_40
-   a. 60% of the traffic will be sent to 60% of the slots (i.e. 120 slots)
-   b. 40% of the traffic will be sent to 40% of the slots (i.e. 80 slots)
+   a. number of go routines that will generate events and send them to the **producers** (see point 3)
+5. Total users: 100000
+   a. number of unique users that will be used to generate the messages
+6. Hot user groups: 70,30
+   a. the sum of all the comma separated values must be equal to 100 (percentage)
+   b. the percentage of user IDs concentration that will be used to generate the messages. 
+      In this case we have 100,000 total users (see point 5) and we are defining 2 hot user groups so we just divide
+      100,000 by 2 which gives us 2 groups of 50k users each. The probability of a message being generated for a user
+      in the first group is 70% and 30% for the second group.
+7. Event types: page,batch(10,0),batch(30,100)
+   a. the types of events that will be generated. In this case, the program will generate 3 different types of events:
+      * page
+      * batch with 10 pages
+      * batch with 30 pages and 100 track events
+8. Hot event types: 60,25,15
+   a. the sum of all the comma separated values must be equal to 100 (percentage)
+   b. the percentage of event types concentration that will be used to generate the messages. 
+      In this case we have 3 event types (see point 7) and we are defining 3 hot event types, one for each event type.
+      Given `page,batch(10,0),batch(30,100)` and hot event types `60,25,15` we'll have 60% probability to get a `page`,
+      25% probability to get a `batch(10,0)` and 15% probability to get a `batch(30,100)`.
 
 ## How to deploy
 
