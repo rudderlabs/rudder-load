@@ -1,10 +1,15 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 type eventGenerator func(t *template.Template, userID, loadRunID string, n []int) []byte
@@ -15,11 +20,57 @@ var eventGenerators = map[string]eventGenerator{
 }
 
 var (
-	pageFunc eventGenerator = func(t *template.Template, userID, loadRunID string, n []int) []byte {
-		return nil
+	pageFunc eventGenerator = func(t *template.Template, userID, loadRunID string, _ []int) []byte {
+		var buf bytes.Buffer
+		err := t.Execute(&buf, map[string]any{
+			"Name":              "Home",
+			"MessageID":         uuid.New().String(),
+			"AnonymousID":       userID,
+			"OriginalTimestamp": time.Now(),
+			"SentAt":            time.Now(),
+			"LoadRunID":         loadRunID,
+		})
+		if err != nil {
+			panic(fmt.Errorf("cannot execute page template: %w", err))
+		}
+		return buf.Bytes()
 	}
+
 	batchFunc eventGenerator = func(t *template.Template, userID, loadRunID string, n []int) []byte {
-		return nil
+		if len(n) == 0 {
+			panic(fmt.Errorf("batch event type must have at least one group"))
+		}
+		var (
+			buf  bytes.Buffer
+			data = map[string]any{
+				"LoadRunID": loadRunID,
+			}
+		)
+		data["Pages"] = make([]map[string]any, 0, n[0])
+		for i := 0; i < n[0]; i++ {
+			data["Pages"] = append(data["Pages"].([]map[string]any), map[string]any{
+				"Name":              "Home",
+				"MessageID":         uuid.New().String(),
+				"AnonymousID":       userID,
+				"OriginalTimestamp": time.Now(),
+				"SentAt":            time.Now(),
+			})
+		}
+		if len(n) > 1 {
+			data["Tracks"] = make([]map[string]any, 0, n[1])
+			for i := 0; i < n[1]; i++ {
+				data["Tracks"] = append(data["Tracks"].([]map[string]any), map[string]any{
+					"UserID":    userID,
+					"Event":     "some-track-event",
+					"Timestamp": time.Now(),
+				})
+			}
+		}
+		err := t.Execute(&buf, data)
+		if err != nil {
+			panic(fmt.Errorf("cannot execute batch template: %w", err))
+		}
+		return buf.Bytes()
 	}
 
 	eventTypesRegexp = regexp.MustCompile(`(\w+)(\(([\d,]+)\))?`)

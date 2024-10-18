@@ -339,3 +339,21 @@ func TestGetEventTypesConcentration(t *testing.T) {
 		}
 	}
 }
+
+func TestEventGenerators(t *testing.T) {
+	templates, err := getTemplates("./../../templates/")
+	require.NoError(t, err)
+
+	require.Contains(t, templates, "batch")
+	require.Contains(t, templates, "page")
+
+	t.Run("page", func(t *testing.T) {
+		data := pageFunc(templates["page"], "123", "456", nil)
+		t.Logf("page: %s", data)
+	})
+
+	t.Run("batch", func(t *testing.T) {
+		data := batchFunc(templates["batch"], "123", "456", []int{2, 3})
+		t.Logf("batch: %s", data)
+	})
+}
