@@ -363,6 +363,10 @@ func main() {
 	// Starting the go routines - END
 
 	templates, err := getTemplates(templatesPath)
+	if err != nil {
+		printErr(fmt.Errorf("cannot get templates: %w", err))
+		return
+	}
 	userIDsConcentration := getUserIDsConcentration(totalUsers, hotUserGroups, true)
 	eventTypesConcentration := getEventTypesConcentration(loadRunID, parsedEventTypes, hotEventTypes, eventGenerators, templates)
 
