@@ -27,7 +27,7 @@ type Stats struct {
 type Data struct {
 	Mode        string
 	Concurrency int
-	TotalKeys   int
+	TotalUsers  int
 }
 
 type Factory struct {
@@ -49,7 +49,7 @@ func NewFactory(reg *prometheus.Registry, data Data) (*Factory, error) {
 	constLabels := map[string]string{
 		"mode":        data.Mode,
 		"concurrency": strconv.Itoa(data.Concurrency),
-		"total_keys":  strconv.Itoa(data.TotalKeys),
+		"total_users": strconv.Itoa(data.TotalUsers),
 	}
 
 	publishDurationSecondsLabels := []string{errorLabel}
