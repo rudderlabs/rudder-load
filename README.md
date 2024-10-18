@@ -40,6 +40,16 @@ owning a set of keys. This way we can guarantee in-order delivery of events per 
       Given `page,batch(10,0),batch(30,100)` and hot event types `60,25,15` we'll have 60% probability to get a `page`,
       25% probability to get a `batch(10,0)` and 15% probability to get a `batch(30,100)`.
 
+## Adding more event types
+
+To add more event types simply do:
+1. add template inside `templates` folder like `batch.json.tmpl` or `page.json.tmpl`
+2. the name of the file without extension can now be used as an event type
+3. now you have to define a function to populate your template inside `cmd/producer/event_types.go` and then update
+   the `var eventGenerators = map[string]eventGenerator{}` map with your function (use name of the template as key)
+4. anything that you pass in the configuration between parenthesis will be passed to the function as the last parameter
+   i.e. `n []int`, see `batchFunc` as an example because it uses `n` to know how many pages and tracks it should have
+
 ## How to deploy
 
 In order to deploy you'll have to use the `Makefile` recipes.
