@@ -333,8 +333,7 @@ func main() {
 						float64(publishedMessages.Load()) / time.Since(startPublishingTime).Seconds(),
 					)
 
-					key := "TODO"
-					n, err := client.PublishTo(ctx, key, msg.Payload, map[string]string{
+					n, err := client.PublishTo(ctx, msg.UserID, msg.Payload, map[string]string{
 						"auth":         writeKey,
 						"anonymous_id": msg.UserID,
 					})
