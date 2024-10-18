@@ -2,21 +2,22 @@ package main
 
 import (
 	"bytes"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetSamples(t *testing.T) {
-	samples, err := getSamples("./../../samples/")
+func TestGetTemplates(t *testing.T) {
+	templates, err := getTemplates("./../../templates/")
 	require.NoError(t, err)
 
-	require.Contains(t, samples, "batch")
-	require.Contains(t, samples, "page")
+	require.Contains(t, templates, "batch")
+	require.Contains(t, templates, "page")
 
 	t.Run("page", func(t *testing.T) {
 		var buf bytes.Buffer
-		err = samples["page"].Execute(&buf, map[string]string{
+		err = templates["page"].Execute(&buf, map[string]string{
 			"Name":              "Home",
 			"MessageID":         "123",
 			"AnonymousID":       "456",
@@ -50,7 +51,7 @@ func TestGetSamples(t *testing.T) {
 	})
 	t.Run("batch single page", func(t *testing.T) {
 		var buf bytes.Buffer
-		err = samples["batch"].Execute(&buf, map[string]any{
+		err = templates["batch"].Execute(&buf, map[string]any{
 			"LoadRunID": "111222333",
 			"Pages": []map[string]string{
 				{
@@ -92,7 +93,7 @@ func TestGetSamples(t *testing.T) {
 	})
 	t.Run("batch single track", func(t *testing.T) {
 		var buf bytes.Buffer
-		err = samples["batch"].Execute(&buf, map[string]any{
+		err = templates["batch"].Execute(&buf, map[string]any{
 			"LoadRunID": "111222333",
 			"Tracks": []map[string]string{
 				{
@@ -124,7 +125,7 @@ func TestGetSamples(t *testing.T) {
 	})
 	t.Run("batch pages and tracks", func(t *testing.T) {
 		var buf bytes.Buffer
-		err = samples["batch"].Execute(&buf, map[string]any{
+		err = templates["batch"].Execute(&buf, map[string]any{
 			"LoadRunID": "111222333",
 			"Pages": []map[string]string{
 				{
@@ -233,4 +234,59 @@ func TestGetSamples(t *testing.T) {
 			]
 		}`, buf.String())
 	})
+}
+
+func TestParseEventTypes(t *testing.T) {
+	t.Run("single event type", func(t *testing.T) {
+		events, err := parseEventTypes("page")
+		require.NoError(t, err)
+		require.Len(t, events, 1)
+		require.Equal(t, "page", events[0].Type)
+		require.Nil(t, events[0].Values)
+	})
+	t.Run("single event type with values", func(t *testing.T) {
+		events, err := parseEventTypes("page(1,2,3)")
+		require.NoError(t, err)
+		require.Len(t, events, 1)
+		require.Equal(t, "page", events[0].Type)
+		require.Equal(t, []int{1, 2, 3}, events[0].Values)
+	})
+	t.Run("multiple event types", func(t *testing.T) {
+		events, err := parseEventTypes("page,batch(1,2,3)")
+		require.NoError(t, err)
+		require.Len(t, events, 2)
+		require.Equal(t, "page", events[0].Type)
+		require.Nil(t, events[0].Values)
+		require.Equal(t, "batch", events[1].Type)
+		require.Equal(t, []int{1, 2, 3}, events[1].Values)
+	})
+}
+
+func TestGetUserIDs(t *testing.T) {
+	userIDs := getUserIDs(1000, []int{50, 20, 20, 10}, false)
+	require.Len(t, userIDs, 100)
+
+	repeat := 100
+	for i := 0; i < repeat; i++ {
+		for k := 0; k < 50; k++ { // 1st group
+			userID, err := strconv.Atoi(userIDs[k]())
+			require.NoError(t, err)
+			require.True(t, userID >= 0 && userID < 500, userID)
+		}
+		for k := 50; k < 50+20; k++ { // 2nd group
+			userID, err := strconv.Atoi(userIDs[k]())
+			require.NoError(t, err)
+			require.True(t, userID >= 500 && userID < 700, userID)
+		}
+		for k := 70; k < 70+20; k++ { // 3rd group
+			userID, err := strconv.Atoi(userIDs[k]())
+			require.NoError(t, err)
+			require.True(t, userID >= 700 && userID < 900, userID)
+		}
+		for k := 90; k < 90+10; k++ { // 4th group
+			userID, err := strconv.Atoi(userIDs[k]())
+			require.NoError(t, err)
+			require.True(t, userID >= 900 && userID < 1000, userID)
+		}
+	}
 }

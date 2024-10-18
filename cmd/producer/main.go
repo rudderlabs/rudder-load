@@ -34,8 +34,8 @@ const (
 
 	hostnameSep = "rudder-load-"
 
-	samplesPath      = "./samples/"
-	samplesExtension = ".json.tmpl"
+	templatesPath      = "./templates/"
+	templatesExtension = ".json.tmpl"
 )
 
 type publisher interface {
@@ -55,13 +55,16 @@ func main() {
 	var (
 		hostname              = mustString("HOSTNAME")
 		mode                  = mustString("MODE")
+		loadRunID             = optionalString("LOAD_RUN_ID", uuid.New().String())
 		concurrency           = mustInt("CONCURRENCY")
 		messageGenerators     = mustInt("MESSAGE_GENERATORS")
 		useOneClientPerSlot   = optionalBool("USE_ONE_CLIENT_PER_SLOT", false)
 		enableSoftMemoryLimit = optionalBool("ENABLE_SOFT_MEMORY_LIMIT", false)
 		softMemoryLimit       = mustBytes("SOFT_MEMORY_LIMIT")
 		totalUsers            = mustInt("TOTAL_USERS")
-		loadRunID             = optionalString("LOAD_RUN_ID", uuid.New().String())
+		hotUserGroups         = mustMap("HOT_USER_GROUPS")
+		eventTypes            = mustString("EVENT_TYPES")
+		hotEventTypes         = mustMap("HOT_EVENT_TYPES")
 	)
 
 	sourcesList := strings.Split(os.Getenv("SOURCES"), ",")
@@ -95,6 +98,33 @@ func main() {
 		// set up the memory limit to be 80% of the SOFT_MEMORY_LIMIT value
 		newMemoryLimit = int64(float64(softMemoryLimit) * 0.8)
 		_ = debug.SetMemoryLimit(newMemoryLimit)
+	}
+
+	if len(eventTypes) == 0 {
+		fatal(fmt.Errorf("event types cannot be empty"))
+	}
+	if len(eventTypes) != len(hotEventTypes) {
+		fatal(fmt.Errorf("event types and hot event types should have the same length"))
+	}
+	hotEventTypesPercentage := 0
+	for _, v := range hotEventTypes {
+		hotEventTypesPercentage += v
+	}
+	if hotEventTypesPercentage != 100 {
+		fatal(fmt.Errorf("hot event types should sum to 100"))
+	}
+	if len(hotUserGroups) < 1 {
+		fatal(fmt.Errorf("hot user groups should have at least one element"))
+	}
+	hotUserGroupsPercentage := 0
+	for _, v := range hotUserGroups {
+		hotUserGroupsPercentage += v
+	}
+	if hotUserGroupsPercentage != 100 {
+		fatal(fmt.Errorf("hot user groups should sum to 100"))
+	}
+	if totalUsers&len(hotUserGroups) != 0 {
+		fatal(fmt.Errorf("total users should be a multiple of the number of hot user groups"))
 	}
 
 	writeKey := sourcesList[instanceNumber]
@@ -132,6 +162,7 @@ func main() {
 	reg.MustRegister(publishRatePerSecond)
 	// PROMETHEUS REGISTRY - END
 
+	// Setting up dependencies for publishers - START
 	publisherFactory := func(clientID string) (publisherCloser, error) {
 		switch mode {
 		case modeHTTP:
@@ -143,57 +174,6 @@ func main() {
 		}
 	}
 
-	var startPublishingTime time.Time
-
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-	defer cancel()
-
-	var (
-		wg                sync.WaitGroup
-		httpServersWG     sync.WaitGroup
-		publishedMessages atomic.Int64
-		processedBytes    atomic.Int64
-		sentBytes         atomic.Int64
-		printer           = make(chan struct{})
-		leakyErrors       = make(chan error, 1)
-		messages          = make(chan *message, concurrency)
-	)
-
-	go func() {
-		for {
-			select {
-			case <-printer:
-				return
-			case <-time.After(time.Second):
-				select {
-				case <-printer:
-					return
-				case err := <-leakyErrors:
-					printErr(err)
-				}
-			}
-		}
-	}()
-
-	defer func() {
-		fmt.Printf("Waiting for all routines to return...\n")
-		wg.Wait()
-
-		close(printer)
-
-		fmt.Printf("Time to publish: %s\n", time.Since(startPublishingTime).Round(time.Millisecond))
-		fmt.Printf("Published messages: %d\n", publishedMessages.Load())
-		fmt.Printf("Processed bytes (%d): %s\n", processedBytes.Load(), byteCount(uint64(processedBytes.Load())))
-		fmt.Printf("Sent bytes (%d): %s\n", sentBytes.Load(), byteCount(uint64(sentBytes.Load())))
-		fmt.Printf("Publishing rate (msg/s): %.2f\n",
-			float64(publishedMessages.Load())/time.Since(startPublishingTime).Seconds(),
-		)
-
-		fmt.Printf("Waiting for termination signal to close HTTP metrics server...\n")
-		httpServersWG.Wait()
-	}()
-
-	// Creating client for publishers
 	var client publisherCloser
 	if !useOneClientPerSlot {
 		sf, err := stats.NewFactory(reg, stats.Data{
@@ -212,6 +192,38 @@ func main() {
 
 		client = sf.New(p)
 	}
+	// Setting up dependencies for publishers - END
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	defer cancel()
+
+	var (
+		wg                  sync.WaitGroup
+		httpServersWG       sync.WaitGroup
+		publishedMessages   atomic.Int64
+		processedBytes      atomic.Int64
+		sentBytes           atomic.Int64
+		startPublishingTime time.Time
+		printer             = make(chan struct{})
+		leakyErrors         = make(chan error, 1)
+		messages            = make(chan *message, concurrency)
+	)
+
+	go func() {
+		for {
+			select {
+			case <-printer:
+				return
+			case <-time.After(time.Second):
+				select {
+				case <-printer:
+					return
+				case err := <-leakyErrors:
+					printErr(err)
+				}
+			}
+		}
+	}()
 
 	// HTTP METRICS SERVER - START
 	httpServersWG.Add(1)
@@ -257,6 +269,25 @@ func main() {
 	}()
 	// PROFILER SERVER - END
 
+	defer func() {
+		fmt.Printf("Waiting for all routines to return...\n")
+		wg.Wait()
+
+		close(printer)
+
+		fmt.Printf("Time to publish: %s\n", time.Since(startPublishingTime).Round(time.Millisecond))
+		fmt.Printf("Published messages: %d\n", publishedMessages.Load())
+		fmt.Printf("Processed bytes (%d): %s\n", processedBytes.Load(), byteCount(uint64(processedBytes.Load())))
+		fmt.Printf("Sent bytes (%d): %s\n", sentBytes.Load(), byteCount(uint64(sentBytes.Load())))
+		fmt.Printf("Publishing rate (msg/s): %.2f\n",
+			float64(publishedMessages.Load())/time.Since(startPublishingTime).Seconds(),
+		)
+
+		fmt.Printf("Waiting for termination signal to close HTTP metrics server...\n")
+		httpServersWG.Wait()
+	}()
+
+	// Starting the go routines - START
 	fmt.Printf("Starting %d go routines...\n", concurrency)
 
 	for i := 0; i < concurrency; i++ {
@@ -325,16 +356,35 @@ func main() {
 			}
 		}(messages, client)
 	}
+	// Starting the go routines - END
 
-	samples, err := getSamples(samplesPath)
+	templates, err := getTemplates(templatesPath)
 	startPublishingTime = time.Now()
 	fmt.Printf("Publishing messages...\n")
+
+	userIDs := make([]string, totalUsers)
+	for i := 0; i < totalUsers; i++ {
+		userIDs[i] = uuid.New().String()
+	}
+	var (
+		userIDsConcentration = make([][2]int, 0, 100)
+		userGroupSize        = totalUsers / len(hotUserGroups)
+	)
+
+	startUserID := 0
+	for _, hotUserGroup := range hotUserGroups {
+		usersInGroup := userGroupSize * hotUserGroup / 100
+		for i := 0; i < usersInGroup; i++ {
+			userIDsConcentration = append(userIDsConcentration, [2]int{startUserID, startUserID + usersInGroup})
+		}
+		startUserID += usersInGroup
+	}
 
 	group, gCtx := kitsync.NewEagerGroup(ctx, messageGenerators)
 	for i := 0; i < messageGenerators; i++ {
 		group.Go(func() error {
 			for {
-				msg, anonymousID := getRudderEvent(samples["page"], loadRunID) // TODO: add more events
+				msg, anonymousID := getRudderEvent(templates["page"], loadRunID) // TODO: add more events
 				processedBytes.Add(int64(len(msg)))
 
 				select {

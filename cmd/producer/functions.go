@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,38 +17,6 @@ import (
 type message struct {
 	Payload     []byte
 	AnonymousID string
-}
-
-type eventType struct {
-	Type   string
-	Values []int
-}
-
-func parseEvents(input string) []eventType {
-	parts := strings.Split(input, ",")
-	var events []eventType
-
-	for _, part := range parts {
-		if strings.Contains(part, "(") && strings.Contains(part, ")") {
-			// Extract type and values
-			split := strings.Split(part, "(")
-			eventTypeStr := split[0]
-			valuesStr := strings.TrimSuffix(split[1], ")")
-			valuesStrList := strings.Split(valuesStr, ",")
-
-			var values []int
-			for _, v := range valuesStrList {
-				val, _ := strconv.Atoi(v)
-				values = append(values, val)
-			}
-			events = append(events, eventType{Type: eventTypeStr, Values: values})
-		} else {
-			// Just a type without values
-			events = append(events, eventType{Type: part, Values: nil})
-		}
-	}
-
-	return events
 }
 
 func getRudderEvent(tmpl *template.Template, loadRunID string) ([]byte, string) {
@@ -68,30 +37,71 @@ func getRudderEvent(tmpl *template.Template, loadRunID string) ([]byte, string) 
 	return buf.Bytes(), anonID
 }
 
-func getSamples(samplesPath string) (map[string]*template.Template, error) {
-	files, err := os.ReadDir(samplesPath)
+func getTemplates(templatesPath string) (map[string]*template.Template, error) {
+	files, err := os.ReadDir(templatesPath)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read samples directory: %w", err)
+		return nil, fmt.Errorf("cannot read templates directory: %w", err)
 	}
 
 	funcMap := template.FuncMap{
 		"Sub1": func(n int) int { return n - 1 },
 	}
 
-	samples := make(map[string]*template.Template)
+	templates := make(map[string]*template.Template)
 	for _, file := range files {
 		if !file.IsDir() {
-			tmpl, err := template.New(file.Name()).Funcs(funcMap).ParseFiles(filepath.Join(samplesPath, file.Name()))
+			tmpl, err := template.New(file.Name()).Funcs(funcMap).ParseFiles(filepath.Join(templatesPath, file.Name()))
 			if err != nil {
 				return nil, fmt.Errorf("cannot parse template file: %w", err)
 			}
 
-			eventType := strings.Replace(file.Name(), samplesExtension, "", 1)
-			samples[eventType] = tmpl
+			eventType := strings.Replace(file.Name(), templatesExtension, "", 1)
+			templates[eventType] = tmpl
 		}
 	}
 
-	return samples, nil
+	return templates, nil
+}
+
+func getUserIDs(totalUsers int, hotUserGroups []int, random bool) []func() string {
+	totalPercentage := 0
+	for _, percentage := range hotUserGroups {
+		totalPercentage += percentage
+	}
+	if totalPercentage != 100 {
+		panic("hot user groups percentages do not sum up to 100")
+	}
+	if totalUsers%len(hotUserGroups) != 0 {
+		panic("total users must be divisible by the number of hot user groups")
+	}
+
+	userIDs := make([]string, totalUsers)
+	for i := 0; i < totalUsers; i++ {
+		if random {
+			userIDs[i] = uuid.New().String()
+		} else {
+			userIDs[i] = strconv.Itoa(i)
+		}
+	}
+
+	funcs := make([]func() string, 100)
+	userGroupStart := 0
+
+	for _, groupPercentage := range hotUserGroups {
+		groupSize := totalUsers * groupPercentage / 100
+		userGroupEnd := userGroupStart + groupSize - 1
+
+		for j := 0; j < groupSize; j++ { // Change this to groupSize
+			funcs[userGroupStart+j] = func(start, end int) func() string {
+				return func() string {
+					return userIDs[rand.Intn(end-start+1)+start]
+				}
+			}(userGroupStart, userGroupEnd)
+		}
+		userGroupStart += groupSize // Update the start for the next group
+	}
+
+	return funcs
 }
 
 func byteCount(b uint64) string {
@@ -235,7 +245,7 @@ func mustBool(s string, def bool) bool {
 }
 
 func mustMap(s string) []int {
-	v := strings.Split(os.Getenv(s), "_")
+	v := strings.Split(os.Getenv(s), ",")
 	var (
 		err error
 		r   = make([]int, len(v))

@@ -18,7 +18,7 @@ RUN go mod download
 # Copy selectively for better security
 COPY cmd cmd
 COPY internal internal
-COPY samples samples
+COPY templates templates
 
 # Build binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix -ldflags="-s -w" \
@@ -33,8 +33,8 @@ RUN apk --no-cache upgrade && \
 
 WORKDIR /
 
-RUN mkdir samples
-COPY --from=builder /app/samples samples
+RUN mkdir templates
+COPY --from=builder /app/templates templates
 COPY --from=builder /app/rudder-load-producer .
 
 CMD ["/rudder-load-producer"]
