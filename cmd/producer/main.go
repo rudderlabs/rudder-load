@@ -53,6 +53,12 @@ type publisherCloser interface {
 }
 
 func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	defer cancel()
+	os.Exit(run(ctx))
+}
+
+func run(ctx context.Context) int {
 	var (
 		hostname              = mustString("HOSTNAME")
 		mode                  = mustString("MODE")
@@ -70,28 +76,34 @@ func main() {
 
 	sourcesList := strings.Split(os.Getenv("SOURCES"), ",")
 	if len(sourcesList) < 1 {
-		fatal(fmt.Errorf("invalid number of sources [<1]: %d", len(sourcesList)))
+		printErr(fmt.Errorf("invalid number of sources [<1]: %d", len(sourcesList)))
+		return 1
 	}
 
 	if strings.Index(hostname, hostnameSep) != 0 {
-		fatal(fmt.Errorf("hostname should start with %s", hostnameSep))
+		printErr(fmt.Errorf("hostname should start with %s", hostnameSep))
+		return 1
 	}
 
 	re := regexp.MustCompile(`rudder-load-(\d+)`)
 	match := re.FindStringSubmatch(hostname)
 	if len(match) <= 1 {
-		fatal(fmt.Errorf("hostname is invalid: %s", hostname))
+		printErr(fmt.Errorf("hostname is invalid: %s", hostname))
+		return 1
 	}
 
 	instanceNumber, err := strconv.Atoi(match[1])
 	if err != nil {
-		fatal(fmt.Errorf("error getting instance number from hostname: %v", err))
+		printErr(fmt.Errorf("error getting instance number from hostname: %v", err))
+		return 1
 	}
 	if len(sourcesList) < (instanceNumber + 1) {
-		fatal(fmt.Errorf("instance number %d is greater than the number of sources %d", instanceNumber, len(sourcesList)))
+		printErr(fmt.Errorf("instance number %d is greater than the number of sources %d", instanceNumber, len(sourcesList)))
+		return 1
 	}
 	if concurrency < 1 {
-		fatal(fmt.Errorf("concurrency has to be greater than zero: %d", concurrency))
+		printErr(fmt.Errorf("concurrency has to be greater than zero: %d", concurrency))
+		return 1
 	}
 
 	var newMemoryLimit int64
@@ -102,34 +114,41 @@ func main() {
 	}
 
 	if len(eventTypes) == 0 {
-		fatal(fmt.Errorf("event types cannot be empty"))
+		printErr(fmt.Errorf("event types cannot be empty"))
+		return 1
 	}
 	parsedEventTypes, err := parseEventTypes(eventTypes)
 	if err != nil {
-		fatal(fmt.Errorf("error parsing event types: %v", err))
+		printErr(fmt.Errorf("error parsing event types: %v", err))
+		return 1
 	}
 	if len(parsedEventTypes) != len(hotEventTypes) {
-		fatal(fmt.Errorf("event types and hot event types should have the same length: %+v - %+v", parsedEventTypes, hotEventTypes))
+		printErr(fmt.Errorf("event types and hot event types should have the same length: %+v - %+v", parsedEventTypes, hotEventTypes))
+		return 1
 	}
 	hotEventTypesPercentage := 0
 	for _, v := range hotEventTypes {
 		hotEventTypesPercentage += v
 	}
 	if hotEventTypesPercentage != 100 {
-		fatal(fmt.Errorf("hot event types should sum to 100"))
+		printErr(fmt.Errorf("hot event types should sum to 100"))
+		return 1
 	}
 	if len(hotUserGroups) < 1 {
-		fatal(fmt.Errorf("hot user groups should have at least one element"))
+		printErr(fmt.Errorf("hot user groups should have at least one element"))
+		return 1
 	}
 	hotUserGroupsPercentage := 0
 	for _, v := range hotUserGroups {
 		hotUserGroupsPercentage += v
 	}
 	if hotUserGroupsPercentage != 100 {
-		fatal(fmt.Errorf("hot user groups should sum to 100"))
+		printErr(fmt.Errorf("hot user groups should sum to 100"))
+		return 1
 	}
 	if totalUsers&len(hotUserGroups) != 0 {
-		fatal(fmt.Errorf("total users should be a multiple of the number of hot user groups"))
+		printErr(fmt.Errorf("total users should be a multiple of the number of hot user groups"))
+		return 1
 	}
 
 	writeKey := sourcesList[instanceNumber]
@@ -187,20 +206,19 @@ func main() {
 			TotalUsers:  totalUsers,
 		})
 		if err != nil {
-			fatal(fmt.Errorf("cannot create stats factory: %v", err))
+			printErr(fmt.Errorf("cannot create stats factory: %v", err))
+			return 1
 		}
 
 		p, err := publisherFactory(os.Getenv("HOSTNAME"))
 		if err != nil {
-			fatal(fmt.Errorf("cannot create publisher: %v", err))
+			printErr(fmt.Errorf("cannot create publisher: %v", err))
+			return 1
 		}
 
 		client = sf.New(p)
 	}
 	// Setting up dependencies for publishers - END
-
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-	defer cancel()
 
 	var (
 		wg                  sync.WaitGroup
@@ -305,13 +323,13 @@ func main() {
 			})
 			if err != nil {
 				printErr(fmt.Errorf("cannot create stats factory: %v", err))
-				return
+				return 1
 			}
 
 			p, err := publisherFactory(os.Getenv("HOSTNAME") + "_" + strconv.Itoa(i))
 			if err != nil {
 				printErr(fmt.Errorf("cannot create publisher: %v", err))
-				return
+				return 1
 			}
 			client = sf.New(p)
 		}
@@ -365,7 +383,7 @@ func main() {
 	templates, err := getTemplates(templatesPath)
 	if err != nil {
 		printErr(fmt.Errorf("cannot get templates: %w", err))
-		return
+		return 1
 	}
 	userIDsConcentration := getUserIDsConcentration(totalUsers, hotUserGroups, true)
 	eventTypesConcentration := getEventTypesConcentration(loadRunID, parsedEventTypes, hotEventTypes, eventGenerators, templates)
@@ -395,4 +413,6 @@ func main() {
 		printErr(fmt.Errorf("error generating messages: %w", err))
 	}
 	close(messages)
+
+	return 0
 }

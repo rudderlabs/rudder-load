@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -145,11 +144,11 @@ func convertToBytes(input string) (int, error) {
 func mustBytes(s string) int {
 	v := os.Getenv(s)
 	if v == "" {
-		fatal(fmt.Errorf("invalid bytes: %s", s))
+		panic(fmt.Errorf("invalid bytes: %s", s))
 	}
 	i, err := convertToBytes(v)
 	if err != nil {
-		fatal(fmt.Errorf("invalid bytes: %s: %v", s, err))
+		panic(fmt.Errorf("invalid bytes: %s: %v", s, err))
 	}
 	return i
 }
@@ -157,33 +156,9 @@ func mustBytes(s string) int {
 func mustInt(s string) int {
 	i, err := strconv.Atoi(os.Getenv(s))
 	if err != nil {
-		fatal(fmt.Errorf("invalid int: %s: %v", s, err))
+		panic(fmt.Errorf("invalid int: %s: %v", s, err))
 	}
 	return i
-}
-
-func optionalInt(s string, def int) int {
-	v := os.Getenv(s)
-	if v == "" {
-		return def
-	}
-	i, err := strconv.Atoi(v)
-	if err != nil {
-		return def
-	}
-	return i
-}
-
-func optionalDuration(s string, def time.Duration) time.Duration {
-	v := os.Getenv(s)
-	if v == "" {
-		return def
-	}
-	d, err := time.ParseDuration(v)
-	if err != nil {
-		return def
-	}
-	return d
 }
 
 func optionalBool(s string, def bool) bool {
@@ -209,21 +184,9 @@ func optionalString(s, def string) string {
 func mustString(s string) string {
 	v := os.Getenv(s)
 	if v == "" {
-		fatal(fmt.Errorf("invalid string: %s", s))
+		panic(fmt.Errorf("invalid string: %s", s))
 	}
 	return v
-}
-
-func mustBool(s string, def bool) bool {
-	v := os.Getenv(s)
-	if v == "" {
-		return def
-	}
-	b, err := strconv.ParseBool(v)
-	if err != nil {
-		fatal(fmt.Errorf("invalid bool: %s", s))
-	}
-	return b
 }
 
 func mustMap(s string) []int {
@@ -235,7 +198,7 @@ func mustMap(s string) []int {
 	for i := range v {
 		r[i], err = strconv.Atoi(v[i])
 		if err != nil {
-			fatal(err)
+			panic(err)
 		}
 	}
 	return r
@@ -257,9 +220,4 @@ func printLeakyErr(ch chan<- error, err error, retry ...bool) {
 	case ch <- err:
 	default:
 	}
-}
-
-func fatal(err error) {
-	_, _ = fmt.Fprintf(os.Stdout, "fatal: %v\n\n", err)
-	os.Exit(1)
 }
