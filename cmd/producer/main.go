@@ -35,7 +35,6 @@ const (
 
 	hostnameSep = "rudder-load-"
 
-	templatesPath      = "./templates/"
 	templatesExtension = ".json.tmpl"
 )
 
@@ -72,6 +71,7 @@ func run(ctx context.Context) int {
 		hotUserGroups         = mustMap("HOT_USER_GROUPS")
 		eventTypes            = mustString("EVENT_TYPES")
 		hotEventTypes         = mustMap("HOT_EVENT_TYPES")
+		templatesPath         = optionalString("TEMPLATES_PATH", "./templates/")
 	)
 
 	sourcesList := strings.Split(os.Getenv("SOURCES"), ",")
@@ -198,25 +198,24 @@ func run(ctx context.Context) int {
 		}
 	}
 
+	statsFactory, err := stats.NewFactory(reg, stats.Data{
+		Mode:        mode,
+		Concurrency: concurrency,
+		TotalUsers:  totalUsers,
+	})
+	if err != nil {
+		printErr(fmt.Errorf("cannot create stats factory: %v", err))
+		return 1
+	}
+
 	var client publisherCloser
 	if !useOneClientPerSlot {
-		sf, err := stats.NewFactory(reg, stats.Data{
-			Mode:        mode,
-			Concurrency: concurrency,
-			TotalUsers:  totalUsers,
-		})
-		if err != nil {
-			printErr(fmt.Errorf("cannot create stats factory: %v", err))
-			return 1
-		}
-
 		p, err := publisherFactory(os.Getenv("HOSTNAME"))
 		if err != nil {
 			printErr(fmt.Errorf("cannot create publisher: %v", err))
 			return 1
 		}
-
-		client = sf.New(p)
+		client = statsFactory.New(p)
 	}
 	// Setting up dependencies for publishers - END
 
@@ -314,28 +313,20 @@ func run(ctx context.Context) int {
 	fmt.Printf("Starting %d go routines...\n", concurrency)
 
 	for i := 0; i < concurrency; i++ {
-		client := client
-		if useOneClientPerSlot {
-			sf, err := stats.NewFactory(reg, stats.Data{
-				Mode:        mode,
-				Concurrency: concurrency,
-				TotalUsers:  totalUsers,
-			})
-			if err != nil {
-				printErr(fmt.Errorf("cannot create stats factory: %v", err))
-				return 1
-			}
-
+		var localClient publisherCloser
+		if !useOneClientPerSlot {
+			localClient = client
+		} else {
 			p, err := publisherFactory(os.Getenv("HOSTNAME") + "_" + strconv.Itoa(i))
 			if err != nil {
 				printErr(fmt.Errorf("cannot create publisher: %v", err))
 				return 1
 			}
-			client = sf.New(p)
+			localClient = statsFactory.New(p)
 		}
 
 		wg.Add(1)
-		go func(ch chan *message, client publisherCloser) {
+		go func(ch chan *message, client publisherCloser, i int) {
 			defer wg.Done()
 
 			for {
@@ -368,24 +359,27 @@ func run(ctx context.Context) int {
 					switch mode {
 					case modeHTTP:
 						if strings.Contains(err.Error(), "i/o timeout") {
-							printLeakyErr(leakyErrors, fmt.Errorf("error for slot %d: %w", i, err), true)
+							printLeakyErr(leakyErrors, fmt.Errorf("error for producer %d: %w", i, err), true)
 							continue
 						}
 					}
-					printErr(fmt.Errorf("[non-retryable] error for slot %d: %w", i, err))
+					printErr(fmt.Errorf("[non-retryable] error for producer %d: %w", i, err))
 					break
 				}
 			}
-		}(messages, client)
+		}(messages, localClient, i)
 	}
 	// Starting the go routines - END
 
+	fmt.Printf("Getting templates...\n")
 	templates, err := getTemplates(templatesPath)
 	if err != nil {
 		printErr(fmt.Errorf("cannot get templates: %w", err))
 		return 1
 	}
+	fmt.Printf("Building users concentration...\n")
 	userIDsConcentration := getUserIDsConcentration(totalUsers, hotUserGroups, true)
+	fmt.Printf("Building event types concentration...\n")
 	eventTypesConcentration := getEventTypesConcentration(loadRunID, parsedEventTypes, hotEventTypes, eventGenerators, templates)
 
 	fmt.Printf("Publishing messages...\n")
@@ -393,6 +387,7 @@ func run(ctx context.Context) int {
 	group, gCtx := kitsync.NewEagerGroup(ctx, messageGenerators)
 	for i := 0; i < messageGenerators; i++ {
 		group.Go(func() error {
+			defer fmt.Printf("Message generator %d is done\n", i)
 			for {
 				userID := userIDsConcentration[rand.Intn(100)]()
 				msg := eventTypesConcentration[rand.Intn(100)](userID)
@@ -400,6 +395,7 @@ func run(ctx context.Context) int {
 
 				select {
 				case <-gCtx.Done():
+					return nil
 				case messages <- &message{
 					Payload: msg,
 					UserID:  userID,

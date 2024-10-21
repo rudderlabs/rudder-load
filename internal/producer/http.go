@@ -108,9 +108,6 @@ func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, 
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI(p.endpoint)
 
-	fmt.Println("MESSAGE: ", string(message))
-	time.Sleep(time.Hour)
-
 	if p.compression {
 		_, err := fasthttp.WriteGzipLevel(req.BodyWriter(), message, fasthttp.CompressBestSpeed)
 		if err != nil {

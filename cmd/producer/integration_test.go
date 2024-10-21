@@ -11,8 +11,8 @@ import (
 func TestIntegration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cancel()
 		w.WriteHeader(http.StatusOK)
+		cancel()
 	}))
 	t.Cleanup(srv.Close)
 
@@ -36,6 +36,7 @@ func TestIntegration(t *testing.T) {
 	t.Setenv("HTTP_CONCURRENCY", "1000")
 	t.Setenv("HTTP_CONTENT_TYPE", "application/json")
 	t.Setenv("HTTP_ENDPOINT", srv.URL)
+	t.Setenv("TEMPLATES_PATH", "./../../templates/")
 
 	done := make(chan struct{})
 	go func() {
