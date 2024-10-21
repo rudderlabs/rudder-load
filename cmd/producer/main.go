@@ -104,8 +104,12 @@ func main() {
 	if len(eventTypes) == 0 {
 		fatal(fmt.Errorf("event types cannot be empty"))
 	}
-	if len(eventTypes) != len(hotEventTypes) {
-		fatal(fmt.Errorf("event types and hot event types should have the same length"))
+	parsedEventTypes, err := parseEventTypes(eventTypes)
+	if err != nil {
+		fatal(fmt.Errorf("error parsing event types: %v", err))
+	}
+	if len(parsedEventTypes) != len(hotEventTypes) {
+		fatal(fmt.Errorf("event types and hot event types should have the same length: %+v - %+v", parsedEventTypes, hotEventTypes))
 	}
 	hotEventTypesPercentage := 0
 	for _, v := range hotEventTypes {
@@ -126,10 +130,6 @@ func main() {
 	}
 	if totalUsers&len(hotUserGroups) != 0 {
 		fatal(fmt.Errorf("total users should be a multiple of the number of hot user groups"))
-	}
-	parsedEventTypes, err := parseEventTypes(eventTypes)
-	if err != nil {
-		fatal(fmt.Errorf("error parsing event types: %v", err))
 	}
 
 	writeKey := sourcesList[instanceNumber]
