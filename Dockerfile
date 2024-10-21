@@ -23,7 +23,7 @@ COPY templates templates
 # Build binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix -ldflags="-s -w" \
     -o ./rudder-load-producer \
-    cmd/producer/main.go
+    cmd/producer/*.go
 
 FROM alpine:${ALPINE_VERSION}
 
