@@ -1,0 +1,50 @@
+namespace: default
+dockerUser: your_docker_user
+
+deployment:
+  name: rudder-load
+  image: rudder-load:latest
+  imagePullPolicy: Always
+  restartPolicy: Always
+  command: ["/rudder-load-producer"]
+  backoffLimit: 1
+  replicas: 2
+  resources:
+    cpuRequests: 500m
+    memoryRequests: 256Mi
+    cpuLimits: 2
+    memoryLimits: 2Gi
+  ports:
+    - name: metrics
+      containerPort: 9102
+    - name: profiler
+      containerPort: 7777
+  env:
+    MODE: http
+    LOAD_RUN_ID: "" # if empty, a random UUID will be generated
+    # CONCURRENCY determines how many slots are used to send data to the server.
+    CONCURRENCY: "200"
+    MESSAGE_GENERATORS: "10"
+    # SOURCES should be a comma separated list of writeKeys
+    # e.g. SOURCES: "2lNXnjJU9xrbUERT3Uy3Po8jKbr,2nYfF7hsD7KXz0Vp4SW1TivZCRu"
+    # This goes together with the number of replicas. You'll need one source per replica here.
+    SOURCES: "2lNXnjJU9xrbUERT3Uy3Po8jKbr,2nYfF7hsD7KXz0Vp4SW1TivZCRu"
+    USE_ONE_CLIENT_PER_SLOT: "true"
+    ENABLE_SOFT_MEMORY_LIMIT: "true"
+    TOTAL_USERS: "100000"
+    # HOT_USER_GROUPS: sum should be 100 (%) and values comma separated
+    # TOTAL_USERS will be divided by the number of groups and given the desired data concentration
+    HOT_USER_GROUPS: "30,20,10,10,10,10,5,5"
+    EVENT_TYPES: "page,batch(10,0),batch(30,100)"
+    # HOT_EVENT_TYPES: sum should be 100 (%) and values comma separated
+    # It should be a 1:1 match with the groups in EVENT_TYPES.
+    # The groups here define the percentage of the events in EVENT_TYPES.
+    HOT_EVENT_TYPES: "33,33,34"
+    HTTP_COMPRESSION: "true"
+    HTTP_READ_TIMEOUT: "5s"
+    HTTP_WRITE_TIMEOUT: "5s"
+    HTTP_MAX_IDLE_CONN: "1h"
+    HTTP_MAX_CONNS_PER_HOST: "5000"
+    HTTP_CONCURRENCY: "1000"
+    HTTP_CONTENT_TYPE: "application/json"
+    HTTP_ENDPOINT: "http://myns-ingestion.myns:8080/v1/batch"

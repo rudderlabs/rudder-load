@@ -1,0 +1,9 @@
+artifacts
+.dockerignore
+.git
+.gitignore
+Dockerfile
+.idea
+Makefile
+README.md
+rudder-load-producer

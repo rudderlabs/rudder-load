@@ -1,0 +1,48 @@
+{
+  "batch": [
+    {{if .Pages}}
+    {{range $index, $page := .Pages}}
+    {
+      "type": "page",
+      "name": "{{$page.Name}}",
+      "properties": {
+        "title": "Home | RudderStack",
+        "url": "https://www.rudderstack.com"
+      },
+      "messageId": "{{$page.MessageID}}",
+      "anonymousId": "{{$page.AnonymousID}}",
+      "channel": "android-sdk",
+      "context": {
+        "load_run_id": "{{$.LoadRunID}}",
+        "app": {
+          "build": "1",
+          "name": "RudderAndroidClient",
+          "namespace": "com.rudderlabs.android.sdk",
+          "version": "1.0"
+        }
+      },
+      "originalTimestamp": "{{$page.OriginalTimestamp}}",
+      "sentAt": "{{$page.SentAt}}"
+    }{{if or (lt $index (Sub1 (len $.Pages))) (and $.Tracks (gt (len $.Tracks) 0))}},{{end}}
+    {{end}}
+    {{end}}
+    {{if .Tracks}}
+    {{range $index, $track := .Tracks}}
+    {
+      "type": "track",
+      "userId": "{{$track.UserID}}",
+      "event": "{{$track.Event}}",
+      "properties": {
+        "name": "Rubik's Cube",
+        "revenue": 4.99
+      },
+      "context": {
+        "load_run_id": "{{$.LoadRunID}}",
+        "ip": "14.5.67.21"
+      },
+      "timestamp": "{{$track.Timestamp}}"
+    }{{if lt $index (Sub1 (len $.Tracks))}},{{end}}
+    {{end}}
+    {{end}}
+  ]
+}

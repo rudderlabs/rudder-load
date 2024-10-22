@@ -1,0 +1,55 @@
+{{- range $index := until (int $.Values.deployment.replicas) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    run: {{ $.Values.deployment.name }}
+  name: {{ $.Values.deployment.name }}-{{ $index }}
+  namespace: {{ $.Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: {{ $.Values.deployment.name }}
+  template:
+    metadata:
+      labels:
+        run: {{ $.Values.deployment.name }}
+    spec:
+      restartPolicy: {{ $.Values.deployment.restartPolicy | default "Always" }}
+      containers:
+      - name: {{ $.Values.deployment.name }}
+        image: "{{ $.Values.dockerUser }}/{{ $.Values.deployment.image }}"
+        imagePullPolicy: {{ $.Values.deployment.imagePullPolicy }}
+        command: {{ $.Values.deployment.command }}
+        ports:
+          {{- range $.Values.deployment.ports }}
+          - name: {{ .name }}
+            containerPort: {{ .containerPort }}
+          {{- end }}
+        env:
+          - name: "REPLICAS"
+            value: "{{ $.Values.deployment.replicas }}"
+          {{- range $key, $value := $.Values.deployment.env }}
+          - name: "{{ $key }}"
+            value: "{{ $value }}"
+          {{- end }}
+          - name: "SOFT_MEMORY_LIMIT"
+            value: "{{ $.Values.deployment.resources.memoryLimits }}"
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                resource: requests.memory
+          - name: GOMAXPROCS
+            valueFrom:
+              resourceFieldRef:
+                resource: requests.cpu
+        resources:
+          requests:
+            cpu: "{{ $.Values.deployment.resources.cpuRequests }}"
+            memory: "{{ $.Values.deployment.resources.memoryRequests }}"
+          limits:
+            cpu: "{{ $.Values.deployment.resources.cpuLimits }}"
+            memory: "{{ $.Values.deployment.resources.memoryLimits }}"
+---
+{{- end }}
