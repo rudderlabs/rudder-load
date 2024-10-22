@@ -176,7 +176,6 @@ func run(ctx context.Context) int {
 		Name: "publish_rate_per_second",
 		Help: "Publish rate per second",
 		ConstLabels: map[string]string{
-			// TODO updates other stats
 			"mode":        mode,                            // publisher type: e.g. http, stdout, etc...
 			"concurrency": strconv.Itoa(concurrency),       // number of go routines publishing messages
 			"msg_gen":     strconv.Itoa(messageGenerators), // number of go routines generating messages for the "slots"

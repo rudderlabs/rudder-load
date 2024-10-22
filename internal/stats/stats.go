@@ -25,9 +25,10 @@ type Stats struct {
 }
 
 type Data struct {
-	Mode        string
-	Concurrency int
-	TotalUsers  int
+	Mode              string
+	Concurrency       int
+	MessageGenerators int
+	TotalUsers        int
 }
 
 type Factory struct {
@@ -49,6 +50,7 @@ func NewFactory(reg *prometheus.Registry, data Data) (*Factory, error) {
 	constLabels := map[string]string{
 		"mode":        data.Mode,
 		"concurrency": strconv.Itoa(data.Concurrency),
+		"msg_gen":     strconv.Itoa(data.MessageGenerators),
 		"total_users": strconv.Itoa(data.TotalUsers),
 	}
 
