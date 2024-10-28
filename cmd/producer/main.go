@@ -420,8 +420,6 @@ func run(ctx context.Context) int {
 				}
 				msg = append(msg, []byte(`]}`)...)
 				processedBytes.Add(int64(len(msg)))
-				fmt.Println(string(msg))
-				os.Exit(1)
 				start := time.Now()
 				select {
 				case <-gCtx.Done():
