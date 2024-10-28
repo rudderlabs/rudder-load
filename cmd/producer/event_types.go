@@ -19,8 +19,9 @@ var trackEventNames = []string{"checkout", "view", "add_to_cart", "event_1", "ev
 type eventGenerator func(t *template.Template, userID, loadRunID string, n []int) []byte
 
 var eventGenerators = map[string]eventGenerator{
-	"page":  pageFunc,
-	"batch": batchFunc,
+	"page":     pageFunc,
+	"track":    trackFunc,
+	"identify": identifyFunc,
 }
 
 var (
@@ -40,39 +41,30 @@ var (
 		return buf.Bytes()
 	}
 
-	batchFunc eventGenerator = func(t *template.Template, userID, loadRunID string, n []int) []byte {
-		if len(n) == 0 {
-			panic(fmt.Errorf("batch event type must have at least one group"))
-		}
-		var (
-			buf  bytes.Buffer
-			data = map[string]any{
-				"LoadRunID": loadRunID,
-			}
-		)
-		data["Pages"] = make([]map[string]any, 0, n[0])
-		for i := 0; i < n[0]; i++ {
-			data["Pages"] = append(data["Pages"].([]map[string]any), map[string]any{
-				"Name":              "Home",
-				"MessageID":         uuid.New().String(),
-				"AnonymousID":       userID,
-				"OriginalTimestamp": time.Now(),
-				"SentAt":            time.Now(),
-			})
-		}
-		if len(n) > 1 {
-			data["Tracks"] = make([]map[string]any, 0, n[1])
-			for i := 0; i < n[1]; i++ {
-				data["Tracks"] = append(data["Tracks"].([]map[string]any), map[string]any{
-					"UserID":    userID,
-					"Event":     trackEventNames[rand.Intn(len(trackEventNames))],
-					"Timestamp": time.Now(),
-				})
-			}
-		}
-		err := t.Execute(&buf, data)
+	trackFunc eventGenerator = func(t *template.Template, userID, loadRunID string, _ []int) []byte {
+		var buf bytes.Buffer
+		err := t.Execute(&buf, map[string]any{
+			"UserID":    userID,
+			"Event":     trackEventNames[rand.Intn(len(trackEventNames))],
+			"Timestamp": time.Now(),
+		})
 		if err != nil {
-			panic(fmt.Errorf("cannot execute batch template: %w", err))
+			panic(fmt.Errorf("cannot execute page template: %w", err))
+		}
+		return buf.Bytes()
+	}
+
+	identifyFunc eventGenerator = func(t *template.Template, userID, loadRunID string, _ []int) []byte {
+		var buf bytes.Buffer
+		err := t.Execute(&buf, map[string]any{
+			"MessageID":         uuid.New().String(),
+			"AnonymousID":       userID,
+			"OriginalTimestamp": time.Now(),
+			"SentAt":            time.Now(),
+			"LoadRunID":         loadRunID,
+		})
+		if err != nil {
+			panic(fmt.Errorf("cannot execute page template: %w", err))
 		}
 		return buf.Bytes()
 	}
