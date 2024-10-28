@@ -25,7 +25,7 @@ build:
 	docker push $(DOCKER_USER)/rudder-load:latest
 
 .PHONY: deploy-%
-deploy-%: build
+deploy-%:
 	@$(eval SERVICE_NAME=$*)
 	@$(eval VALUES_FILE=$(PWD)/artifacts/helm/${SERVICE_NAME}_values_copy.yaml)
 	@echo Deploying using $(VALUES_FILE)
@@ -36,7 +36,7 @@ deploy-%: build
 		--values $(VALUES_FILE)
 
 .PHONY: update-%
-update-%: build
+update-%:
 	@$(eval SERVICE_NAME=$*)
 	@$(eval VALUES_FILE=$(PWD)/artifacts/helm/${SERVICE_NAME}_values_copy.yaml)
 	@echo Deploying using $(VALUES_FILE)
