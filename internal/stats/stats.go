@@ -56,8 +56,9 @@ func NewFactory(reg *prometheus.Registry, data Data) (*Factory, error) {
 
 	publishDurationSecondsLabels := []string{errorLabel}
 	publishDurationSeconds := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:        "publish_duration_seconds",
-		Help:        "Publish duration in seconds",
+		Name: "publish_duration_seconds",
+		Help: "Publish duration in seconds",
+		// Buckets: []float64{0.5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s}
 		Buckets:     []float64{0.0005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
 		ConstLabels: constLabels,
 	}, publishDurationSecondsLabels)
