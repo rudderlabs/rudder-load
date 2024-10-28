@@ -35,11 +35,13 @@ deployment:
     # HOT_USER_GROUPS: sum should be 100 (%) and values comma separated
     # TOTAL_USERS will be divided by the number of groups and given the desired data concentration
     HOT_USER_GROUPS: "30,20,10,10,10,10,5,5"
-    EVENT_TYPES: "page,batch(10,0),batch(30,100)"
+    EVENT_TYPES: "track,page,identify"
     # HOT_EVENT_TYPES: sum should be 100 (%) and values comma separated
     # It should be a 1:1 match with the groups in EVENT_TYPES.
     # The groups here define the percentage of the events in EVENT_TYPES.
-    HOT_EVENT_TYPES: "33,33,34"
+    HOT_EVENT_TYPES: "50,40,10"
+    BATCH_SIZES: "100,20,50" # NOT IMPLEMENTED!
+    HOT_BATCH_SIZES: "40,30,30" # NOT IMPLEMENTED!
     HTTP_COMPRESSION: "true"
     HTTP_READ_TIMEOUT: "5s"
     HTTP_WRITE_TIMEOUT: "5s"

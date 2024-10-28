@@ -29,6 +29,8 @@ import (
 	kitsync "github.com/rudderlabs/rudder-go-kit/sync"
 )
 
+// TODO: add support for BATCH_SIZES and HOT_BATCH_SIZES
+
 const (
 	modeStdout = "stdout"
 	modeHTTP   = "http"
