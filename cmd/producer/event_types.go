@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// TODO: make trackEventNames configurable
 var trackEventNames = []string{"checkout", "view", "add_to_cart", "event_1", "event_2", "event_3"}
 
 type eventGenerator func(t *template.Template, userID, loadRunID string, n []int) []byte
