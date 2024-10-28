@@ -192,22 +192,8 @@ func run(ctx context.Context) int {
 			"total_users": strconv.Itoa(totalUsers),        // total number of unique userIDs used in the generated messages
 		},
 	})
-	httpResponseTime := prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name: "http_response_time_seconds",
-		Help: "How long it takes for the ingestion-svc to respond to the request",
-		ConstLabels: map[string]string{
-			"mode":        mode,                            // publisher type: e.g. http, stdout, etc...
-			"concurrency": strconv.Itoa(concurrency),       // number of go routines publishing messages
-			"msg_gen":     strconv.Itoa(messageGenerators), // number of go routines generating messages for the "slots"
-			"total_users": strconv.Itoa(totalUsers),        // total number of unique userIDs used in the generated messages
-		},
-		Buckets: []float64{
-			0.002, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, // 2ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s
-		},
-	})
 	reg.MustRegister(publishRatePerSecond)
 	reg.MustRegister(msgGenLag)
-	reg.MustRegister(httpResponseTime)
 	// PROMETHEUS REGISTRY - END
 
 	// Setting up dependencies for publishers - START
@@ -366,7 +352,6 @@ func run(ctx context.Context) int {
 						float64(publishedMessages.Load()) / time.Since(startPublishingTime).Seconds(),
 					)
 
-					start := time.Now()
 					n, err := client.PublishTo(ctx, msg.UserID, msg.Payload, map[string]string{
 						"auth":         writeKey,
 						"anonymous_id": msg.UserID,
@@ -376,7 +361,6 @@ func run(ctx context.Context) int {
 						continue
 					}
 					if err == nil {
-						httpResponseTime.Observe(time.Since(start).Seconds())
 						publishedMessages.Add(1)
 						sentBytes.Add(int64(n))
 						continue
