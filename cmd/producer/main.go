@@ -150,6 +150,10 @@ func run(ctx context.Context) int {
 		printErr(fmt.Errorf("total users should be a multiple of the number of hot user groups"))
 		return 1
 	}
+	if messageGenerators < 1 {
+		printErr(fmt.Errorf("message generators has to be greater than zero: %d", messageGenerators))
+		return 1
+	}
 
 	writeKey := sourcesList[instanceNumber]
 
@@ -392,7 +396,7 @@ func run(ctx context.Context) int {
 	fmt.Printf("Building event types concentration...\n")
 	eventTypesConcentration := getEventTypesConcentration(loadRunID, parsedEventTypes, hotEventTypes, eventGenerators, templates)
 
-	fmt.Printf("Publishing messages...\n")
+	fmt.Printf("Publishing messages with %d generators...\n", messageGenerators)
 	startPublishingTime = time.Now()
 	group, gCtx := kitsync.NewEagerGroup(ctx, messageGenerators)
 	for i := 0; i < messageGenerators; i++ {
