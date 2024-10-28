@@ -21,7 +21,7 @@ spec:
       restartPolicy: {{ $.Values.deployment.restartPolicy | default "Always" }}
       containers:
       - name: {{ $.Values.deployment.name }}
-        image: "{{ $.Values.dockerUser }}/{{ $.Values.deployment.image }}"
+        image: "{{ $.Values.deployment.image }}"
         imagePullPolicy: {{ $.Values.deployment.imagePullPolicy }}
         command: {{ $.Values.deployment.command }}
         ports:

@@ -1,7 +1,4 @@
 ifneq (,$(or $(findstring deploy-,$(MAKECMDGOALS)),$(findstring update-,$(MAKECMDGOALS))))
-    ifeq ($(DOCKER_USER),)
-        $(error DOCKER_USER is not set)
-    endif
     ifeq ($(K8S_NAMESPACE),)
         $(error K8S_NAMESPACE is not set)
     endif
@@ -32,18 +29,6 @@ deploy-%:
 	helm install rudder-load-${SERVICE_NAME} $(PWD)/artifacts/helm \
 		--namespace $(K8S_NAMESPACE) \
 		--set namespace=$(K8S_NAMESPACE) \
-		--set dockerUser=$(DOCKER_USER) \
-		--values $(VALUES_FILE)
-
-.PHONY: update-%
-update-%:
-	@$(eval SERVICE_NAME=$*)
-	@$(eval VALUES_FILE=$(PWD)/artifacts/helm/${SERVICE_NAME}_values_copy.yaml)
-	@echo Deploying using $(VALUES_FILE)
-	helm upgrade rudder-load${SERVICE_NAME} $(PWD)/artifacts/helm \
-		--namespace $(K8S_NAMESPACE) \
-		--set namespace=$(K8S_NAMESPACE) \
-		--set dockerUser=$(DOCKER_USER) \
 		--values $(VALUES_FILE)
 
 .PHONY: delete-%
