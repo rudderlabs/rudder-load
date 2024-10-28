@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/google/uuid"
 )
+
+var trackEventNames = []string{"checkout", "view", "add_to_cart", "event_1", "event_2", "event_3"}
 
 type eventGenerator func(t *template.Template, userID, loadRunID string, n []int) []byte
 
@@ -61,7 +64,7 @@ var (
 			for i := 0; i < n[1]; i++ {
 				data["Tracks"] = append(data["Tracks"].([]map[string]any), map[string]any{
 					"UserID":    userID,
-					"Event":     "some-track-event",
+					"Event":     trackEventNames[rand.Intn(len(trackEventNames))],
 					"Timestamp": time.Now(),
 				})
 			}
