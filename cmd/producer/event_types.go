@@ -47,6 +47,7 @@ var (
 			"UserID":    userID,
 			"Event":     trackEventNames[rand.Intn(len(trackEventNames))],
 			"Timestamp": time.Now(),
+			"LoadRunID": loadRunID,
 		})
 		if err != nil {
 			panic(fmt.Errorf("cannot execute page template: %w", err))
