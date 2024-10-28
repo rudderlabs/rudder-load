@@ -16,6 +16,8 @@ spec:
       labels:
         run: {{ $.Values.deployment.name }}
     spec:
+      imagePullSecrets:
+        - name: regcred
       restartPolicy: {{ $.Values.deployment.restartPolicy | default "Always" }}
       containers:
       - name: {{ $.Values.deployment.name }}
