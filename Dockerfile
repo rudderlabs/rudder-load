@@ -36,5 +36,3 @@ WORKDIR /
 RUN mkdir templates
 COPY --from=builder /app/templates templates
 COPY --from=builder /app/rudder-load-producer .
-
-CMD ["/rudder-load-producer"]
