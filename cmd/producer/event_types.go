@@ -31,8 +31,8 @@ var (
 			"Name":              "Home",
 			"MessageID":         uuid.New().String(),
 			"AnonymousID":       userID,
-			"OriginalTimestamp": time.Now(),
-			"SentAt":            time.Now(),
+			"OriginalTimestamp": time.Now().Format(time.RFC3339),
+			"SentAt":            time.Now().Format(time.RFC3339),
 			"LoadRunID":         loadRunID,
 		})
 		if err != nil {
@@ -46,7 +46,7 @@ var (
 		err := t.Execute(&buf, map[string]any{
 			"UserID":    userID,
 			"Event":     trackEventNames[rand.Intn(len(trackEventNames))],
-			"Timestamp": time.Now(),
+			"Timestamp": time.Now().Format(time.RFC3339),
 			"LoadRunID": loadRunID,
 		})
 		if err != nil {
@@ -60,8 +60,8 @@ var (
 		err := t.Execute(&buf, map[string]any{
 			"MessageID":         uuid.New().String(),
 			"AnonymousID":       userID,
-			"OriginalTimestamp": time.Now(),
-			"SentAt":            time.Now(),
+			"OriginalTimestamp": time.Now().Format(time.RFC3339),
+			"SentAt":            time.Now().Format(time.RFC3339),
 			"LoadRunID":         loadRunID,
 		})
 		if err != nil {
