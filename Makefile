@@ -29,7 +29,7 @@ deploy-%:
 	@$(eval SERVICE_NAME=$*)
 	@$(eval VALUES_FILE=$(PWD)/artifacts/helm/${SERVICE_NAME}_values_copy.yaml)
 	@echo Deploying using $(VALUES_FILE)
-	helm install rudder-load $(PWD)/artifacts/helm \
+	helm install rudder-load-${SERVICE_NAME} $(PWD)/artifacts/helm \
 		--namespace $(K8S_NAMESPACE) \
 		--set namespace=$(K8S_NAMESPACE) \
 		--set dockerUser=$(DOCKER_USER) \
@@ -40,15 +40,16 @@ update-%:
 	@$(eval SERVICE_NAME=$*)
 	@$(eval VALUES_FILE=$(PWD)/artifacts/helm/${SERVICE_NAME}_values_copy.yaml)
 	@echo Deploying using $(VALUES_FILE)
-	helm upgrade rudder-load $(PWD)/artifacts/helm \
+	helm upgrade rudder-load${SERVICE_NAME} $(PWD)/artifacts/helm \
 		--namespace $(K8S_NAMESPACE) \
 		--set namespace=$(K8S_NAMESPACE) \
 		--set dockerUser=$(DOCKER_USER) \
 		--values $(VALUES_FILE)
 
-.PHONY: delete
-delete:
-	helm uninstall rudder-load --namespace $(K8S_NAMESPACE)
+.PHONY: delete-%
+delete-%:
+	@$(eval SERVICE_NAME=$*)
+	helm uninstall rudder-load-${SERVICE_NAME} --namespace $(K8S_NAMESPACE)
 
 .PHONY: logs
 logs:
