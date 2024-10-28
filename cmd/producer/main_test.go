@@ -15,7 +15,6 @@ func TestGetTemplates(t *testing.T) {
 	templates, err := getTemplates("./../../templates/")
 	require.NoError(t, err)
 
-	require.Contains(t, templates, "batch")
 	require.Contains(t, templates, "page")
 
 	t.Run("page", func(t *testing.T) {
@@ -344,7 +343,6 @@ func TestEventGenerators(t *testing.T) {
 	templates, err := getTemplates("./../../templates/")
 	require.NoError(t, err)
 
-	require.Contains(t, templates, "batch")
 	require.Contains(t, templates, "page")
 
 	t.Run("page", func(t *testing.T) {

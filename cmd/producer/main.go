@@ -409,9 +409,19 @@ func run(ctx context.Context) int {
 			defer fmt.Printf("Message generator %d is done\n", i)
 			for {
 				userID := userIDsConcentration[rand.Intn(100)]()
-				msg := eventTypesConcentration[rand.Intn(100)](userID)
-				processedBytes.Add(int64(len(msg)))
 
+				var msg = []byte(`{"batch": [`)
+				for i := 0; i < 3; i++ {
+					event := eventTypesConcentration[rand.Intn(100)](userID)
+					msg = append(msg, event...)
+					if i < 2 {
+						msg = append(msg, []byte(`,`)...)
+					}
+				}
+				msg = append(msg, []byte(`]}`)...)
+				processedBytes.Add(int64(len(msg)))
+				fmt.Println(string(msg))
+				os.Exit(1)
 				start := time.Now()
 				select {
 				case <-gCtx.Done():
