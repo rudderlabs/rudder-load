@@ -3,7 +3,7 @@ dockerUser: your_docker_user
 
 deployment:
   name: rudder-load
-  image: rudder-load:latest
+  image: rudderstack/rudder-load:draft1
   imagePullPolicy: Always
   restartPolicy: Always
   command: ["/rudder-load-producer"]
