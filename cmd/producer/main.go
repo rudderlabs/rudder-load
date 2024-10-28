@@ -394,13 +394,12 @@ func run(ctx context.Context) int {
 
 				select {
 				case <-gCtx.Done():
-					return nil
+					return gCtx.Err()
 				case messages <- &message{
 					Payload: msg,
 					UserID:  userID,
 				}:
 				}
-				return nil
 			}
 		})
 	}
