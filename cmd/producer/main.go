@@ -36,6 +36,8 @@ const (
 	hostnameSep = "rudder-load-"
 
 	templatesExtension = ".json.tmpl"
+
+	metricsPrefix = "rudder_load_"
 )
 
 type publisher interface {
@@ -177,7 +179,7 @@ func run(ctx context.Context) int {
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
 	publishRatePerSecond := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "publish_rate_per_second",
+		Name: metricsPrefix + "publish_rate_per_second",
 		Help: "Publish rate per second",
 		ConstLabels: map[string]string{
 			"mode":        mode,                            // publisher type: e.g. http, stdout, etc...
@@ -187,7 +189,7 @@ func run(ctx context.Context) int {
 		},
 	})
 	msgGenLag := prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "msg_generation_lag",
+		Name: metricsPrefix + "msg_generation_lag",
 		Help: "If less than a ms then this is increased meaning there are not enough generators per publishers.",
 		ConstLabels: map[string]string{
 			"mode":        mode,                            // publisher type: e.g. http, stdout, etc...
@@ -213,6 +215,7 @@ func run(ctx context.Context) int {
 	}
 
 	statsFactory, err := stats.NewFactory(reg, stats.Data{
+		Prefix:      metricsPrefix,
 		Mode:        mode,
 		Concurrency: concurrency,
 		TotalUsers:  totalUsers,
