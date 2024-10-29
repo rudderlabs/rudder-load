@@ -200,6 +200,7 @@ func run(ctx context.Context) int {
 		Help: "Publish rate per second",
 		ConstLabels: map[string]string{
 			"mode":        mode,                            // publisher type: e.g. http, stdout, etc...
+			"writeKey":    writeKey,                        // writeKey handled by this replica
 			"concurrency": strconv.Itoa(concurrency),       // number of go routines publishing messages
 			"msg_gen":     strconv.Itoa(messageGenerators), // number of go routines generating messages for the "slots"
 			"total_users": strconv.Itoa(totalUsers),        // total number of unique userIDs used in the generated messages
@@ -210,6 +211,18 @@ func run(ctx context.Context) int {
 		Help: "If less than a ms then this is increased meaning there are not enough generators per publishers.",
 		ConstLabels: map[string]string{
 			"mode":        mode,                            // publisher type: e.g. http, stdout, etc...
+			"writeKey":    writeKey,                        // writeKey handled by this replica
+			"concurrency": strconv.Itoa(concurrency),       // number of go routines publishing messages
+			"msg_gen":     strconv.Itoa(messageGenerators), // number of go routines generating messages for the "slots"
+			"total_users": strconv.Itoa(totalUsers),        // total number of unique userIDs used in the generated messages
+		},
+	})
+	throttled := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: metricsPrefix + "throttled",
+		Help: "Number of times we get throttled",
+		ConstLabels: map[string]string{
+			"mode":        mode,                            // publisher type: e.g. http, stdo
+			"writeKey":    writeKey,                        // writeKey handled by this replica// ut, etc...
 			"concurrency": strconv.Itoa(concurrency),       // number of go routines publishing messages
 			"msg_gen":     strconv.Itoa(messageGenerators), // number of go routines generating messages for the "slots"
 			"total_users": strconv.Itoa(totalUsers),        // total number of unique userIDs used in the generated messages
@@ -217,6 +230,7 @@ func run(ctx context.Context) int {
 	})
 	reg.MustRegister(publishRatePerSecond)
 	reg.MustRegister(msgGenLag)
+	reg.MustRegister(throttled)
 	// PROMETHEUS REGISTRY - END
 
 	// Setting up dependencies for publishers - START
@@ -233,6 +247,7 @@ func run(ctx context.Context) int {
 
 	statsFactory, err := stats.NewFactory(reg, stats.Data{
 		Prefix:      metricsPrefix,
+		WriteKey:    writeKey,
 		Mode:        mode,
 		Concurrency: concurrency,
 		TotalUsers:  totalUsers,
@@ -385,6 +400,7 @@ func run(ctx context.Context) int {
 							if allowed {
 								break
 							}
+							throttled.Inc()
 							select {
 							case <-ctx.Done():
 								return
