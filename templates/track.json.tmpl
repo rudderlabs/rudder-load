@@ -5,6 +5,7 @@
             "type": "track",
             "userId": "{{$.UserID}}",
             "event": "{{$.Event}}",
+            "messageId": "{{uuid}}",
             "properties": {
                 "link_text": "Request demo",
                 "target_url": "/request-demo/",
@@ -78,7 +79,7 @@
                 "traits": {
                     "activation_api_experience": false
                 },
-                "sessionId": 1730133738278,
+                "sessionId": {{nowNano}},
                 "app": {
                     "name": "RudderLabs JavaScript SDK",
                     "namespace": "com.rudderlabs.javascript",

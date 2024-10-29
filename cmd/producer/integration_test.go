@@ -17,9 +17,10 @@ func TestIntegration(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	t.Setenv("MODE", "http")
-	t.Setenv("HOSTNAME", "rudder-load-0-test")
+	t.Setenv("HOSTNAME", "rudder-load-baseline-0-test")
 	t.Setenv("CONCURRENCY", "200")
-	t.Setenv("MESSAGE_GENERATORS", "10")
+	t.Setenv("MESSAGE_GENERATORS", "1")
+	t.Setenv("MAX_EVENTS_PER_SECOND", "100000")
 	t.Setenv("SOURCES", "2lNXnjJU9xrbUERT3Uy3Po8jKbr")
 	t.Setenv("USE_ONE_CLIENT_PER_SLOT", "true")
 	t.Setenv("ENABLE_SOFT_MEMORY_LIMIT", "true")

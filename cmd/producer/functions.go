@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -25,7 +26,9 @@ func getTemplates(templatesPath string) (map[string]*template.Template, error) {
 	}
 
 	funcMap := template.FuncMap{
-		"sub": func(a, b int) int { return a - b },
+		"uuid":    func() string { return uuid.New().String() },
+		"sub":     func(a, b int) int { return a - b },
+		"nowNano": func() int64 { return time.Now().UnixNano() },
 		"loop": func(n int) <-chan int {
 			ch := make(chan int)
 			go func() {

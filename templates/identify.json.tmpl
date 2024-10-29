@@ -3,13 +3,15 @@
         {{range $i := loop $.NoOfEvents }}
         {
             "userId": "{{$.AnonymousID}}",
+            "messageId": "{{uuid}}",
+            "anonymousId": "{{$.AnonymousID}}",
             "type": "identify",
             "context": {
                 "load_run_id": "{{$.LoadRunID}}",
                 "traits": {
                     "activation_api_experience": false
                 },
-                "sessionId": 1730133738278,
+                "sessionId": {{nowNano}},
                 "app": {
                     "name": "RudderLabs JavaScript SDK",
                     "namespace": "com.rudderlabs.javascript",
@@ -48,8 +50,6 @@
             },
             "channel": "web",
             "originalTimestamp": "{{$.OriginalTimestamp}}",
-            "messageId": "{{$.MessageID}}",
-            "anonymousId": "{{$.AnonymousID}}",
             "sentAt": "{{$.SentAt}}"
         }{{if lt $i (sub $.NoOfEvents 1)}},{{end}}
         {{- end }}
