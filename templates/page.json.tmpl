@@ -1,0 +1,94 @@
+{
+    "batch": [
+        {{range $i := loop $.NoOfEvents }}
+        {
+            "type": "page",
+            "name": "{{$.Name}}",
+            "messageId": "{{uuid}}",
+            "anonymousId": "{{$.AnonymousID}}",
+            "properties": {
+                "properties": {
+                    "page_title": "The Warehouse Native Customer Data Platform",
+                    "timezone": {
+                        "name": "Europe/Amsterdam"
+                    },
+                    "utm_referrer": "",
+                    "splitTestName": "001_Homepage_Reorder_v1_Web1777",
+                    "splitTestVariant": "Variant 1",
+                    "splitTestPath": "/001/",
+                    "name": "page_view",
+                    "path": "/001/",
+                    "referrer": "https://www.rudderstack.com/",
+                    "referring_domain": "www.rudderstack.com",
+                    "search": "",
+                    "title": "The Warehouse Native Customer Data Platform",
+                    "url": "https://www.rudderstack.com/001/",
+                    "tab_url": "https://www.rudderstack.com/",
+                    "initial_referrer": "https://www.google.com/",
+                    "initial_referring_domain": "www.google.com"
+                },
+                "name": "page_view",
+                "type": "page",
+                "channel": "web",
+                "context": {
+                    "load_run_id": "{{$.LoadRunID}}",
+                    "traits": {
+                        "activation_api_experience": false
+                    },
+                    "sessionId": {{nowNano}},
+                    "app": {
+                        "name": "RudderLabs JavaScript SDK",
+                        "namespace": "com.rudderlabs.javascript",
+                        "version": "3.0.3"
+                    },
+                    "library": {
+                        "name": "RudderLabs JavaScript SDK",
+                        "version": "3.0.3"
+                    },
+                    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+                    "os": {
+                        "name": "",
+                        "version": ""
+                    },
+                    "locale": "en-GB",
+                    "screen": {
+                        "width": 1728,
+                        "height": 1117,
+                        "density": 2,
+                        "innerWidth": 976,
+                        "innerHeight": 992
+                    },
+                    "campaign": {},
+                    "page": {
+                        "path": "/001/",
+                        "referrer": "https://www.rudderstack.com/",
+                        "referring_domain": "www.rudderstack.com",
+                        "search": "",
+                        "title": "The Warehouse Native Customer Data Platform",
+                        "url": "https://www.rudderstack.com/001/",
+                        "tab_url": "https://www.rudderstack.com/",
+                        "initial_referrer": "https://www.google.com/",
+                        "initial_referring_domain": "www.google.com"
+                    },
+                    "timezone": "GMT+0100"
+                },
+                "originalTimestamp": "2024-10-28T16:42:40.743Z",
+                "integrations": {
+                    "All": true
+                }
+            },
+            "channel": "android-sdk",
+            "context": {
+                "app": {
+                    "build": "1",
+                    "name": "RudderAndroidClient",
+                    "namespace": "com.rudderlabs.android.sdk",
+                    "version": "1.0"
+                }
+            },
+            "originalTimestamp": "{{$.OriginalTimestamp}}",
+            "sentAt": "{{$.SentAt}}"
+        }{{if lt $i (sub $.NoOfEvents 1)}},{{end}}
+        {{- end }}
+    ]
+}

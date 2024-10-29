@@ -1,0 +1,15 @@
+# This is the pod monitor for the job ingestion producer
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    app: {{ .Values.deployment.name }}-scraper
+    scrape-by: cluster-grafana-agent
+  name: {{ .Values.deployment.name }}-podmonitor
+spec:
+  podMetricsEndpoints:
+  - port: metrics
+  selector:
+    matchLabels:
+      run: {{ .Values.deployment.name }}

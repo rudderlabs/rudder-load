@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: testwebhook
+  labels:
+    app: testwebhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: testwebhook
+  template:
+    metadata:
+      labels:
+        app: testwebhook
+    spec:
+      restartPolicy: Always
+      hostname: testwebhook
+      subdomain: testsubdomain
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: webhook
+          image: rudderlabs/sws:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8002
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: testwebhook
+  name: testsubdomain
+spec:
+  ports:
+  - port: 8002
+    protocol: TCP
+    targetPort: 8002
+  selector:
+    app: testwebhook
+  clusterIP: None

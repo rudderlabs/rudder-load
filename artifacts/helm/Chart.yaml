@@ -1,0 +1,4 @@
+apiVersion: v2
+name: rt-ingestion-producer
+description: A Helm chart for Kubernetes to deploy rudder-tests-ingestion-producer job
+version: 0.1.0

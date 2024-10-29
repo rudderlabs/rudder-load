@@ -1,0 +1,58 @@
+namespace: default
+dockerUser: your_docker_user
+
+deployment:
+  name: rudder-load
+  image: rudderstack/rudder-load:draft1
+  imagePullPolicy: Always
+  restartPolicy: Always
+  command: ["/rudder-load-producer"]
+  backoffLimit: 1
+  replicas: 4
+  resources:
+    cpuRequests: 500m
+    memoryRequests: 256Mi
+    cpuLimits: 2
+    memoryLimits: 2Gi
+  ports:
+    - name: metrics
+      containerPort: 9102
+    - name: profiler
+      containerPort: 7777
+  env:
+    MODE: http
+    LOAD_RUN_ID: "loadRunID1" # if empty, a random UUID will be generated
+    # CONCURRENCY determines how many slots are used to send data to the server.
+    CONCURRENCY: "4000" # these read from the ch
+    MESSAGE_GENERATORS: "1000" # these push into the ch
+    MAX_EVENTS_PER_SECOND: "60000" # set as 0 for no limit
+    # SOURCES should be a comma separated list of writeKeys
+    # e.g. SOURCES: "2lNXnjJU9xrbUERT3Uy3Po8jKbr,2nYfF7hsD7KXz0Vp4SW1TivZCRu"
+    # This goes together with the number of replicas. You'll need one source per replica here.
+    # Bol JS: 2nVv1Uge9ebQK7pGD2qP9XNY70k
+    # Bol iOS: 2nWL802xKbb9bDd0j7IBfulMjJN
+    # Bol Android: 2nWLFReUHdomabA7Dg7WdjPOssu
+    SOURCES: "2nVv1Uge9ebQK7pGD2qP9XNY70k,2nVv1Uge9ebQK7pGD2qP9XNY70k,2nWL802xKbb9bDd0j7IBfulMjJN,2nWLFReUHdomabA7Dg7WdjPOssu"
+    USE_ONE_CLIENT_PER_SLOT: "true"
+    ENABLE_SOFT_MEMORY_LIMIT: "true"
+    TOTAL_USERS: "187500"
+    # HOT_USER_GROUPS: sum should be 100 (%) and values comma separated
+    # TOTAL_USERS will be divided by the number of groups and given the desired data concentration
+    HOT_USER_GROUPS: "100"
+    EVENT_TYPES: "track,page,identify"
+    # HOT_EVENT_TYPES: sum should be 100 (%) and values comma separated
+    # It should be a 1:1 match with the groups in EVENT_TYPES.
+    # The groups here define the percentage of the events in EVENT_TYPES.
+    HOT_EVENT_TYPES: "50,40,10"
+    BATCH_SIZES: "1,2,3"
+    # 33% of chances to get a batch size of 1, 33% of chances to get a batch size of 2,
+    # and 34% of chances to get a batch size of 3 (see BATCH_SIZES)
+    HOT_BATCH_SIZES: "33,33,34"
+    HTTP_COMPRESSION: "true"
+    HTTP_READ_TIMEOUT: "5s"
+    HTTP_WRITE_TIMEOUT: "5s"
+    HTTP_MAX_IDLE_CONN: "1h"
+    HTTP_MAX_CONNS_PER_HOST: "200000"
+    HTTP_CONCURRENCY: "200000"
+    HTTP_CONTENT_TYPE: "application/json"
+    HTTP_ENDPOINT: "https://rudderstacfvls.dataplane.rudderstack.com/v1/batch"
