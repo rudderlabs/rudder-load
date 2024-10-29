@@ -39,16 +39,15 @@ owning a set of keys. This way we can guarantee in-order delivery of events per 
       In this case we have 3 event types (see point 7) and we are defining 3 hot event types, one for each event type.
       Given `page,batch(10,0),batch(30,100)` and hot event types `60,25,15` we'll have 60% probability to get a `page`,
       25% probability to get a `batch(10,0)` and 15% probability to get a `batch(30,100)`.
+9. Batches sizes and hot batch sizes (they would work the same as hot event types but for the batch sizes)
 
 ## Adding more event types
 
 To add more event types simply do:
-1. add template inside `templates` folder like `batch.json.tmpl` or `page.json.tmpl`
+1. add template inside `templates` folder like `page.json.tmpl`
 2. the name of the file without extension can now be used as an event type
 3. now you have to define a function to populate your template inside `cmd/producer/event_types.go` and then update
    the `var eventGenerators = map[string]eventGenerator{}` map with your function (use name of the template as key)
-4. anything that you pass in the configuration between parenthesis will be passed to the function as the last parameter
-   i.e. `n []int`, see `batchFunc` as an example because it uses `n` to know how many pages and tracks it should have
 
 ## How to deploy
 
@@ -56,21 +55,26 @@ In order to deploy you'll have to use the `Makefile` recipes.
 
 The `Makefile` has 2 important variables:
 * `K8S_NAMESPACE`: the Kubernetes namespace where it should deploy the `rudder-load` service
-* `DOCKER_USER`: the Docker user to use to push `rudder-load` Docker image
 
 Those are the only variables that you can tune via the `Makefile`.
 Before deploying you will have to create a copy of your value file (e.g. `http_values.yaml`) and add `_copy.yaml` at the 
 end of the file name (e.g. `http_values_copy.yaml`). The `Makefile` will use the copied file. 
 Also, that file is ignored by git so you can add whatever you want to it.
 
+The docker image is built in the CI pipeline.
+If you want you can still build your own image by doing `make DOCKER_USER=<your-docker-username> build`.
+
+Remember to update your values file (e.g. `http_values_copy.yaml`) with the new image tag (see
+`deployment.image`).
+
 ### Examples
 
 ```shell
 # To deploy
-make K8S_NAMESPACE=my-ns DOCKER_USER=francesco deploy-http
+make K8S_NAMESPACE=my-ns deploy-http
 
 # To remove the last deployment
-K8S_NAMESPACE=my-ns make delete
+K8S_NAMESPACE=my-ns make delete-http
 
 # To follow the rudder-load logs
 K8S_NAMESPACE=my-ns make logs
