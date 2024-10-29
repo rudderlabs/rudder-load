@@ -93,14 +93,19 @@ func run(ctx context.Context) int {
 		return 1
 	}
 
-	re := regexp.MustCompile(`rudder-load-[a-z]+-(\d+)`)
+	re := regexp.MustCompile(`rudder-load-([a-z]+)-(\d+)`)
 	match := re.FindStringSubmatch(hostname)
-	if len(match) <= 1 {
+	if len(match) <= 2 {
 		printErr(fmt.Errorf("hostname is invalid: %s", hostname))
 		return 1
 	}
 
-	instanceNumber, err := strconv.Atoi(match[1])
+	deploymentName := match[1]
+	if deploymentName == "" {
+		printErr(fmt.Errorf("deployment name is empty"))
+		return 1
+	}
+	instanceNumber, err := strconv.Atoi(match[2])
 	if err != nil {
 		printErr(fmt.Errorf("error getting instance number from hostname: %v", err))
 		return 1
@@ -195,38 +200,28 @@ func run(ctx context.Context) int {
 		collectors.NewGoCollector(),
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
+	constLabels := map[string]string{
+		"mode":        mode,     // publisher type: e.g. http, stdout, etc...
+		"write_key":   writeKey, // writeKey handled by this replica
+		"deployment":  deploymentName,
+		"concurrency": strconv.Itoa(concurrency),       // number of go routines publishing messages
+		"msg_gen":     strconv.Itoa(messageGenerators), // number of go routines generating messages for the "slots"
+		"total_users": strconv.Itoa(totalUsers),        // total number of unique userIDs used in the generated messages
+	}
 	publishRatePerSecond := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: metricsPrefix + "publish_rate_per_second",
-		Help: "Publish rate per second",
-		ConstLabels: map[string]string{
-			"mode":        mode,                            // publisher type: e.g. http, stdout, etc...
-			"writeKey":    writeKey,                        // writeKey handled by this replica
-			"concurrency": strconv.Itoa(concurrency),       // number of go routines publishing messages
-			"msg_gen":     strconv.Itoa(messageGenerators), // number of go routines generating messages for the "slots"
-			"total_users": strconv.Itoa(totalUsers),        // total number of unique userIDs used in the generated messages
-		},
+		Name:        metricsPrefix + "publish_rate_per_second",
+		Help:        "Publish rate per second",
+		ConstLabels: constLabels,
 	})
 	msgGenLag := prometheus.NewCounter(prometheus.CounterOpts{
-		Name: metricsPrefix + "msg_generation_lag",
-		Help: "If less than a ms then this is increased meaning there are not enough generators per publishers.",
-		ConstLabels: map[string]string{
-			"mode":        mode,                            // publisher type: e.g. http, stdout, etc...
-			"writeKey":    writeKey,                        // writeKey handled by this replica
-			"concurrency": strconv.Itoa(concurrency),       // number of go routines publishing messages
-			"msg_gen":     strconv.Itoa(messageGenerators), // number of go routines generating messages for the "slots"
-			"total_users": strconv.Itoa(totalUsers),        // total number of unique userIDs used in the generated messages
-		},
+		Name:        metricsPrefix + "msg_generation_lag",
+		Help:        "If less than a ms then this is increased meaning there are not enough generators per publishers.",
+		ConstLabels: constLabels,
 	})
 	throttled := prometheus.NewCounter(prometheus.CounterOpts{
-		Name: metricsPrefix + "throttled",
-		Help: "Number of times we get throttled",
-		ConstLabels: map[string]string{
-			"mode":        mode,                            // publisher type: e.g. http, stdo
-			"writeKey":    writeKey,                        // writeKey handled by this replica// ut, etc...
-			"concurrency": strconv.Itoa(concurrency),       // number of go routines publishing messages
-			"msg_gen":     strconv.Itoa(messageGenerators), // number of go routines generating messages for the "slots"
-			"total_users": strconv.Itoa(totalUsers),        // total number of unique userIDs used in the generated messages
-		},
+		Name:        metricsPrefix + "throttled",
+		Help:        "Number of times we get throttled",
+		ConstLabels: constLabels,
 	})
 	reg.MustRegister(publishRatePerSecond)
 	reg.MustRegister(msgGenLag)
@@ -246,11 +241,12 @@ func run(ctx context.Context) int {
 	}
 
 	statsFactory, err := stats.NewFactory(reg, stats.Data{
-		Prefix:      metricsPrefix,
-		WriteKey:    writeKey,
-		Mode:        mode,
-		Concurrency: concurrency,
-		TotalUsers:  totalUsers,
+		Prefix:         metricsPrefix,
+		WriteKey:       writeKey,
+		DeploymentName: deploymentName,
+		Mode:           mode,
+		Concurrency:    concurrency,
+		TotalUsers:     totalUsers,
 	})
 	if err != nil {
 		printErr(fmt.Errorf("cannot create stats factory: %v", err))
