@@ -13,8 +13,9 @@ import (
 )
 
 type message struct {
-	Payload []byte
-	UserID  string
+	Payload    []byte
+	UserID     string
+	NoOfEvents int64
 }
 
 func getTemplates(templatesPath string) (map[string]*template.Template, error) {

@@ -27,6 +27,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/profiler"
 	kitsync "github.com/rudderlabs/rudder-go-kit/sync"
+	"github.com/rudderlabs/rudder-go-kit/throttling"
 )
 
 // TODO: add support for BATCH_SIZES and HOT_BATCH_SIZES
@@ -77,6 +78,7 @@ func run(ctx context.Context) int {
 		hotEventTypes         = mustMap("HOT_EVENT_TYPES")
 		batchSizes            = mustMap("BATCH_SIZES")
 		hotBatchSizes         = mustMap("HOT_BATCH_SIZES")
+		maxEventsPerSecond    = mustInt("MAX_EVENTS_PER_SECOND")
 		templatesPath         = optionalString("TEMPLATES_PATH", "./templates/")
 	)
 
@@ -162,6 +164,13 @@ func run(ctx context.Context) int {
 	}
 	if messageGenerators < 1 {
 		printErr(fmt.Errorf("message generators has to be greater than zero: %d", messageGenerators))
+		return 1
+	}
+
+	// Creating throttler
+	throttler, err := throttling.New(throttling.WithInMemoryGCRA(0))
+	if err != nil {
+		printErr(fmt.Errorf("cannot create throttler: %v", err))
 		return 1
 	}
 
@@ -367,6 +376,23 @@ func run(ctx context.Context) int {
 						float64(publishedMessages.Load()) / time.Since(startPublishingTime).Seconds(),
 					)
 
+					if maxEventsPerSecond > 0 {
+						for {
+							allowed, after, _, err := throttler.AllowAfter(ctx, msg.NoOfEvents, int64(maxEventsPerSecond), 1, "key")
+							if err != nil {
+								panic(fmt.Errorf("error getting allowed events: %w", err))
+							}
+							if allowed {
+								break
+							}
+							select {
+							case <-ctx.Done():
+								return
+							case <-time.After(after):
+							}
+						}
+					}
+
 					n, err := client.PublishTo(ctx, msg.UserID, msg.Payload, map[string]string{
 						"auth":         writeKey,
 						"anonymous_id": msg.UserID,
@@ -427,8 +453,9 @@ func run(ctx context.Context) int {
 				case <-gCtx.Done():
 					return gCtx.Err()
 				case messages <- &message{
-					Payload: msg,
-					UserID:  userID,
+					Payload:    msg,
+					UserID:     userID,
+					NoOfEvents: int64(batchSize),
 				}:
 					// Check if delta between now and start is less than 1ms then increment the counter
 					if time.Since(start) < time.Millisecond {
