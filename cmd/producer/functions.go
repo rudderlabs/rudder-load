@@ -24,7 +24,17 @@ func getTemplates(templatesPath string) (map[string]*template.Template, error) {
 	}
 
 	funcMap := template.FuncMap{
-		"Sub1": func(n int) int { return n - 1 },
+		"sub": func(a, b int) int { return a - b },
+		"loop": func(n int) <-chan int {
+			ch := make(chan int)
+			go func() {
+				for i := 0; i < n; i++ {
+					ch <- i
+				}
+				close(ch)
+			}()
+			return ch
+		},
 	}
 
 	templates := make(map[string]*template.Template)
@@ -83,6 +93,33 @@ func getUserIDsConcentration(totalUsers int, hotUserGroups []int, random bool) [
 	}
 
 	return userIDsConcentration
+}
+
+func getBatchSizesConcentration(batchSizes, hotBatchSizes []int) []int {
+	totalPercentage := 0
+	for _, percentage := range hotBatchSizes {
+		totalPercentage += percentage
+	}
+	if totalPercentage != 100 {
+		panic("hot batch sizes percentages do not sum up to 100")
+	}
+	if len(batchSizes) != len(hotBatchSizes) {
+		panic("batch sizes and hot batch sizes must have the same length")
+	}
+
+	var (
+		startID                 = 0
+		batchSizesConcentration = make([]int, 100)
+	)
+	for i, hotBatchPercentage := range hotBatchSizes {
+		batchSize := batchSizes[i]
+		for j := startID; j < hotBatchPercentage+startID; j++ {
+			batchSizesConcentration[j] = batchSize
+		}
+		startID += hotBatchPercentage
+	}
+
+	return batchSizesConcentration
 }
 
 func byteCount(b uint64) string {

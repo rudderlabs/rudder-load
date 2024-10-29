@@ -75,6 +75,8 @@ func run(ctx context.Context) int {
 		hotUserGroups         = mustMap("HOT_USER_GROUPS")
 		eventTypes            = mustString("EVENT_TYPES")
 		hotEventTypes         = mustMap("HOT_EVENT_TYPES")
+		batchSizes            = mustMap("BATCH_SIZES")
+		hotBatchSizes         = mustMap("HOT_BATCH_SIZES")
 		templatesPath         = optionalString("TEMPLATES_PATH", "./templates/")
 	)
 
@@ -136,6 +138,10 @@ func run(ctx context.Context) int {
 	}
 	if hotEventTypesPercentage != 100 {
 		printErr(fmt.Errorf("hot event types should sum to 100"))
+		return 1
+	}
+	if len(batchSizes) != len(hotBatchSizes) {
+		printErr(fmt.Errorf("batch sizes and hot batch sizes should have the same length: %+v - %+v", batchSizes, hotBatchSizes))
 		return 1
 	}
 	if len(hotUserGroups) < 1 {
@@ -400,6 +406,8 @@ func run(ctx context.Context) int {
 	userIDsConcentration := getUserIDsConcentration(totalUsers, hotUserGroups, true)
 	fmt.Printf("Building event types concentration...\n")
 	eventTypesConcentration := getEventTypesConcentration(loadRunID, parsedEventTypes, hotEventTypes, eventGenerators, templates)
+	fmt.Printf("Building batch sizes concentration...\n")
+	batchSizesConcentration := getBatchSizesConcentration(batchSizes, hotBatchSizes)
 
 	fmt.Printf("Publishing messages with %d generators...\n", messageGenerators)
 	startPublishingTime = time.Now()
@@ -408,8 +416,10 @@ func run(ctx context.Context) int {
 		group.Go(func() error {
 			defer fmt.Printf("Message generator %d is done\n", i)
 			for {
-				userID := userIDsConcentration[rand.Intn(100)]()
-				msg := eventTypesConcentration[rand.Intn(100)](userID)
+				random := rand.Intn(100)
+				userID := userIDsConcentration[random]()
+				batchSize := batchSizesConcentration[random]
+				msg := eventTypesConcentration[random](userID, batchSize)
 				processedBytes.Add(int64(len(msg)))
 
 				start := time.Now()

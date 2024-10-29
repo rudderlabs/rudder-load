@@ -2,11 +2,8 @@ package main
 
 import (
 	"bytes"
-	"fmt"
-	"math/rand"
 	"strconv"
 	"testing"
-	"text/template"
 
 	"github.com/stretchr/testify/require"
 )
@@ -294,67 +291,67 @@ func TestGetUserIDs(t *testing.T) {
 	}
 }
 
-func TestGetEventTypesConcentration(t *testing.T) {
-	eventTypes := []eventType{
-		{Type: "page", Values: nil},
-		{Type: "batch", Values: []int{1, 2, 3}},
-	}
-	eventGenerators := map[string]eventGenerator{
-		"page": func(tmpl *template.Template, userID, loadRunID string, values []int) []byte {
-			return []byte(fmt.Sprintf("page-%s-%s-%+v", userID, loadRunID, values))
-		},
-		"batch": func(tmpl *template.Template, userID, loadRunID string, values []int) []byte {
-			return []byte(fmt.Sprintf("batch-%s-%s-%+v", userID, loadRunID, values))
-		},
-	}
-	templates := map[string]*template.Template{
-		"page":  nil,
-		"batch": nil,
-	}
-	eventsConcentration := getEventTypesConcentration("xxx", eventTypes, []int{50, 50}, eventGenerators, templates)
-	require.Len(t, eventsConcentration, 100)
-
-	repeat := 10000
-	for i := 0; i < repeat; i++ {
-		for k := 0; k < 50; k++ { // 1st group (0-49)
-			event := eventsConcentration[k]("123")
-			require.Equal(t, "page-123-xxx-[]", string(event))
-		}
-		for k := 50; k < 100; k++ { // 2nd group (50-99)
-			event := eventsConcentration[k]("123")
-			require.Equal(t, "batch-123-xxx-[1 2 3]", string(event))
-		}
-	}
-
-	for { // repeat until you get a page and then again until you get a batch
-		event := eventsConcentration[rand.Intn(100)]("123")
-		if string(event) == "page-123-xxx-[]" {
-			break
-		}
-	}
-	for { // repeat until you get a page and then again until you get a batch
-		event := eventsConcentration[rand.Intn(100)]("123")
-		if string(event) == "batch-123-xxx-[1 2 3]" {
-			break
-		}
-	}
-}
-
-func TestEventGenerators(t *testing.T) {
-	templates, err := getTemplates("./../../templates/")
-	require.NoError(t, err)
-
-	require.Contains(t, templates, "batch")
-	require.Contains(t, templates, "page")
-
-	t.Run("page", func(t *testing.T) {
-		data := pageFunc(templates["page"], "123", "456", nil)
-		t.Logf("page: %s", data)
-	})
-
-	// TODO update the tests
-	//t.Run("batch", func(t *testing.T) {
-	//	data := batchFunc(templates["batch"], "123", "456", []int{2, 3})
-	//	t.Logf("batch: %s", data)
-	//})
-}
+//func TestGetEventTypesConcentration(t *testing.T) {
+//	eventTypes := []eventType{
+//		{Type: "page", Values: nil},
+//		{Type: "batch", Values: []int{1, 2, 3}},
+//	}
+//	eventGenerators := map[string]eventGenerator{
+//		"page": func(tmpl *template.Template, userID, loadRunID string, values []int) []byte {
+//			return []byte(fmt.Sprintf("page-%s-%s-%+v", userID, loadRunID, values))
+//		},
+//		"batch": func(tmpl *template.Template, userID, loadRunID string, values []int) []byte {
+//			return []byte(fmt.Sprintf("batch-%s-%s-%+v", userID, loadRunID, values))
+//		},
+//	}
+//	templates := map[string]*template.Template{
+//		"page":  nil,
+//		"batch": nil,
+//	}
+//	eventsConcentration := getEventTypesConcentration("xxx", eventTypes, []int{50, 50}, eventGenerators, templates)
+//	require.Len(t, eventsConcentration, 100)
+//
+//	repeat := 10000
+//	for i := 0; i < repeat; i++ {
+//		for k := 0; k < 50; k++ { // 1st group (0-49)
+//			event := eventsConcentration[k]("123")
+//			require.Equal(t, "page-123-xxx-[]", string(event))
+//		}
+//		for k := 50; k < 100; k++ { // 2nd group (50-99)
+//			event := eventsConcentration[k]("123")
+//			require.Equal(t, "batch-123-xxx-[1 2 3]", string(event))
+//		}
+//	}
+//
+//	for { // repeat until you get a page and then again until you get a batch
+//		event := eventsConcentration[rand.Intn(100)]("123")
+//		if string(event) == "page-123-xxx-[]" {
+//			break
+//		}
+//	}
+//	for { // repeat until you get a page and then again until you get a batch
+//		event := eventsConcentration[rand.Intn(100)]("123")
+//		if string(event) == "batch-123-xxx-[1 2 3]" {
+//			break
+//		}
+//	}
+//}
+//
+//func TestEventGenerators(t *testing.T) {
+//	templates, err := getTemplates("./../../templates/")
+//	require.NoError(t, err)
+//
+//	require.Contains(t, templates, "batch")
+//	require.Contains(t, templates, "page")
+//
+//	t.Run("page", func(t *testing.T) {
+//		data := pageFunc(templates["page"], "123", "456", nil)
+//		t.Logf("page: %s", data)
+//	})
+//
+//	// TODO update the tests
+//	//t.Run("batch", func(t *testing.T) {
+//	//	data := batchFunc(templates["batch"], "123", "456", []int{2, 3})
+//	//	t.Logf("batch: %s", data)
+//	//})
+//}

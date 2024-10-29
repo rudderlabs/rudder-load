@@ -1,5 +1,6 @@
 {
     "batch": [
+        {{range $i := loop $.NoOfEvents }}
         {
             "type": "page",
             "name": "{{$.Name}}",
@@ -90,6 +91,7 @@
             },
             "originalTimestamp": "{{$.OriginalTimestamp}}",
             "sentAt": "{{$.SentAt}}"
-        }
+        }{{if lt $i (sub $.NoOfEvents 1)}},{{end}}
+        {{- end }}
     ]
 }

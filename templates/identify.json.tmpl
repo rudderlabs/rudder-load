@@ -1,5 +1,6 @@
 {
     "batch": [
+        {{range $i := loop $.NoOfEvents }}
         {
             "userId": "{{$.AnonymousID}}",
             "type": "identify",
@@ -49,6 +50,7 @@
             "messageId": "{{$.MessageID}}",
             "anonymousId": "{{$.AnonymousID}}",
             "sentAt": "{{$.SentAt}}"
-        }
+        }{{if lt $i (sub $.NoOfEvents 1)}},{{end}}
+        {{- end }}
     ]
 }

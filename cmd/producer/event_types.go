@@ -16,7 +16,7 @@ import (
 // TODO: make trackEventNames configurable
 var trackEventNames = []string{"checkout", "view", "add_to_cart", "event_1", "event_2", "event_3"}
 
-type eventGenerator func(t *template.Template, userID, loadRunID string, n []int) []byte
+type eventGenerator func(t *template.Template, userID, loadRunID string, n int, values []int) []byte
 
 var eventGenerators = map[string]eventGenerator{
 	"page":     pageFunc,
@@ -25,9 +25,10 @@ var eventGenerators = map[string]eventGenerator{
 }
 
 var (
-	pageFunc eventGenerator = func(t *template.Template, userID, loadRunID string, _ []int) []byte {
+	pageFunc eventGenerator = func(t *template.Template, userID, loadRunID string, n int, _ []int) []byte {
 		var buf bytes.Buffer
 		err := t.Execute(&buf, map[string]any{
+			"NoOfEvents":        n,
 			"Name":              "Home",
 			"MessageID":         uuid.New().String(),
 			"AnonymousID":       userID,
@@ -41,13 +42,14 @@ var (
 		return buf.Bytes()
 	}
 
-	trackFunc eventGenerator = func(t *template.Template, userID, loadRunID string, _ []int) []byte {
+	trackFunc eventGenerator = func(t *template.Template, userID, loadRunID string, n int, _ []int) []byte {
 		var buf bytes.Buffer
 		err := t.Execute(&buf, map[string]any{
-			"UserID":    userID,
-			"Event":     trackEventNames[rand.Intn(len(trackEventNames))],
-			"Timestamp": time.Now().Format(time.RFC3339),
-			"LoadRunID": loadRunID,
+			"NoOfEvents": n,
+			"UserID":     userID,
+			"Event":      trackEventNames[rand.Intn(len(trackEventNames))],
+			"Timestamp":  time.Now().Format(time.RFC3339),
+			"LoadRunID":  loadRunID,
 		})
 		if err != nil {
 			panic(fmt.Errorf("cannot execute page template: %w", err))
@@ -55,9 +57,10 @@ var (
 		return buf.Bytes()
 	}
 
-	identifyFunc eventGenerator = func(t *template.Template, userID, loadRunID string, _ []int) []byte {
+	identifyFunc eventGenerator = func(t *template.Template, userID, loadRunID string, n int, _ []int) []byte {
 		var buf bytes.Buffer
 		err := t.Execute(&buf, map[string]any{
+			"NoOfEvents":        n,
 			"MessageID":         uuid.New().String(),
 			"AnonymousID":       userID,
 			"OriginalTimestamp": time.Now().Format(time.RFC3339),
@@ -106,7 +109,7 @@ func getEventTypesConcentration(
 	hotEventTypes []int,
 	eventGenerators map[string]eventGenerator,
 	templates map[string]*template.Template,
-) []func(userID string) []byte {
+) []func(userID string, n int) []byte {
 	totalPercentage := 0
 	for _, percentage := range hotEventTypes {
 		totalPercentage += percentage
@@ -120,12 +123,12 @@ func getEventTypesConcentration(
 
 	var (
 		startID             = 0
-		eventsConcentration = make([]func(string) []byte, 100)
+		eventsConcentration = make([]func(string, int) []byte, 100)
 	)
 	for i, hotEventPercentage := range hotEventTypes {
 		et := eventTypes[i]
-		f := func(userID string) []byte {
-			return eventGenerators[et.Type](templates[et.Type], userID, loadRunID, et.Values)
+		f := func(userID string, n int) []byte {
+			return eventGenerators[et.Type](templates[et.Type], userID, loadRunID, n, et.Values)
 		}
 		for i := startID; i < hotEventPercentage+startID; i++ {
 			eventsConcentration[i] = f
