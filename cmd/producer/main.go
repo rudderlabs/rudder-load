@@ -93,7 +93,7 @@ func run(ctx context.Context) int {
 		return 1
 	}
 
-	re := regexp.MustCompile(`rudder-load-(\d+)`)
+	re := regexp.MustCompile(`rudder-load-[a-z]+-(\d+)`)
 	match := re.FindStringSubmatch(hostname)
 	if len(match) <= 1 {
 		printErr(fmt.Errorf("hostname is invalid: %s", hostname))
