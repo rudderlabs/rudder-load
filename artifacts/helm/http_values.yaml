@@ -1,6 +1,4 @@
 namespace: default
-dockerUser: your_docker_user
-
 deployment:
   name: rudder-load
   image: rudderstack/rudder-load:draft1
