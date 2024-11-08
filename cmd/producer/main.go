@@ -173,7 +173,7 @@ func run(ctx context.Context) int {
 	}
 
 	// Creating throttler
-	throttler, err := throttling.New(throttling.WithInMemoryGCRA(0))
+	throttler, err := throttling.New(throttling.WithInMemoryGCRA(int64(maxEventsPerSecond)))
 	if err != nil {
 		printErr(fmt.Errorf("cannot create throttler: %v", err))
 		return 1
