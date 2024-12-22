@@ -80,6 +80,8 @@ func run(ctx context.Context) int {
 		hotBatchSizes         = mustMap("HOT_BATCH_SIZES")
 		maxEventsPerSecond    = mustInt("MAX_EVENTS_PER_SECOND")
 		templatesPath         = optionalString("TEMPLATES_PATH", "./templates/")
+		trackEvents           = mustInt("TRACK_EVENTS")
+		columns               = mustInt("COLUMNS")
 	)
 
 	sourcesList := strings.Split(os.Getenv("SOURCES"), ",")
@@ -93,19 +95,19 @@ func run(ctx context.Context) int {
 		return 1
 	}
 
-	re := regexp.MustCompile(`rudder-load-([a-z]+)-(\d+)`)
+	re := regexp.MustCompile(`rudder-load-(\d+)-([a-z0-9]+)`)
 	match := re.FindStringSubmatch(hostname)
 	if len(match) <= 2 {
 		printErr(fmt.Errorf("hostname is invalid: %s", hostname))
 		return 1
 	}
 
-	deploymentName := match[1]
+	deploymentName := match[2]
 	if deploymentName == "" {
 		printErr(fmt.Errorf("deployment name is empty"))
 		return 1
 	}
-	instanceNumber, err := strconv.Atoi(match[2])
+	instanceNumber, err := strconv.Atoi(match[1])
 	if err != nil {
 		printErr(fmt.Errorf("error getting instance number from hostname: %v", err))
 		return 1
@@ -434,6 +436,10 @@ func run(ctx context.Context) int {
 	}
 	// Starting the go routines - END
 
+	for i := 0; i < trackEvents; i++ {
+		trackEventNames = append(trackEventNames, fmt.Sprintf("event_%d", i))
+	}
+
 	fmt.Printf("Getting templates...\n")
 	templates, err := getTemplates(templatesPath)
 	if err != nil {
@@ -443,7 +449,7 @@ func run(ctx context.Context) int {
 	fmt.Printf("Building users concentration...\n")
 	userIDsConcentration := getUserIDsConcentration(totalUsers, hotUserGroups, true)
 	fmt.Printf("Building event types concentration...\n")
-	eventTypesConcentration := getEventTypesConcentration(loadRunID, parsedEventTypes, hotEventTypes, eventGenerators, templates)
+	eventTypesConcentration := getEventTypesConcentration(loadRunID, parsedEventTypes, hotEventTypes, eventGenerators, templates, columns)
 	fmt.Printf("Building batch sizes concentration...\n")
 	batchSizesConcentration := getBatchSizesConcentration(batchSizes, hotBatchSizes)
 

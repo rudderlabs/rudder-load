@@ -8,6 +8,7 @@
             "messageId": "{{uuid}}",
             "properties": {
                 "link_text": "Request demo",
+                {{$.AdditionalProperties}}
                 "target_url": "/request-demo/",
                 "click_type": "button",
                 "page_title": "The Warehouse Native Customer Data Platform",
@@ -76,6 +77,7 @@
             },
             "context": {
                 "load_run_id": "{{$.LoadRunID}}",
+                {{$.AdditionalContext}}
                 "traits": {
                     "activation_api_experience": false
                 },
