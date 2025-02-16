@@ -79,3 +79,22 @@ K8S_NAMESPACE=my-ns make delete-http
 # To follow the rudder-load logs
 K8S_NAMESPACE=my-ns make logs
 ```
+
+## Use load runner to generate load for specific values file
+
+### Build the load runner
+```shell
+go build -o load-runner cmd/load-runner/main.go
+```
+
+### Run the load runner
+```shell
+./load-runner -d <duration> -n <namespace> -l <values-file-prefix>
+```
+
+### Load runner flags
+
+- `-d`: duration of the load in seconds
+- `-n`: namespace where the load runner will be deployed
+- `-l`: values file prefix
+- `-f`: path to the chart files (e.g., artifacts/helm)
