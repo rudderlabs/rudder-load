@@ -1,2 +1,4 @@
 .idea
 artifacts/helm/*_copy.yaml
+load-runner
+!cmd/load-runner/
