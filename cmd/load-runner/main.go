@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,12 +9,13 @@ import (
 	"regexp"
 	"time"
 
+	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
 
-type config struct {
-	duration       string
-	parsedDuration time.Duration
+type conf struct {
+	duration       time.Duration
 	namespace      string
 	loadName       string
 	chartFilesPath string
@@ -26,73 +26,35 @@ const (
 	defaultChartFilesPath    = "./artifacts/helm"
 )
 
-var log = logger.NewLogger()
-
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	if err := run(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	kitConf := kitconfig.New(kitconfig.WithEnvPrefix("LOAD_RUNNER"))
+	loggerFactory := logger.NewFactory(kitConf)
+	log := loggerFactory.NewLogger()
+
+	if err := run(ctx, kitConf, log); err != nil {
+		log.Errorn("Error running load test", obskit.Error(err))
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context) error {
-	cfg, err := parseFlags()
-	if err != nil {
-		return fmt.Errorf("invalid options: %w", err)
-	}
+func run(ctx context.Context, kitConf *kitconfig.Config, logger logger.Logger) error {
+	var cfg conf
+	cfg.duration = kitConf.GetDuration("duration", 1, time.Minute) // set default test duration to 1 minute
+	cfg.namespace = kitConf.GetString("namespace", "")             // Kubernetes namespace
+	cfg.loadName = kitConf.GetString("loadName", "")               // Load scenario name
+	cfg.chartFilesPath = kitConf.GetString("chartFilesPath", "")   // Path to the chart files (e.g., artifacts/helm)
 
-	if err := validateInputs(cfg); err != nil {
+	if err := validateInputs(&cfg); err != nil {
 		return fmt.Errorf("invalid inputs: %w", err)
 	}
 
-	duration, err := parseDuration(cfg.duration)
-	if err != nil {
-		return fmt.Errorf("invalid duration: %w", err)
-	}
-	cfg.parsedDuration = duration
-
-	return runLoadTest(ctx, cfg)
+	return runLoadTest(ctx, &cfg, logger)
 }
 
-func parseFlags() (*config, error) {
-	var cfg config
-	flag.StringVar(&cfg.duration, "d", "", "Duration to run (e.g., 1h, 30m, 5s)")
-	flag.StringVar(&cfg.namespace, "n", "", "Kubernetes namespace")
-	flag.StringVar(&cfg.loadName, "l", "", "Load scenario name")
-	flag.StringVar(&cfg.chartFilesPath, "f", "", "Path to the chart files (e.g., artifacts/helm)")
-
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "\nUsage: %s [options]\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Options:\n")
-		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nExamples:\n")
-		fmt.Fprintf(os.Stderr, "  %s -d 1m -n test -l test-staging    # Run test-staging load for 1 minute on test namespace\n", os.Args[0])
-	}
-
-	flag.Parse()
-
-	if cfg.duration == "" || cfg.namespace == "" || cfg.loadName == "" {
-		if cfg.duration == "" {
-			fmt.Fprintf(os.Stderr, "Error: duration is required\n")
-		}
-		if cfg.namespace == "" {
-			fmt.Fprintf(os.Stderr, "Error: namespace is required\n")
-		}
-		if cfg.loadName == "" {
-			fmt.Fprintf(os.Stderr, "Error: load name is required\n")
-		}
-
-		flag.Usage()
-		return nil, fmt.Errorf("invalid options")
-	}
-
-	return &cfg, nil
-}
-
-func validateInputs(cfg *config) error {
+func validateInputs(cfg *conf) error {
 	if !regexp.MustCompile(`^[a-z0-9-]+$`).MatchString(cfg.namespace) {
 		return fmt.Errorf("namespace must contain only lowercase alphanumeric characters and '-'")
 	}
@@ -101,37 +63,24 @@ func validateInputs(cfg *config) error {
 		return fmt.Errorf("load name must contain only alphanumeric characters and '-'")
 	}
 
-	if !regexp.MustCompile(`^(\d+[hms])+$`).MatchString(cfg.duration) {
-		return fmt.Errorf("duration must include 'h', 'm', or 's' (e.g., '1h30m')")
-	}
-
 	return nil
 }
 
-func parseDuration(d string) (time.Duration, error) {
-	duration, err := time.ParseDuration(d)
-	if err != nil {
-		return 0, err
-	}
-
-	if duration <= 0 {
-		return 0, fmt.Errorf("duration must be greater than 0")
-	}
-
-	return duration, nil
-}
-
-func runLoadTest(ctx context.Context, cfg *config) error {
+func runLoadTest(ctx context.Context, cfg *conf, log logger.Logger) error {
 	releaseName := fmt.Sprintf("%s-%s", defaultReleaseNamePrefix, cfg.loadName)
 
 	chartFilesPath := cfg.chartFilesPath
-	log.Info("Chart path before: %s", chartFilesPath)
+	log.Infon("Chart path before", logger.NewStringField("chartFilesPath", chartFilesPath))
 	if chartFilesPath == "" {
 		chartFilesPath = defaultChartFilesPath
 	}
-	log.Info("Chart path after: %s", chartFilesPath)
+	log = log.Withn(
+		logger.NewStringField("chartFilesPath", chartFilesPath),
+		logger.NewStringField("scenario", cfg.loadName),
+	)
+	log.Infon("Chart path after")
 
-	log.Info("Installing Helm chart for load scenario: %s", cfg.loadName)
+	log.Infon("Installing Helm chart for load scenario")
 	installArgs := []string{
 		"install",
 		releaseName,
@@ -147,25 +96,27 @@ func runLoadTest(ctx context.Context, cfg *config) error {
 	}
 
 	defer func() {
-		log.Info("Uninstalling Helm chart for the load scenario...")
+		log.Infon("Uninstalling Helm chart for the load scenario...")
 		uninstallArgs := []string{
 			"uninstall",
 			releaseName,
 			"--namespace", cfg.namespace,
 		}
 		if err := runCommand(context.Background(), "helm", uninstallArgs...); err != nil {
-			log.Error("Error during cleanup: %v", err)
+			log.Errorn("Error during cleanup", obskit.Error(err))
 		}
-		log.Info("Done!")
+		log.Infon("Done!")
 	}()
 
-	log.Info("Chart will run for %s", cfg.parsedDuration)
-	log.Info("To view logs, run: kubectl logs -n %s -l app=%s -f", cfg.namespace, releaseName)
+	log.Infon("Starting run",
+		logger.NewDurationField("duration", cfg.duration),
+		logger.NewStringField("logs", fmt.Sprintf("kubectl logs -n %s -l app=%s -f", cfg.namespace, releaseName)),
+	)
 
 	select {
 	case <-ctx.Done():
 		return fmt.Errorf("operation cancelled by user")
-	case <-time.After(cfg.parsedDuration):
+	case <-time.After(cfg.duration):
 		return nil
 	}
 }
