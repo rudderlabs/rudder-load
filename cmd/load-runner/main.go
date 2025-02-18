@@ -26,20 +26,20 @@ const (
 	defaultChartFilesPath    = "./artifacts/helm"
 )
 
-var log = logger.NewLogger()
-
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	if err := run(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	log := logger.NewLogger()
+
+	if err := run(ctx, log); err != nil {
+		log.Errorf("Error running load test: %v", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context) error {
-	cfg, err := parseFlags()
+func run(ctx context.Context, log logger.Logger) error {
+	cfg, err := parseFlags(log)
 	if err != nil {
 		return fmt.Errorf("invalid options: %w", err)
 	}
@@ -54,10 +54,10 @@ func run(ctx context.Context) error {
 	}
 	cfg.parsedDuration = duration
 
-	return runLoadTest(ctx, cfg)
+	return runLoadTest(ctx, cfg, log)
 }
 
-func parseFlags() (*config, error) {
+func parseFlags(log logger.Logger) (*config, error) {
 	var cfg config
 	flag.StringVar(&cfg.duration, "d", "", "Duration to run (e.g., 1h, 30m, 5s)")
 	flag.StringVar(&cfg.namespace, "n", "", "Kubernetes namespace")
@@ -65,24 +65,24 @@ func parseFlags() (*config, error) {
 	flag.StringVar(&cfg.chartFilesPath, "f", "", "Path to the chart files (e.g., artifacts/helm)")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "\nUsage: %s [options]\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Options:\n")
+		log.Info("Usage: %s [options]", os.Args[0])
+		log.Info("Options:")
 		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nExamples:\n")
-		fmt.Fprintf(os.Stderr, "  %s -d 1m -n test -l test-staging    # Run test-staging load for 1 minute on test namespace\n", os.Args[0])
+		log.Info("Examples:")
+		log.Info("  %s -d 1m -n test -l test-staging    # Run test-staging load for 1 minute on test namespace", os.Args[0])
 	}
 
 	flag.Parse()
 
 	if cfg.duration == "" || cfg.namespace == "" || cfg.loadName == "" {
 		if cfg.duration == "" {
-			fmt.Fprintf(os.Stderr, "Error: duration is required\n")
+			log.Error("Error: duration is required")
 		}
 		if cfg.namespace == "" {
-			fmt.Fprintf(os.Stderr, "Error: namespace is required\n")
+			log.Error("Error: namespace is required")
 		}
 		if cfg.loadName == "" {
-			fmt.Fprintf(os.Stderr, "Error: load name is required\n")
+			log.Error("Error: load name is required")
 		}
 
 		flag.Usage()
@@ -121,7 +121,7 @@ func parseDuration(d string) (time.Duration, error) {
 	return duration, nil
 }
 
-func runLoadTest(ctx context.Context, cfg *config) error {
+func runLoadTest(ctx context.Context, cfg *config, log logger.Logger) error {
 	releaseName := fmt.Sprintf("%s-%s", defaultReleaseNamePrefix, cfg.loadName)
 
 	chartFilesPath := cfg.chartFilesPath
