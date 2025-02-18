@@ -13,20 +13,31 @@ import (
 
 type config struct {
 	duration       string
+	parsedDuration time.Duration
 	namespace      string
 	loadName       string
 	chartFilesPath string
 }
 
+const (
+	defaultReleaseNamePrefix = "rudder-load"
+	defaultChartFilesPath    = "./artifacts/helm"
+)
+
 func main() {
 	cfg := parseFlags()
+	if err := validateInputs(cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "Validation error: %v\n", err)
+		os.Exit(1)
+	}
+
 	if err := run(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func parseFlags() config {
+func parseFlags() *config {
 	var cfg config
 	flag.StringVar(&cfg.duration, "d", "", "Duration to run (e.g., 1h, 30m, 5s)")
 	flag.StringVar(&cfg.namespace, "n", "", "Kubernetes namespace")
@@ -34,7 +45,7 @@ func parseFlags() config {
 	flag.StringVar(&cfg.chartFilesPath, "f", "", "Path to the chart files (e.g., artifacts/helm)")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "\nUsage: %s [options]\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
@@ -44,30 +55,24 @@ func parseFlags() config {
 	flag.Parse()
 
 	if cfg.duration == "" || cfg.namespace == "" || cfg.loadName == "" {
+		if cfg.duration == "" {
+			fmt.Fprintf(os.Stderr, "Error: duration is required\n")
+		}
+		if cfg.namespace == "" {
+			fmt.Fprintf(os.Stderr, "Error: namespace is required\n")
+		}
+		if cfg.loadName == "" {
+			fmt.Fprintf(os.Stderr, "Error: load name is required\n")
+		}
+
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	return cfg
+	return &cfg
 }
 
-func run(cfg config) error {
-	if err := validateInputs(cfg); err != nil {
-		return fmt.Errorf("validation error: %w", err)
-	}
-
-	duration, err := parseDuration(cfg.duration)
-	if err != nil {
-		return fmt.Errorf("invalid duration: %w", err)
-	}
-
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer cancel()
-
-	return runLoadTest(ctx, cfg, duration)
-}
-
-func validateInputs(cfg config) error {
+func validateInputs(cfg *config) error {
 	if !regexp.MustCompile(`^[a-z0-9-]+$`).MatchString(cfg.namespace) {
 		return fmt.Errorf("namespace must contain only lowercase alphanumeric characters and '-'")
 	}
@@ -76,14 +81,27 @@ func validateInputs(cfg config) error {
 		return fmt.Errorf("load name must contain only alphanumeric characters and '-'")
 	}
 
+	if !regexp.MustCompile(`^(\d+[hms])+$`).MatchString(cfg.duration) {
+		return fmt.Errorf("duration must include 'h', 'm', or 's' (e.g., '1h30m')")
+	}
+
 	return nil
 }
 
-func parseDuration(d string) (time.Duration, error) {
-	if !regexp.MustCompile(`^(\d+[hms])+$`).MatchString(d) {
-		return 0, fmt.Errorf("invalid duration format. Must include 'h', 'm', or 's' (e.g., '1h30m')")
+func run(cfg *config) error {
+	duration, err := parseDuration(cfg.duration)
+	if err != nil {
+		return fmt.Errorf("invalid duration: %w", err)
 	}
+	cfg.parsedDuration = duration
 
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
+	return runLoadTest(ctx, cfg)
+}
+
+func parseDuration(d string) (time.Duration, error) {
 	duration, err := time.ParseDuration(d)
 	if err != nil {
 		return 0, err
@@ -96,13 +114,13 @@ func parseDuration(d string) (time.Duration, error) {
 	return duration, nil
 }
 
-func runLoadTest(ctx context.Context, cfg config, duration time.Duration) error {
-	releaseName := fmt.Sprintf("rudder-load-%s", cfg.loadName)
+func runLoadTest(ctx context.Context, cfg *config) error {
+	releaseName := fmt.Sprintf("%s-%s", defaultReleaseNamePrefix, cfg.loadName)
 
 	chartFilesPath := cfg.chartFilesPath
 	fmt.Printf("Chart path before: %s\n", chartFilesPath)
 	if chartFilesPath == "" {
-		chartFilesPath = "./artifacts/helm"
+		chartFilesPath = defaultChartFilesPath
 	}
 	fmt.Printf("Chart path after: %s\n", chartFilesPath)
 
@@ -113,6 +131,7 @@ func runLoadTest(ctx context.Context, cfg config, duration time.Duration) error 
 		chartFilesPath,
 		"--namespace", cfg.namespace,
 		"--set", fmt.Sprintf("namespace=%s", cfg.namespace),
+		"--set", fmt.Sprintf("deployment.name=%s", releaseName),
 		"--values", fmt.Sprintf("%s/%s_values_copy.yaml", chartFilesPath, cfg.loadName),
 	}
 
@@ -133,13 +152,13 @@ func runLoadTest(ctx context.Context, cfg config, duration time.Duration) error 
 		fmt.Println("Done!")
 	}()
 
-	fmt.Printf("Chart will run for %s\n", duration)
+	fmt.Printf("Chart will run for %s\n", cfg.parsedDuration)
 	fmt.Printf("To view logs, run: kubectl logs -n %s -l app=%s -f\n", cfg.namespace, releaseName)
 
 	select {
 	case <-ctx.Done():
 		return fmt.Errorf("operation cancelled by user")
-	case <-time.After(duration):
+	case <-time.After(cfg.parsedDuration):
 		return nil
 	}
 }

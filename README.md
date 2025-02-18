@@ -90,11 +90,14 @@ go build -o load-runner cmd/load-runner/main.go
 ### Run the load runner
 ```shell
 ./load-runner -d <duration> -n <namespace> -l <values-file-prefix>
+
+# Example
+./load-runner -d 1m -n rudder-load -l http
 ```
 
 ### Load runner flags
 
-- `-d`: duration of the load in seconds
+- `-d`: duration of the load (e.g., 1h, 30m, 5s)
 - `-n`: namespace where the load runner will be deployed
 - `-l`: values file prefix
 - `-f`: path to the chart files (e.g., artifacts/helm)
