@@ -28,11 +28,14 @@ deployment:
     MAX_EVENTS_PER_SECOND: "60000" # set as 0 for no limit
     # SOURCES should be a comma separated list of writeKeys
     # e.g. SOURCES: "2lNXnjJU9xrbUERT3Uy3Po8jKbr,2nYfF7hsD7KXz0Vp4SW1TivZCRu"
-    # This goes together with the number of replicas. You'll need one source per replica here.
     # Bol JS: 2nVv1Uge9ebQK7pGD2qP9XNY70k
     # Bol iOS: 2nWL802xKbb9bDd0j7IBfulMjJN
     # Bol Android: 2nWLFReUHdomabA7Dg7WdjPOssu
     SOURCES: "2nVv1Uge9ebQK7pGD2qP9XNY70k,2nVv1Uge9ebQK7pGD2qP9XNY70k,2nWL802xKbb9bDd0j7IBfulMjJN,2nWLFReUHdomabA7Dg7WdjPOssu"
+    # HOT_SOURCES: comma separated list of percentages
+    # It should be a 1:1 match with the writeKeys in SOURCES.
+    # If not provided, the sources will be equally distributed.
+    HOT_SOURCES: "20,20,30,30"
     USE_ONE_CLIENT_PER_SLOT: "true"
     ENABLE_SOFT_MEMORY_LIMIT: "true"
     TOTAL_USERS: "187500"
