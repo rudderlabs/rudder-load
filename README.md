@@ -90,7 +90,7 @@ K8S_NAMESPACE=my-ns make logs
 
 ### Build the load runner
 ```shell
-go build -o load-runner cmd/load-runner/main.go
+go build -o load-runner ./cmd/load-runner
 ```
 
 ### Run the load runner
