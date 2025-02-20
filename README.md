@@ -132,7 +132,7 @@ Run the load runner with the test config file.
 ### Load runner flags
 
 - `-d`: duration to run (e.g., 1h, 30m, 5s)
-- `-n`: Kubernetes namespace
+- `-n`: namespace where the load runner will be deployed
 - `-l`: values file prefix
 - `-f`: path to the chart files (e.g., artifacts/helm)
 - `-t`: path to the test config file
