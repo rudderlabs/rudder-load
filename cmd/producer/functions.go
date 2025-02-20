@@ -17,6 +17,7 @@ type message struct {
 	Payload    []byte
 	UserID     string
 	NoOfEvents int64
+	WriteKey   string
 }
 
 func getTemplates(templatesPath string) (map[string]*template.Template, error) {
@@ -245,6 +246,14 @@ func mustMap(s string) []int {
 	return r
 }
 
+func mustList(s string) []string {
+	v := strings.Split(os.Getenv(s), ",")
+	if len(v) < 1 {
+		panic(fmt.Errorf("invalid list: %s", s))
+	}
+	return v
+}
+
 func printErr(err error, retry ...bool) {
 	if len(retry) > 0 && retry[0] == true {
 		_, _ = fmt.Fprintf(os.Stdout, "error: %v (retrying...)\n\n", err)
@@ -262,3 +271,70 @@ func printLeakyErr(ch chan<- error, err error, retry ...bool) {
 	default:
 	}
 }
+
+// getSourcesConcentration creates a slice of functions that return source write keys based on the configured hot percentages
+func getSourcesConcentration(sources []string, hotSources []int) []func() string {
+	totalPercentage := 0
+	for _, percentage := range hotSources {
+		totalPercentage += percentage
+	}
+	if totalPercentage != 100 {
+		panic("hot sources percentages do not sum up to 100")
+	}
+	if len(sources) != len(hotSources) {
+		panic("sources and hot sources must have the same length")
+	}
+
+	var (
+		startID              = 0
+		sourcesConcentration = make([]func() string, 100)
+	)
+	for i, hotSourcePercentage := range hotSources {
+		source := sources[i]
+		f := func() string {
+			return source
+		}
+		for j := startID; j < hotSourcePercentage+startID; j++ {
+			sourcesConcentration[j] = f
+		}
+		startID += hotSourcePercentage
+	}
+
+	return sourcesConcentration
+}
+
+// optionalMap reads a comma-separated list of integers from an environment variable.
+// If the environment variable is empty, it creates an equally distributed list of
+// percentages based on the provided slice length. The percentages will sum up to 100.
+func optionalMap(s string, items []string) []int {
+	v := os.Getenv(s)
+	if v == "" {
+		// Calculate equal distribution
+		count := len(items)
+		if count == 0 {
+			panic(fmt.Errorf("cannot create distribution for empty slice"))
+		}
+
+		result := make([]int, count)
+		basePercentage := 100 / count
+		remainder := 100 % count
+
+		// Distribute base percentage to all items
+		for i := range result {
+			result[i] = basePercentage
+		}
+
+		// Distribute remaining percentage points one by one
+		// to the first 'remainder' items to reach exactly 100
+		for i := 0; i < remainder; i++ {
+			result[i]++
+		}
+
+		return result
+	}
+
+	// Parse provided percentages
+	return mustMap(s)
+}
+
+

@@ -80,13 +80,9 @@ func run(ctx context.Context) int {
 		hotBatchSizes         = mustMap("HOT_BATCH_SIZES")
 		maxEventsPerSecond    = mustInt("MAX_EVENTS_PER_SECOND")
 		templatesPath         = optionalString("TEMPLATES_PATH", "./templates/")
+		sourcesList           = mustList("SOURCES")
+		hotSourcesList        = optionalMap("HOT_SOURCES", sourcesList)
 	)
-
-	sourcesList := strings.Split(os.Getenv("SOURCES"), ",")
-	if len(sourcesList) < 1 {
-		printErr(fmt.Errorf("invalid number of sources [<1]: %d", len(sourcesList)))
-		return 1
-	}
 
 	if strings.Index(hostname, hostnameSep) != 0 {
 		printErr(fmt.Errorf("hostname should start with %s", hostnameSep))
@@ -179,8 +175,6 @@ func run(ctx context.Context) int {
 		return 1
 	}
 
-	writeKey := sourcesList[instanceNumber]
-
 	fmt.Printf("Hostname: %s\n", hostname)
 	fmt.Printf("CPUs: %d\n", runtime.GOMAXPROCS(-1))
 	fmt.Printf("Mode: %s\n", mode)
@@ -188,7 +182,6 @@ func run(ctx context.Context) int {
 	fmt.Printf("Message generators: %d\n", messageGenerators)
 	fmt.Printf("Use one client per slot: %v\n", useOneClientPerSlot)
 	fmt.Printf("Instance number: %d\n", instanceNumber)
-	fmt.Printf("WriteKey handled by this replica: %s\n", writeKey)
 	fmt.Printf("Total users: %d\n", totalUsers)
 	if enableSoftMemoryLimit {
 		fmt.Printf("Soft memory limit at 80%% of %s: %s\n", byteCount(uint64(softMemoryLimit)), byteCount(uint64(newMemoryLimit)))
@@ -201,8 +194,7 @@ func run(ctx context.Context) int {
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
 	constLabels := map[string]string{
-		"mode":        mode,     // publisher type: e.g. http, stdout, etc...
-		"write_key":   writeKey, // writeKey handled by this replica
+		"mode":        mode, // publisher type: e.g. http, stdout, etc...
 		"deployment":  deploymentName,
 		"concurrency": strconv.Itoa(concurrency),       // number of go routines publishing messages
 		"msg_gen":     strconv.Itoa(messageGenerators), // number of go routines generating messages for the "slots"
@@ -242,7 +234,6 @@ func run(ctx context.Context) int {
 
 	statsFactory, err := stats.NewFactory(reg, stats.Data{
 		Prefix:         metricsPrefix,
-		WriteKey:       writeKey,
 		DeploymentName: deploymentName,
 		Mode:           mode,
 		Concurrency:    concurrency,
@@ -406,7 +397,7 @@ func run(ctx context.Context) int {
 					}
 
 					n, err := client.PublishTo(ctx, msg.UserID, msg.Payload, map[string]string{
-						"auth":         writeKey,
+						"auth":         msg.WriteKey,
 						"anonymous_id": msg.UserID,
 					})
 					if ctx.Err() != nil {
@@ -447,6 +438,9 @@ func run(ctx context.Context) int {
 	fmt.Printf("Building batch sizes concentration...\n")
 	batchSizesConcentration := getBatchSizesConcentration(batchSizes, hotBatchSizes)
 
+	fmt.Printf("Building sources concentration...\n")
+	sourcesConcentration := getSourcesConcentration(sourcesList, hotSourcesList)
+
 	fmt.Printf("Publishing messages with %d generators...\n", messageGenerators)
 	startPublishingTime = time.Now()
 	group, gCtx := kitsync.NewEagerGroup(ctx, messageGenerators)
@@ -457,6 +451,7 @@ func run(ctx context.Context) int {
 				random := rand.Intn(100)
 				userID := userIDsConcentration[random]()
 				batchSize := batchSizesConcentration[random]
+				writeKey := sourcesConcentration[random]()
 				msg := eventTypesConcentration[random](userID, batchSize)
 				processedBytes.Add(int64(len(msg)))
 
@@ -468,6 +463,7 @@ func run(ctx context.Context) int {
 					Payload:    msg,
 					UserID:     userID,
 					NoOfEvents: int64(batchSize),
+					WriteKey:   writeKey,
 				}:
 					// Check if delta between now and start is less than 1ms then increment the counter
 					if time.Since(start) < time.Millisecond {
