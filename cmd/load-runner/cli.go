@@ -43,22 +43,6 @@ func (c *CLI) ParseFlags() (*CLIArgs, error) {
 
 	flag.Parse()
 
-	// if cli.testFile == "" {
-	// 	if cli.duration == "" || cli.namespace == "" || cli.loadName == "" {
-	// 		if cli.duration == "" {
-	// 			c.log.Error("Error: duration is required")
-	// 		}
-	// 		if cli.namespace == "" {
-	// 			c.log.Error("Error: namespace is required")
-	// 		}
-	// 		if cli.loadName == "" {
-	// 			c.log.Error("Error: load name is required")
-	// 		}
-
-	// 		flag.Usage()
-	// 		return nil, fmt.Errorf("invalid options")
-	// 	}
-	// }
 	if err := c.ValidateArgs(&cli); err != nil {
 		flag.Usage()
 		return nil, err
