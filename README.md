@@ -93,7 +93,19 @@ K8S_NAMESPACE=my-ns make logs
 go build -o load-runner cmd/load-runner/main.go
 ```
 
-### Create a test config file
+### Run the load runner
+
+```sh
+./load-runner -d <duration> -n <namespace> -l <values-file-prefix>
+
+# Example
+./load-runner -d 1m -n rudder-load -l http
+```
+
+
+### Run the load runner with a test config file
+
+Create a test config yaml file.
 
 ```yaml
 # artifacts/helm/<load-name>_values_copy.yaml will be used
@@ -108,7 +120,7 @@ phases:
     replicas: 1
 ```
 
-### Run the load runner
+Run the load runner with the test config file.
 
 ```shell
 ./load-runner -t <path-to-test-config-file>
@@ -119,5 +131,8 @@ phases:
 
 ### Load runner flags
 
-- `-t`: path to the test config file
+- `-d`: duration to run (e.g., 1h, 30m, 5s)
+- `-n`: Kubernetes namespace
+- `-l`: values file prefix
 - `-f`: path to the chart files (e.g., artifacts/helm)
+- `-t`: path to the test config file
