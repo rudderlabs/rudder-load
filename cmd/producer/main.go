@@ -131,6 +131,7 @@ func run(ctx context.Context) int {
 		printErr(fmt.Errorf("error parsing event types: %v", err))
 		return 1
 	}
+	registerCustomEventGenerators(parsedEventTypes)
 	if len(parsedEventTypes) != len(hotEventTypes) {
 		printErr(fmt.Errorf("event types and hot event types should have the same length: %+v - %+v", parsedEventTypes, hotEventTypes))
 		return 1

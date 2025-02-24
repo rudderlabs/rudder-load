@@ -45,6 +45,12 @@ owning a set of keys. This way we can guarantee in-order delivery of events per 
       Given `page,batch(10,0),batch(30,100)` and hot event types `60,25,15` we'll have 60% probability to get a `page`,
       25% probability to get a `batch(10,0)` and 15% probability to get a `batch(30,100)`.
 9. Batches sizes and hot batch sizes (they would work the same as hot event types but for the batch sizes)
+10. Custom event types: custom_purchase,custom_add_to_cart
+
+   a. the templates for these event types should be inside the `templates` folder
+
+   b. the event types should start with "custom"
+
 
 ## Adding more event types
 
