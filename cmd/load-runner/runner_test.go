@@ -119,7 +119,7 @@ func TestLoadTestRunner_Run(t *testing.T) {
 			mockHelmClient := new(MockHelmClient)
 			tc.setupMock(mockHelmClient)
 
-			runner := NewLoadTestRunner(tc.config, mockHelmClient, logger.NewLogger())
+			runner := NewLoadTestRunner(tc.config, mockHelmClient, logger.NOP)
 			err := runner.Run(context.Background())
 
 			if tc.expectedError != "" {
@@ -146,7 +146,7 @@ func TestLoadTestRunner_RunCancellation(t *testing.T) {
 	mockHelmClient.On("Install", mock.Anything, mock.Anything).Return(nil)
 	mockHelmClient.On("Uninstall", mock.Anything).Return(nil)
 
-	runner := NewLoadTestRunner(config, mockHelmClient, logger.NewLogger())
+	runner := NewLoadTestRunner(config, mockHelmClient, logger.NOP)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	errChan := make(chan error)

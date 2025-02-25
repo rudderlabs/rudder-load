@@ -95,7 +95,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 			// Set up test args
 			os.Args = tt.args
 
-			cli := NewCLI(logger.NewLogger())
+			cli := NewCLI(logger.NOP)
 			got, err := cli.ParseFlags()
 
 			if tt.wantErr {
@@ -156,7 +156,7 @@ func TestCLI_ValidateArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cli := NewCLI(logger.NewLogger())
+			cli := NewCLI(logger.NOP)
 			err := cli.ValidateArgs(tt.args)
 
 			if tt.wantErr {
