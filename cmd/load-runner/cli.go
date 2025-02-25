@@ -14,14 +14,6 @@ type CLI struct {
 	log logger.Logger
 }
 
-type CLIArgs struct {
-	duration       string
-	namespace      string
-	loadName       string
-	chartFilesPath string
-	testFile       string
-}
-
 func NewCLI(log logger.Logger) *CLI {
 	return &CLI{
 		log: log,
