@@ -9,6 +9,8 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"rudder-load/internal/parser"
 )
 
 // MockHelmClient implements HelmClient interface for testing
@@ -16,17 +18,17 @@ type MockHelmClient struct {
 	mock.Mock
 }
 
-func (m *MockHelmClient) Install(ctx context.Context, config *LoadTestConfig) error {
+func (m *MockHelmClient) Install(ctx context.Context, config *parser.LoadTestConfig) error {
 	args := m.Called(ctx, config)
 	return args.Error(0)
 }
 
-func (m *MockHelmClient) Uninstall(config *LoadTestConfig) error {
+func (m *MockHelmClient) Uninstall(config *parser.LoadTestConfig) error {
 	args := m.Called(config)
 	return args.Error(0)
 }
 
-func (m *MockHelmClient) Upgrade(ctx context.Context, config *LoadTestConfig, phase RunPhase) error {
+func (m *MockHelmClient) Upgrade(ctx context.Context, config *parser.LoadTestConfig, phase parser.RunPhase) error {
 	args := m.Called(ctx, config, phase)
 	return args.Error(0)
 }
@@ -34,15 +36,15 @@ func (m *MockHelmClient) Upgrade(ctx context.Context, config *LoadTestConfig, ph
 func TestLoadTestRunner_Run(t *testing.T) {
 	testCases := []struct {
 		name          string
-		config        *LoadTestConfig
+		config        *parser.LoadTestConfig
 		setupMock     func(*MockHelmClient)
 		expectedError string
 	}{
 		{
 			name: "successful run with multiple phases",
-			config: &LoadTestConfig{
+			config: &parser.LoadTestConfig{
 				Name: "test-scenario",
-				Phases: []RunPhase{
+				Phases: []parser.RunPhase{
 					{Duration: "100ms"},
 					{Duration: "100ms"},
 				},
@@ -54,10 +56,10 @@ func TestLoadTestRunner_Run(t *testing.T) {
 		},
 		{
 			name: "successful run with file config",
-			config: &LoadTestConfig{
+			config: &parser.LoadTestConfig{
 				Name:     "test-scenario",
 				FromFile: true,
-				Phases: []RunPhase{
+				Phases: []parser.RunPhase{
 					{Duration: "100ms"},
 				},
 			},
@@ -69,9 +71,9 @@ func TestLoadTestRunner_Run(t *testing.T) {
 		},
 		{
 			name: "install failure",
-			config: &LoadTestConfig{
+			config: &parser.LoadTestConfig{
 				Name: "test-scenario",
-				Phases: []RunPhase{
+				Phases: []parser.RunPhase{
 					{Duration: "100ms"},
 				},
 			},
@@ -82,10 +84,10 @@ func TestLoadTestRunner_Run(t *testing.T) {
 		},
 		{
 			name: "upgrade failure",
-			config: &LoadTestConfig{
+			config: &parser.LoadTestConfig{
 				Name:     "test-scenario",
 				FromFile: true,
-				Phases: []RunPhase{
+				Phases: []parser.RunPhase{
 					{Duration: "100ms"},
 				},
 			},
@@ -98,9 +100,9 @@ func TestLoadTestRunner_Run(t *testing.T) {
 		},
 		{
 			name: "invalid duration",
-			config: &LoadTestConfig{
+			config: &parser.LoadTestConfig{
 				Name: "test-scenario",
-				Phases: []RunPhase{
+				Phases: []parser.RunPhase{
 					{Duration: "invalid"},
 				},
 			},
@@ -133,9 +135,9 @@ func TestLoadTestRunner_Run(t *testing.T) {
 }
 
 func TestLoadTestRunner_RunCancellation(t *testing.T) {
-	config := &LoadTestConfig{
+	config := &parser.LoadTestConfig{
 		Name: "test-scenario",
-		Phases: []RunPhase{
+		Phases: []parser.RunPhase{
 			{Duration: "1h"}, // Long duration to ensure we can cancel
 		},
 	}

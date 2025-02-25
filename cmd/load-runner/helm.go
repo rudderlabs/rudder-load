@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+
+	"rudder-load/internal/parser"
 )
 
 type HelmClient interface {
-	Install(ctx context.Context, config *LoadTestConfig) error
-	Upgrade(ctx context.Context, config *LoadTestConfig, phase RunPhase) error
-	Uninstall(config *LoadTestConfig) error
+	Install(ctx context.Context, config *parser.LoadTestConfig) error
+	Upgrade(ctx context.Context, config *parser.LoadTestConfig, phase parser.RunPhase) error
+	Uninstall(config *parser.LoadTestConfig) error
 }
 
 type helmClient struct {
@@ -19,7 +21,7 @@ func NewHelmClient(executor CommandExecutor) *helmClient {
 	return &helmClient{executor: executor}
 }
 
-func (h *helmClient) Install(ctx context.Context, config *LoadTestConfig) error {
+func (h *helmClient) Install(ctx context.Context, config *parser.LoadTestConfig) error {
 	args := []string{
 		"install",
 		config.ReleaseName,
@@ -32,7 +34,7 @@ func (h *helmClient) Install(ctx context.Context, config *LoadTestConfig) error 
 	return h.executor.run(ctx, "helm", args...)
 }
 
-func (h *helmClient) Upgrade(ctx context.Context, config *LoadTestConfig, phase RunPhase) error {
+func (h *helmClient) Upgrade(ctx context.Context, config *parser.LoadTestConfig, phase parser.RunPhase) error {
 	args := []string{
 		"upgrade",
 		config.ReleaseName,
@@ -46,7 +48,7 @@ func (h *helmClient) Upgrade(ctx context.Context, config *LoadTestConfig, phase 
 	return h.executor.run(ctx, "helm", args...)
 }
 
-func (h *helmClient) Uninstall(config *LoadTestConfig) error {
+func (h *helmClient) Uninstall(config *parser.LoadTestConfig) error {
 	args := []string{
 		"uninstall",
 		config.ReleaseName,

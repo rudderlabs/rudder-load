@@ -7,15 +7,17 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
+
+	"rudder-load/internal/parser"
 )
 
 type LoadTestRunner struct {
-	config     *LoadTestConfig
+	config     *parser.LoadTestConfig
 	helmClient HelmClient
 	logger     logger.Logger
 }
 
-func NewLoadTestRunner(config *LoadTestConfig, helmClient HelmClient, logger logger.Logger) *LoadTestRunner {
+func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient HelmClient, logger logger.Logger) *LoadTestRunner {
 	return &LoadTestRunner{config: config, helmClient: helmClient, logger: logger}
 }
 

@@ -7,6 +7,8 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/stretchr/testify/assert"
+
+	"rudder-load/internal/parser"
 )
 
 func TestCLI_ParseFlags(t *testing.T) {
@@ -17,7 +19,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 	tests := []struct {
 		name        string
 		args        []string
-		want        *CLIArgs
+		want        *parser.CLIArgs
 		wantErr     bool
 		errContains string
 	}{
@@ -30,12 +32,12 @@ func TestCLI_ParseFlags(t *testing.T) {
 				"-l", "test-load",
 				"-f", "path/to/chart",
 			},
-			want: &CLIArgs{
-				duration:       "1h",
-				namespace:      "test-namespace",
-				loadName:       "test-load",
-				chartFilesPath: "path/to/chart",
-				testFile:       "",
+			want: &parser.CLIArgs{
+				Duration:       "1h",
+				Namespace:      "test-namespace",
+				LoadName:       "test-load",
+				ChartFilesPath: "path/to/chart",
+				TestFile:       "",
 			},
 			wantErr: false,
 		},
@@ -45,8 +47,8 @@ func TestCLI_ParseFlags(t *testing.T) {
 				"cmd",
 				"-t", "tests/test.yaml",
 			},
-			want: &CLIArgs{
-				testFile: "tests/test.yaml",
+			want: &parser.CLIArgs{
+				TestFile: "tests/test.yaml",
 			},
 			wantErr: false,
 		},
@@ -113,40 +115,40 @@ func TestCLI_ParseFlags(t *testing.T) {
 func TestCLI_ValidateArgs(t *testing.T) {
 	tests := []struct {
 		name        string
-		args        *CLIArgs
+		args        *parser.CLIArgs
 		wantErr     bool
 		errContains string
 	}{
 		{
 			name: "valid direct args",
-			args: &CLIArgs{
-				duration:       "1h",
-				namespace:      "test-namespace",
-				loadName:       "test-load",
-				chartFilesPath: "path/to/chart",
+			args: &parser.CLIArgs{
+				Duration:       "1h",
+				Namespace:      "test-namespace",
+				LoadName:       "test-load",
+				ChartFilesPath: "path/to/chart",
 			},
 			wantErr: false,
 		},
 		{
 			name: "valid test file",
-			args: &CLIArgs{
-				testFile: "tests/test.yaml",
+			args: &parser.CLIArgs{
+				TestFile: "tests/test.yaml",
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing duration",
-			args: &CLIArgs{
-				namespace:      "test-namespace",
-				loadName:       "test-load",
-				chartFilesPath: "path/to/chart",
+			args: &parser.CLIArgs{
+				Namespace:      "test-namespace",
+				LoadName:       "test-load",
+				ChartFilesPath: "path/to/chart",
 			},
 			wantErr:     true,
 			errContains: "invalid options",
 		},
 		{
 			name:        "missing all required fields",
-			args:        &CLIArgs{},
+			args:        &parser.CLIArgs{},
 			wantErr:     true,
 			errContains: "invalid options",
 		},

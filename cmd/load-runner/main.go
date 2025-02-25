@@ -8,6 +8,9 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
+
+	"rudder-load/internal/parser"
+	"rudder-load/internal/validator"
 )
 
 func main() {
@@ -30,12 +33,12 @@ func run(ctx context.Context, log logger.Logger) error {
 		return fmt.Errorf("invalid options: %w", err)
 	}
 
-	cfg, err := ParseLoadTestConfig(args)
+	cfg, err := parser.ParseLoadTestConfig(args)
 	if err != nil {
 		return fmt.Errorf("failed to load test config: %w", err)
 	}
 
-	if err := cfg.Validate(); err != nil {
+	if err := validator.ValidateLoadTestConfig(cfg); err != nil {
 		return fmt.Errorf("invalid inputs: %w", err)
 	}
 

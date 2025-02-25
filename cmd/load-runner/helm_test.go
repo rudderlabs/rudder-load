@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"rudder-load/internal/parser"
 )
 
 // MockExecutor implements CommandExecutor interface for testing
@@ -25,7 +27,7 @@ func TestHelmClient_Install(t *testing.T) {
 	helmClient := NewHelmClient(mockExecutor)
 	ctx := context.Background()
 
-	config := &LoadTestConfig{
+	config := &parser.LoadTestConfig{
 		Name:          "test-load",
 		ReleaseName:   "test-release",
 		Namespace:     "test-ns",
@@ -59,14 +61,14 @@ func TestHelmClient_Upgrade(t *testing.T) {
 	helmClient := NewHelmClient(mockExecutor)
 	ctx := context.Background()
 
-	config := &LoadTestConfig{
+	config := &parser.LoadTestConfig{
 		Name:          "test-load",
 		ReleaseName:   "test-release",
 		Namespace:     "test-ns",
 		ChartFilePath: "/path/to/chart",
 	}
 
-	phase := RunPhase{
+	phase := parser.RunPhase{
 		Replicas: 5,
 	}
 
@@ -97,7 +99,7 @@ func TestHelmClient_Uninstall(t *testing.T) {
 	mockExecutor := new(MockExecutor)
 	helmClient := NewHelmClient(mockExecutor)
 
-	config := &LoadTestConfig{
+	config := &parser.LoadTestConfig{
 		ReleaseName: "test-release",
 		Namespace:   "test-ns",
 	}
@@ -125,7 +127,7 @@ func TestHelmClient_Install_Error(t *testing.T) {
 	helmClient := NewHelmClient(mockExecutor)
 	ctx := context.Background()
 
-	config := &LoadTestConfig{
+	config := &parser.LoadTestConfig{
 		Name:          "test-load",
 		ReleaseName:   "test-release",
 		Namespace:     "test-ns",
