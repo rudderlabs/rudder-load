@@ -34,11 +34,11 @@ func (c *CLI) ParseFlags() (*CLIArgs, error) {
 	flag.StringVar(&cli.chartFilesPath, "f", "", "Path to the chart files (e.g., artifacts/helm)")
 	flag.StringVar(&cli.testFile, "t", "", "Path to the test file (e.g., tests/spike.test.yaml)")
 	flag.Usage = func() {
-		c.log.Infof("Usage: %s [options]", os.Args[0])
-		c.log.Info("Options:")
+		c.log.Infon(fmt.Sprintf("Usage: %s [options]", os.Args[0]))
+		c.log.Infon("Options:")
 		flag.PrintDefaults()
-		c.log.Info("Examples:")
-		c.log.Infof("  %s -t tests/spike.test.yaml    # Runs spike test", os.Args[0])
+		c.log.Infon("Examples:")
+		c.log.Infon(fmt.Sprintf("  %s -t tests/spike.test.yaml    # Runs spike test", os.Args[0]))
 	}
 
 	flag.Parse()
@@ -55,13 +55,13 @@ func (c *CLI) ValidateArgs(cli *CLIArgs) error {
 	if cli.testFile == "" {
 		if cli.duration == "" || cli.namespace == "" || cli.loadName == "" {
 			if cli.duration == "" {
-				c.log.Error("Error: duration is required")
+				c.log.Errorn("Error: duration is required")
 			}
 			if cli.namespace == "" {
-				c.log.Error("Error: namespace is required")
+				c.log.Errorn("Error: namespace is required")
 			}
 			if cli.loadName == "" {
-				c.log.Error("Error: load name is required")
+				c.log.Errorn("Error: load name is required")
 			}
 			return fmt.Errorf("invalid options")
 		}

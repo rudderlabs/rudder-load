@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
 
 type LoadTestRunner struct {
@@ -19,21 +20,21 @@ func NewLoadTestRunner(config *LoadTestConfig, helmClient HelmClient, logger log
 }
 
 func (r *LoadTestRunner) Run(ctx context.Context) error {
-	r.logger.Infof("Installing Helm chart for load scenario: %s", r.config.Name)
+	r.logger.Infon("Installing Helm chart for load scenario", logger.NewStringField("load_scenario", r.config.Name))
 	if err := r.helmClient.Install(ctx, r.config); err != nil {
 		return err
 	}
 
 	defer func() {
-		r.logger.Info("Uninstalling Helm chart for the load scenario...")
+		r.logger.Infon("Uninstalling Helm chart for the load scenario...")
 		if err := r.helmClient.Uninstall(r.config); err != nil {
-			r.logger.Errorf("Failed to uninstall Helm chart: %s", err)
+			r.logger.Errorn("Failed to uninstall Helm chart: %s", obskit.Error(err))
 		}
-		r.logger.Info("Done!")
+		r.logger.Infon("Done!")
 	}()
 
 	for i, phase := range r.config.Phases {
-		r.logger.Infof("Running phase %d for %s", i+1, phase.Duration)
+		r.logger.Infon("Running phase", logger.NewIntField("phase", int64(i+1)), logger.NewStringField("duration", phase.Duration))
 
 		if r.config.FromFile {
 			if err := r.helmClient.Upgrade(ctx, r.config, phase); err != nil {
@@ -48,7 +49,7 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 
 		select {
 		case <-time.After(duration):
-			r.logger.Infof("Phase %d completed for %s", i+1, phase.Duration)
+			r.logger.Infon("Phase completed", logger.NewIntField("phase", int64(i+1)), logger.NewStringField("duration", phase.Duration))
 		case <-ctx.Done():
 			return fmt.Errorf("operation cancelled by user")
 		}

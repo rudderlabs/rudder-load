@@ -11,15 +11,15 @@ type HelmClient interface {
 	Uninstall(config *LoadTestConfig) error
 }
 
-type DefaultHelmClient struct {
+type helmClient struct {
 	executor CommandExecutor
 }
 
-func NewHelmClient(executor CommandExecutor) *DefaultHelmClient {
-	return &DefaultHelmClient{executor: executor}
+func NewHelmClient(executor CommandExecutor) *helmClient {
+	return &helmClient{executor: executor}
 }
 
-func (h *DefaultHelmClient) Install(ctx context.Context, config *LoadTestConfig) error {
+func (h *helmClient) Install(ctx context.Context, config *LoadTestConfig) error {
 	args := []string{
 		"install",
 		config.ReleaseName,
@@ -32,7 +32,7 @@ func (h *DefaultHelmClient) Install(ctx context.Context, config *LoadTestConfig)
 	return h.executor.run(ctx, "helm", args...)
 }
 
-func (h *DefaultHelmClient) Upgrade(ctx context.Context, config *LoadTestConfig, phase RunPhase) error {
+func (h *helmClient) Upgrade(ctx context.Context, config *LoadTestConfig, phase RunPhase) error {
 	args := []string{
 		"upgrade",
 		config.ReleaseName,
@@ -46,7 +46,7 @@ func (h *DefaultHelmClient) Upgrade(ctx context.Context, config *LoadTestConfig,
 	return h.executor.run(ctx, "helm", args...)
 }
 
-func (h *DefaultHelmClient) Uninstall(config *LoadTestConfig) error {
+func (h *helmClient) Uninstall(config *LoadTestConfig) error {
 	args := []string{
 		"uninstall",
 		config.ReleaseName,

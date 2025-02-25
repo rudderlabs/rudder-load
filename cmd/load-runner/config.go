@@ -60,8 +60,9 @@ func (c *LoadTestConfig) Validate() error {
 		return fmt.Errorf("load name must contain only alphanumeric characters and '-'")
 	}
 
+	durationRegex := regexp.MustCompile(`^(\d+[hms])+$`)
 	for _, phase := range c.Phases {
-		if !regexp.MustCompile(`^(\d+[hms])+$`).MatchString(phase.Duration) {
+		if !durationRegex.MatchString(phase.Duration) {
 			return fmt.Errorf("duration must include 'h', 'm', or 's' (e.g., '1h30m')")
 		}
 		if phase.Replicas <= 0 {

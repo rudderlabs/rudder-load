@@ -7,6 +7,7 @@ import (
 	"os/signal"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
 
 func main() {
@@ -16,7 +17,7 @@ func main() {
 	log := logger.NewLogger()
 
 	if err := run(ctx, log); err != nil {
-		log.Errorf("Error running load test: %v", err)
+		log.Errorn("Error running load test", obskit.Error(err))
 		os.Exit(1)
 	}
 }
@@ -40,7 +41,7 @@ func run(ctx context.Context, log logger.Logger) error {
 
 	cfg.SetDefaults()
 
-	helmClient := NewHelmClient(&DefaultCommandExecutor{})
+	helmClient := NewHelmClient(&commandExecutor{})
 	runner := NewLoadTestRunner(cfg, helmClient, log)
 
 	if err := runner.Run(ctx); err != nil {
