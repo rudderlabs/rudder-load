@@ -138,3 +138,36 @@ func getEventTypesConcentration(
 
 	return eventsConcentration
 }
+
+func registerCustomEventGenerators(eventTypes []eventType) {
+	for _, eventType := range eventTypes {
+		// check if the event type start with "custom"
+		if !strings.HasPrefix(eventType.Type, "custom") {
+			continue
+		}
+
+		// check if the event type is already registered
+		if _, ok := eventGenerators[eventType.Type]; ok {
+			continue
+		}
+
+		eventGenerators[eventType.Type] = createCustomEventGenerator(eventType.Type)
+	}
+}
+
+func createCustomEventGenerator(eventType string) eventGenerator {
+	return func(t *template.Template, userID, loadRunID string, n int, _ []int) []byte {
+		var buf bytes.Buffer
+		err := t.Execute(&buf, map[string]any{
+			"NoOfEvents": n,
+			"UserID":     userID,
+			"Event":      eventType,
+			"Timestamp":  time.Now().Format(time.RFC3339),
+			"LoadRunID":  loadRunID,
+		})
+		if err != nil {
+			panic(fmt.Errorf("cannot execute custom '%s' template: %w", eventType, err))
+		}
+		return buf.Bytes()
+	}
+}
