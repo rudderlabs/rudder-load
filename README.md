@@ -95,20 +95,49 @@ K8S_NAMESPACE=my-ns make logs
 
 ### Build the load runner
 ```shell
-go build -o load-runner cmd/load-runner/main.go
+go build -o load-runner ./cmd/load-runner
 ```
 
 ### Run the load runner
-```shell
+
+```sh
 ./load-runner -d <duration> -n <namespace> -l <values-file-prefix>
 
 # Example
 ./load-runner -d 1m -n rudder-load -l http
 ```
 
+
+### Run the load runner with a test config file
+
+Create a test config yaml file.
+
+```yaml
+# artifacts/helm/<load-name>_values_copy.yaml will be used
+name: <load-name>
+namespace: <namespace>
+phases:
+  - duration: 30s
+    replicas: 1
+  - duration: 30s
+    replicas: 2
+  - duration: 30s
+    replicas: 1
+```
+
+Run the load runner with the test config file.
+
+```shell
+./load-runner -t <path-to-test-config-file>
+
+# Example
+./load-runner -t tests/spike.test.yaml
+```
+
 ### Load runner flags
 
-- `-d`: duration of the load (e.g., 1h, 30m, 5s)
+- `-d`: duration to run (e.g., 1h, 30m, 5s)
 - `-n`: namespace where the load runner will be deployed
 - `-l`: values file prefix
 - `-f`: path to the chart files (e.g., artifacts/helm)
+- `-t`: path to the test config file
