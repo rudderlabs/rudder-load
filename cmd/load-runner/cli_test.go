@@ -38,6 +38,7 @@ func TestCLI_ParseFlags(t *testing.T) {
 				LoadName:       "test-load",
 				ChartFilesPath: "path/to/chart",
 				TestFile:       "",
+				EnvVars:        map[string]string{},
 			},
 			wantErr: false,
 		},
@@ -49,8 +50,61 @@ func TestCLI_ParseFlags(t *testing.T) {
 			},
 			want: &parser.CLIArgs{
 				TestFile: "tests/test.yaml",
+				EnvVars:  map[string]string{},
 			},
 			wantErr: false,
+		},
+		{
+			name: "with environment variables",
+			args: []string{
+				"cmd",
+				"-d", "1h",
+				"-n", "test-namespace",
+				"-l", "test-load",
+				"-e", "MESSAGE_GENERATORS=200",
+				"-e", "MAX_EVENTS_PER_SECOND=15000",
+			},
+			want: &parser.CLIArgs{
+				Duration:  "1h",
+				Namespace: "test-namespace",
+				LoadName:  "test-load",
+				TestFile:  "",
+				EnvVars: map[string]string{
+					"MESSAGE_GENERATORS":    "200",
+					"MAX_EVENTS_PER_SECOND": "15000",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "test file with environment variables",
+			args: []string{
+				"cmd",
+				"-t", "tests/test.yaml",
+				"-e", "MESSAGE_GENERATORS=300",
+				"-e", "CONCURRENCY=500",
+			},
+			want: &parser.CLIArgs{
+				TestFile: "tests/test.yaml",
+				EnvVars: map[string]string{
+					"MESSAGE_GENERATORS": "300",
+					"CONCURRENCY":        "500",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid environment variable format",
+			args: []string{
+				"cmd",
+				"-d", "1h",
+				"-n", "test-namespace",
+				"-l", "test-load",
+				"-e", "INVALID_FORMAT",
+			},
+			want:        nil,
+			wantErr:     true,
+			errContains: "invalid environment variable format",
 		},
 		{
 			name: "missing required args without test file",
@@ -133,6 +187,18 @@ func TestCLI_ValidateArgs(t *testing.T) {
 			name: "valid test file",
 			args: &parser.CLIArgs{
 				TestFile: "tests/test.yaml",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid with environment variables",
+			args: &parser.CLIArgs{
+				Duration:  "1h",
+				Namespace: "test-namespace",
+				LoadName:  "test-load",
+				EnvVars: map[string]string{
+					"MESSAGE_GENERATORS": "200",
+				},
 			},
 			wantErr: false,
 		},

@@ -14,11 +14,17 @@ func TestParseLoadTestConfig(t *testing.T) {
 name: test-load
 namespace: test-ns
 chartFilePath: /test/path
+env:
+  MESSAGE_GENERATORS: "200"
+  MAX_EVENTS_PER_SECOND: "15000"
 phases:
   - duration: 1h30m
     replicas: 2
   - duration: 45m
     replicas: 5
+    env:
+      MESSAGE_GENERATORS: "300"
+      CONCURRENCY: "500"
 `
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test-config.yaml")
@@ -40,9 +46,20 @@ phases:
 				Name:          "test-load",
 				Namespace:     "test-ns",
 				ChartFilePath: "/test/path",
+				EnvOverrides: map[string]string{
+					"MESSAGE_GENERATORS":    "200",
+					"MAX_EVENTS_PER_SECOND": "15000",
+				},
 				Phases: []RunPhase{
 					{Duration: "1h30m", Replicas: 2},
-					{Duration: "45m", Replicas: 5},
+					{
+						Duration: "45m",
+						Replicas: 5,
+						EnvOverrides: map[string]string{
+							"MESSAGE_GENERATORS": "300",
+							"CONCURRENCY":        "500",
+						},
+					},
 				},
 				FromFile: true,
 			},
@@ -64,6 +81,66 @@ phases:
 					{Duration: "2h", Replicas: 1},
 				},
 				FromFile: false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "from cli args with env vars",
+			args: &CLIArgs{
+				LoadName:       "cli-load",
+				Namespace:      "cli-ns",
+				ChartFilesPath: "/cli/path",
+				Duration:       "2h",
+				EnvVars: map[string]string{
+					"MESSAGE_GENERATORS":    "300",
+					"MAX_EVENTS_PER_SECOND": "20000",
+				},
+			},
+			want: &LoadTestConfig{
+				Name:          "cli-load",
+				Namespace:     "cli-ns",
+				ChartFilePath: "/cli/path",
+				Phases: []RunPhase{
+					{Duration: "2h", Replicas: 1},
+				},
+				EnvOverrides: map[string]string{
+					"MESSAGE_GENERATORS":    "300",
+					"MAX_EVENTS_PER_SECOND": "20000",
+				},
+				FromFile: false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "from file with cli env vars override",
+			args: &CLIArgs{
+				TestFile: tmpFile,
+				EnvVars: map[string]string{
+					"MESSAGE_GENERATORS": "400",
+					"NEW_VAR":            "value",
+				},
+			},
+			want: &LoadTestConfig{
+				Name:          "test-load",
+				Namespace:     "test-ns",
+				ChartFilePath: "/test/path",
+				EnvOverrides: map[string]string{
+					"MESSAGE_GENERATORS":    "400",   // CLI value overrides file value
+					"MAX_EVENTS_PER_SECOND": "15000", // Kept from file
+					"NEW_VAR":               "value", // Added from CLI
+				},
+				Phases: []RunPhase{
+					{Duration: "1h30m", Replicas: 2},
+					{
+						Duration: "45m",
+						Replicas: 5,
+						EnvOverrides: map[string]string{
+							"MESSAGE_GENERATORS": "300",
+							"CONCURRENCY":        "500",
+						},
+					},
+				},
+				FromFile: true,
 			},
 			wantErr: false,
 		},
@@ -111,6 +188,25 @@ func TestLoadTestConfig_SetDefaults(t *testing.T) {
 				ReleaseName:   "rudder-load-test-load",
 			},
 		},
+		{
+			name: "valid config with env overrides",
+			config: &LoadTestConfig{
+				Name: "test-load",
+				EnvOverrides: map[string]string{
+					"MESSAGE_GENERATORS":    "200",
+					"MAX_EVENTS_PER_SECOND": "15000",
+				},
+			},
+			want: &LoadTestConfig{
+				Name:          "test-load",
+				ReleaseName:   "rudder-load-test-load",
+				ChartFilePath: "./artifacts/helm",
+				EnvOverrides: map[string]string{
+					"MESSAGE_GENERATORS":    "200",
+					"MAX_EVENTS_PER_SECOND": "15000",
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -118,6 +214,9 @@ func TestLoadTestConfig_SetDefaults(t *testing.T) {
 			tt.config.SetDefaults()
 			require.Equal(t, tt.want.ReleaseName, tt.config.ReleaseName)
 			require.Equal(t, tt.want.ChartFilePath, tt.config.ChartFilePath)
+			if tt.want.EnvOverrides != nil {
+				require.Equal(t, tt.want.EnvOverrides, tt.config.EnvOverrides)
+			}
 		})
 	}
 }

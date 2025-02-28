@@ -55,6 +55,46 @@ func TestHelmClient_Install(t *testing.T) {
 	mockExecutor.AssertExpectations(t)
 }
 
+func TestHelmClient_Install_WithEnvOverrides(t *testing.T) {
+	// Setup
+	mockExecutor := new(MockExecutor)
+	helmClient := NewHelmClient(mockExecutor)
+	ctx := context.Background()
+
+	config := &parser.LoadTestConfig{
+		Name:          "test-load",
+		ReleaseName:   "test-release",
+		Namespace:     "test-ns",
+		ChartFilePath: "/path/to/chart",
+		EnvOverrides: map[string]string{
+			"MESSAGE_GENERATORS":    "200",
+			"MAX_EVENTS_PER_SECOND": "15000",
+		},
+	}
+
+	expectedArgs := []string{
+		"install",
+		"test-release",
+		"/path/to/chart",
+		"--namespace", "test-ns",
+		"--set", "namespace=test-ns",
+		"--set", "deployment.name=test-release",
+		"--values", "/path/to/chart/test-load_values_copy.yaml",
+		"--set", "deployment.env.MESSAGE_GENERATORS=200",
+		"--set", "deployment.env.MAX_EVENTS_PER_SECOND=15000",
+	}
+
+	// Expectations
+	mockExecutor.On("run", ctx, "helm", expectedArgs).Return(nil)
+
+	// Execute
+	err := helmClient.Install(ctx, config)
+
+	// Assert
+	assert.NoError(t, err)
+	mockExecutor.AssertExpectations(t)
+}
+
 func TestHelmClient_Upgrade(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
@@ -81,6 +121,102 @@ func TestHelmClient_Upgrade(t *testing.T) {
 		"--set", "deployment.replicas=5",
 		"--set", "deployment.name=test-release",
 		"--values", "/path/to/chart/test-load_values_copy.yaml",
+	}
+
+	// Expectations
+	mockExecutor.On("run", ctx, "helm", expectedArgs).Return(nil)
+
+	// Execute
+	err := helmClient.Upgrade(ctx, config, phase)
+
+	// Assert
+	assert.NoError(t, err)
+	mockExecutor.AssertExpectations(t)
+}
+
+func TestHelmClient_Upgrade_WithGlobalEnvOverrides(t *testing.T) {
+	// Setup
+	mockExecutor := new(MockExecutor)
+	helmClient := NewHelmClient(mockExecutor)
+	ctx := context.Background()
+
+	config := &parser.LoadTestConfig{
+		Name:          "test-load",
+		ReleaseName:   "test-release",
+		Namespace:     "test-ns",
+		ChartFilePath: "/path/to/chart",
+		EnvOverrides: map[string]string{
+			"MESSAGE_GENERATORS":    "200",
+			"MAX_EVENTS_PER_SECOND": "15000",
+		},
+	}
+
+	phase := parser.RunPhase{
+		Replicas: 5,
+	}
+
+	expectedArgs := []string{
+		"upgrade",
+		"test-release",
+		"/path/to/chart",
+		"--namespace", "test-ns",
+		"--set", "namespace=test-ns",
+		"--set", "deployment.replicas=5",
+		"--set", "deployment.name=test-release",
+		"--values", "/path/to/chart/test-load_values_copy.yaml",
+		"--set", "deployment.env.MESSAGE_GENERATORS=200",
+		"--set", "deployment.env.MAX_EVENTS_PER_SECOND=15000",
+	}
+
+	// Expectations
+	mockExecutor.On("run", ctx, "helm", expectedArgs).Return(nil)
+
+	// Execute
+	err := helmClient.Upgrade(ctx, config, phase)
+
+	// Assert
+	assert.NoError(t, err)
+	mockExecutor.AssertExpectations(t)
+}
+
+func TestHelmClient_Upgrade_WithPhaseEnvOverrides(t *testing.T) {
+	// Setup
+	mockExecutor := new(MockExecutor)
+	helmClient := NewHelmClient(mockExecutor)
+	ctx := context.Background()
+
+	config := &parser.LoadTestConfig{
+		Name:          "test-load",
+		ReleaseName:   "test-release",
+		Namespace:     "test-ns",
+		ChartFilePath: "/path/to/chart",
+		EnvOverrides: map[string]string{
+			"MESSAGE_GENERATORS":    "200",
+			"MAX_EVENTS_PER_SECOND": "15000",
+		},
+	}
+
+	phase := parser.RunPhase{
+		Replicas: 5,
+		EnvOverrides: map[string]string{
+			"MESSAGE_GENERATORS": "300",
+			"CONCURRENCY":        "500",
+		},
+	}
+
+	expectedArgs := []string{
+		"upgrade",
+		"test-release",
+		"/path/to/chart",
+		"--namespace", "test-ns",
+		"--set", "namespace=test-ns",
+		"--set", "deployment.replicas=5",
+		"--set", "deployment.name=test-release",
+		"--values", "/path/to/chart/test-load_values_copy.yaml",
+		"--set", "deployment.env.MESSAGE_GENERATORS=200",
+		"--set", "deployment.env.MAX_EVENTS_PER_SECOND=15000",
+		"--set", "deployment.env.MESSAGE_GENERATORS=300",
+		"--set", "deployment.env.CONCURRENCY=500",
 	}
 
 	// Expectations
