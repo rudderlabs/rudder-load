@@ -101,7 +101,7 @@ go build -o load-runner ./cmd/load-runner
 ### Run the load runner
 
 ```sh
-./load-runner -d <duration> -n <namespace> -l <values-file-prefix>
+./load-runner -d <duration> -n <namespace> -l <values-file-prefix> -e CONCURRENCY=500
 
 # Example
 ./load-runner -d 1m -n rudder-load -l http
@@ -116,11 +116,17 @@ Create a test config yaml file.
 # artifacts/helm/<load-name>_values_copy.yaml will be used
 name: <load-name>
 namespace: <namespace>
+env:
+  MESSAGE_GENERATORS: "200"
+  MAX_EVENTS_PER_SECOND: "20000"
 phases:
   - duration: 30s
     replicas: 1
   - duration: 30s
     replicas: 2
+    env:
+      MESSAGE_GENERATORS: "300"
+      CONCURRENCY: "600"
   - duration: 30s
     replicas: 1
 ```
@@ -141,3 +147,4 @@ Run the load runner with the test config file.
 - `-l`: values file prefix
 - `-f`: path to the chart files (e.g., artifacts/helm)
 - `-t`: path to the test config file
+- `-e`: environment variables in KEY=VALUE format (can be used multiple times)
