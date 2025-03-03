@@ -73,7 +73,7 @@ var (
 		return buf.Bytes()
 	}
 
-	eventTypesRegexp = regexp.MustCompile(`(\w+)(\(([\d,]+)\))?`)
+	eventTypesRegexp = regexp.MustCompile(`([\w-]+)(\(([\d,]+)\))?`)
 )
 
 type eventType struct {

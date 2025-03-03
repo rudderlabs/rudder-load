@@ -260,6 +260,15 @@ func TestParseEventTypes(t *testing.T) {
 		require.Equal(t, "batch", events[1].Type)
 		require.Equal(t, []int{1, 2, 3}, events[1].Values)
 	})
+	t.Run("hyphenated event types", func(t *testing.T) {
+		events, err := parseEventTypes("custom-track,track,page,identify")
+		require.NoError(t, err)
+		require.Len(t, events, 4)
+		require.Equal(t, "custom-track", events[0].Type)
+		require.Equal(t, "track", events[1].Type)
+		require.Equal(t, "page", events[2].Type)
+		require.Equal(t, "identify", events[3].Type)
+	})
 }
 
 func TestGetUserIDs(t *testing.T) {
