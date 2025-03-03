@@ -1,8 +1,9 @@
 package envvar
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestEnvVarFlag_Set(t *testing.T) {
@@ -37,14 +38,12 @@ func TestEnvVarFlag_Set(t *testing.T) {
 			e := NewEnvVarFlag()
 			err := e.Set(tt.input)
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("EnvVarFlag.Set() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
 
-			if !tt.wantErr && !reflect.DeepEqual(e.Values, tt.want) {
-				t.Errorf("EnvVarFlag.Set() = %v, want %v", e.Values, tt.want)
-			}
+			require.Equal(t, e.Values, tt.want)
 		})
 	}
 }
@@ -57,9 +56,7 @@ func TestEnvVarFlag_String(t *testing.T) {
 	result := e.String()
 	expected := "map[KEY1:value1 KEY2:value2]"
 
-	if result != expected {
-		t.Errorf("EnvVarFlag.String() = %v, want %v", result, expected)
-	}
+	require.Equal(t, result, expected)
 }
 
 func TestEnvVarFlag_GetValues(t *testing.T) {
@@ -70,7 +67,5 @@ func TestEnvVarFlag_GetValues(t *testing.T) {
 	result := e.GetValues()
 	expected := map[string]string{"KEY1": "value1", "KEY2": "value2"}
 
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("EnvVarFlag.GetValues() = %v, want %v", result, expected)
-	}
+	require.Equal(t, result, expected)
 }
