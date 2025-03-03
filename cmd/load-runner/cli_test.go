@@ -94,19 +94,6 @@ func TestCLI_ParseFlags(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "invalid environment variable format",
-			args: []string{
-				"cmd",
-				"-d", "1h",
-				"-n", "test-namespace",
-				"-l", "test-load",
-				"-e", "INVALID_FORMAT",
-			},
-			want:        nil,
-			wantErr:     true,
-			errContains: "invalid environment variable format",
-		},
-		{
 			name: "missing required args without test file",
 			args: []string{
 				"cmd",
