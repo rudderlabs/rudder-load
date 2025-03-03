@@ -7,6 +7,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 
+	"rudder-load/internal/envvar"
 	"rudder-load/internal/parser"
 )
 
@@ -22,20 +23,27 @@ func NewCLI(log logger.Logger) *CLI {
 
 func (c *CLI) ParseFlags() (*parser.CLIArgs, error) {
 	var cli parser.CLIArgs
+	envVars := envvar.NewEnvVarFlag()
+
 	flag.StringVar(&cli.Duration, "d", "", "Duration to run (e.g., 1h, 30m, 5s)")
 	flag.StringVar(&cli.Namespace, "n", "", "Kubernetes namespace")
 	flag.StringVar(&cli.LoadName, "l", "", "Load scenario name")
 	flag.StringVar(&cli.ChartFilesPath, "f", "", "Path to the chart files (e.g., artifacts/helm)")
 	flag.StringVar(&cli.TestFile, "t", "", "Path to the test file (e.g., tests/spike.test.yaml)")
+	flag.Var(envVars, "e", "Environment variables in KEY=VALUE format (can be used multiple times)")
+
 	flag.Usage = func() {
 		c.log.Infon(fmt.Sprintf("Usage: %s [options]", os.Args[0]))
 		c.log.Infon("Options:")
 		flag.PrintDefaults()
 		c.log.Infon("Examples:")
 		c.log.Infon(fmt.Sprintf("  %s -t tests/spike.test.yaml    # Runs spike test", os.Args[0]))
+		c.log.Infon(fmt.Sprintf("  %s -d 1m -n default -l http -e MESSAGE_GENERATORS=200 -e CONCURRENCY=500    # Runs with env overrides", os.Args[0]))
 	}
 
 	flag.Parse()
+
+	cli.EnvVars = envVars.GetValues()
 
 	if err := c.ValidateArgs(&cli); err != nil {
 		flag.Usage()

@@ -13,21 +13,24 @@ type CLIArgs struct {
 	LoadName       string
 	ChartFilesPath string
 	TestFile       string
+	EnvVars        map[string]string
 }
 
 type LoadTestConfig struct {
-	Name          string     `yaml:"name"`
-	Namespace     string     `yaml:"namespace"`
-	ChartFilePath string     `yaml:"chartFilePath"`
-	Phases        []RunPhase `yaml:"phases"`
+	Name          string            `yaml:"name"`
+	Namespace     string            `yaml:"namespace"`
+	ChartFilePath string            `yaml:"chartFilePath"`
+	Phases        []RunPhase        `yaml:"phases"`
+	EnvOverrides  map[string]string `yaml:"env"`
 
 	ReleaseName string
 	FromFile    bool
 }
 
 type RunPhase struct {
-	Duration string `yaml:"duration"`
-	Replicas int    `yaml:"replicas"`
+	Duration     string            `yaml:"duration"`
+	Replicas     int               `yaml:"replicas"`
+	EnvOverrides map[string]string `yaml:"env"`
 }
 
 func ParseLoadTestConfig(args *CLIArgs) (*LoadTestConfig, error) {
@@ -40,8 +43,12 @@ func ParseLoadTestConfig(args *CLIArgs) (*LoadTestConfig, error) {
 			{Duration: args.Duration, Replicas: 1},
 		}
 		cfg.FromFile = false
-		return &cfg, nil
 
+		if len(args.EnvVars) > 0 {
+			cfg.EnvOverrides = args.EnvVars
+		}
+
+		return &cfg, nil
 	}
 	data, err := os.Open(args.TestFile)
 	if err != nil {
@@ -55,6 +62,17 @@ func ParseLoadTestConfig(args *CLIArgs) (*LoadTestConfig, error) {
 		return nil, fmt.Errorf("failed to decode test file: %w", err)
 	}
 	cfg.FromFile = true
+
+	if len(args.EnvVars) > 0 {
+		if cfg.EnvOverrides == nil {
+			cfg.EnvOverrides = make(map[string]string)
+		}
+
+		for key, value := range args.EnvVars {
+			cfg.EnvOverrides[key] = value
+		}
+	}
+
 	return &cfg, nil
 }
 
