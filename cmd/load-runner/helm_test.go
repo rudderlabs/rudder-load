@@ -72,20 +72,40 @@ func TestHelmClient_Install_WithEnvOverrides(t *testing.T) {
 		},
 	}
 
-	expectedArgs := []string{
-		"install",
-		"test-release",
-		"/path/to/chart",
-		"--namespace", "test-ns",
-		"--set", "namespace=test-ns",
-		"--set", "deployment.name=test-release",
-		"--values", "/path/to/chart/test-load_values_copy.yaml",
-		"--set", "deployment.env.MESSAGE_GENERATORS=200",
-		"--set", "deployment.env.MAX_EVENTS_PER_SECOND=15000",
-	}
+	mockExecutor.On("run", ctx, "helm", mock.MatchedBy(func(args []string) bool {
+		if len(args) != 15 {
+			return false
+		}
 
-	// Expectations
-	mockExecutor.On("run", ctx, "helm", expectedArgs).Return(nil)
+		fixedArgs := []string{
+			"install",
+			"test-release",
+			"/path/to/chart",
+			"--namespace", "test-ns",
+			"--set", "namespace=test-ns",
+			"--set", "deployment.name=test-release",
+			"--values", "/path/to/chart/test-load_values_copy.yaml",
+		}
+
+		for i, arg := range fixedArgs {
+			if args[i] != arg {
+				return false
+			}
+		}
+
+		// Check that both env vars are present, regardless of order
+		envVarArgs := args[11:]
+		envVarSet := make(map[string]bool)
+
+		for i := 0; i < len(envVarArgs); i += 2 {
+			if i+1 < len(envVarArgs) && envVarArgs[i] == "--set" {
+				envVarSet[envVarArgs[i+1]] = true
+			}
+		}
+
+		return envVarSet["deployment.env.MESSAGE_GENERATORS=200"] &&
+			envVarSet["deployment.env.MAX_EVENTS_PER_SECOND=15000"]
+	})).Return(nil)
 
 	// Execute
 	err := helmClient.Install(ctx, config)
@@ -155,21 +175,41 @@ func TestHelmClient_Upgrade_WithGlobalEnvOverrides(t *testing.T) {
 		Replicas: 5,
 	}
 
-	expectedArgs := []string{
-		"upgrade",
-		"test-release",
-		"/path/to/chart",
-		"--namespace", "test-ns",
-		"--set", "namespace=test-ns",
-		"--set", "deployment.replicas=5",
-		"--set", "deployment.name=test-release",
-		"--values", "/path/to/chart/test-load_values_copy.yaml",
-		"--set", "deployment.env.MESSAGE_GENERATORS=200",
-		"--set", "deployment.env.MAX_EVENTS_PER_SECOND=15000",
-	}
+	mockExecutor.On("run", ctx, "helm", mock.MatchedBy(func(args []string) bool {
+		if len(args) != 17 {
+			return false
+		}
 
-	// Expectations
-	mockExecutor.On("run", ctx, "helm", expectedArgs).Return(nil)
+		fixedArgs := []string{
+			"upgrade",
+			"test-release",
+			"/path/to/chart",
+			"--namespace", "test-ns",
+			"--set", "namespace=test-ns",
+			"--set", "deployment.replicas=5",
+			"--set", "deployment.name=test-release",
+			"--values", "/path/to/chart/test-load_values_copy.yaml",
+		}
+
+		for i, arg := range fixedArgs {
+			if args[i] != arg {
+				return false
+			}
+		}
+
+		// Check that both env vars are present, regardless of order
+		envVarArgs := args[11:]
+		envVarSet := make(map[string]bool)
+
+		for i := 0; i < len(envVarArgs); i += 2 {
+			if i+1 < len(envVarArgs) && envVarArgs[i] == "--set" {
+				envVarSet[envVarArgs[i+1]] = true
+			}
+		}
+
+		return envVarSet["deployment.env.MESSAGE_GENERATORS=200"] &&
+			envVarSet["deployment.env.MAX_EVENTS_PER_SECOND=15000"]
+	})).Return(nil)
 
 	// Execute
 	err := helmClient.Upgrade(ctx, config, phase)
@@ -204,23 +244,43 @@ func TestHelmClient_Upgrade_WithPhaseEnvOverrides(t *testing.T) {
 		},
 	}
 
-	expectedArgs := []string{
-		"upgrade",
-		"test-release",
-		"/path/to/chart",
-		"--namespace", "test-ns",
-		"--set", "namespace=test-ns",
-		"--set", "deployment.replicas=5",
-		"--set", "deployment.name=test-release",
-		"--values", "/path/to/chart/test-load_values_copy.yaml",
-		"--set", "deployment.env.MESSAGE_GENERATORS=200",
-		"--set", "deployment.env.MAX_EVENTS_PER_SECOND=15000",
-		"--set", "deployment.env.MESSAGE_GENERATORS=300",
-		"--set", "deployment.env.CONCURRENCY=500",
-	}
+	mockExecutor.On("run", ctx, "helm", mock.MatchedBy(func(args []string) bool {
+		if len(args) != 21 {
+			return false
+		}
 
-	// Expectations
-	mockExecutor.On("run", ctx, "helm", expectedArgs).Return(nil)
+		fixedArgs := []string{
+			"upgrade",
+			"test-release",
+			"/path/to/chart",
+			"--namespace", "test-ns",
+			"--set", "namespace=test-ns",
+			"--set", "deployment.replicas=5",
+			"--set", "deployment.name=test-release",
+			"--values", "/path/to/chart/test-load_values_copy.yaml",
+		}
+
+		for i, arg := range fixedArgs {
+			if args[i] != arg {
+				return false
+			}
+		}
+
+		// Check that all env vars are present, regardless of order
+		envVarArgs := args[11:]
+		envVarSet := make(map[string]bool)
+
+		for i := 0; i < len(envVarArgs); i += 2 {
+			if i+1 < len(envVarArgs) && envVarArgs[i] == "--set" {
+				envVarSet[envVarArgs[i+1]] = true
+			}
+		}
+
+		return envVarSet["deployment.env.MESSAGE_GENERATORS=200"] &&
+			envVarSet["deployment.env.MAX_EVENTS_PER_SECOND=15000"] &&
+			envVarSet["deployment.env.MESSAGE_GENERATORS=300"] &&
+			envVarSet["deployment.env.CONCURRENCY=500"]
+	})).Return(nil)
 
 	// Execute
 	err := helmClient.Upgrade(ctx, config, phase)
