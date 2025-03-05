@@ -35,6 +35,7 @@ import (
 const (
 	modeStdout = "stdout"
 	modeHTTP   = "http"
+	modeHTTP2  = "http2"
 
 	hostnameSep = "rudder-load-"
 
@@ -226,6 +227,8 @@ func run(ctx context.Context) int {
 		switch mode {
 		case modeHTTP:
 			return producer.NewHTTPProducer(os.Environ())
+		case modeHTTP2:
+			return producer.NewHTTP2Producer(os.Environ())
 		case modeStdout:
 			return producer.NewStdoutPublisher(), nil
 		default:

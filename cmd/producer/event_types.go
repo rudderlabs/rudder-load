@@ -22,6 +22,7 @@ var eventGenerators = map[string]eventGenerator{
 	"page":     pageFunc,
 	"track":    trackFunc,
 	"identify": identifyFunc,
+	"ut-email": utEmailFunc,
 }
 
 var (
@@ -67,6 +68,20 @@ var (
 			"OriginalTimestamp": time.Now().Format(time.RFC3339),
 			"SentAt":            time.Now().Format(time.RFC3339),
 			"LoadRunID":         loadRunID,
+		})
+		if err != nil {
+			panic(fmt.Errorf("cannot execute page template: %w", err))
+		}
+		return buf.Bytes()
+	}
+
+	utEmailFunc eventGenerator = func(t *template.Template, userID, loadRunID string, n int, _ []int) []byte {
+		var buf bytes.Buffer
+		err := t.Execute(&buf, map[string]any{
+			"NoOfEvents": n,
+			"Timestamp":  time.Now().Format(time.RFC3339),
+			"LoadRunID":  loadRunID,
+			"Email":      fmt.Sprintf("%s@example.com", uuid.New().String()),
 		})
 		if err != nil {
 			panic(fmt.Errorf("cannot execute page template: %w", err))
