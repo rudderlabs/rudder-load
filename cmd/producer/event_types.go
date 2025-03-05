@@ -50,6 +50,7 @@ var (
 			"Event":      trackEventNames[rand.Intn(len(trackEventNames))],
 			"Timestamp":  time.Now().Format(time.RFC3339),
 			"LoadRunID":  loadRunID,
+			"Email":      fmt.Sprintf("%s@example.com", uuid.New().String()),
 		})
 		if err != nil {
 			panic(fmt.Errorf("cannot execute page template: %w", err))
