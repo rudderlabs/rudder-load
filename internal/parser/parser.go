@@ -87,3 +87,12 @@ func (c *LoadTestConfig) SetDefaults() {
 		c.ChartFilePath = defaultChartFilesPath
 	}
 }
+
+func (c *LoadTestConfig) SetEnvOverrides() {
+	envVars := LoadEnvConfig()
+
+	if c.EnvOverrides == nil {
+		c.EnvOverrides = make(map[string]string)
+	}
+	c.EnvOverrides = MergeEnvVars(c.EnvOverrides, envVars)
+}

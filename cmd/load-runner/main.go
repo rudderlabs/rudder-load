@@ -42,6 +42,7 @@ func run(ctx context.Context, log logger.Logger) error {
 		return fmt.Errorf("invalid inputs: %w", err)
 	}
 
+	cfg.SetEnvOverrides()
 	cfg.SetDefaults()
 
 	helmClient := NewHelmClient(&commandExecutor{})
