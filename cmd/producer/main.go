@@ -205,6 +205,16 @@ func run(ctx context.Context) int {
 		Help:        "Publish rate per second",
 		ConstLabels: constLabels,
 	})
+	publishedMessagesCounter := prometheus.NewCounter(prometheus.CounterOpts{
+		Name:        metricsPrefix + "published_messages_count",
+		Help:        "Total number of published messages",
+		ConstLabels: constLabels,
+	})
+	numberOfRequestsCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        metricsPrefix + "number_of_requests_count",
+		Help:        "Total number of requests",
+		ConstLabels: constLabels,
+	}, []string{"error"})
 	msgGenLag := prometheus.NewCounter(prometheus.CounterOpts{
 		Name:        metricsPrefix + "msg_generation_lag",
 		Help:        "If less than a ms then this is increased meaning there are not enough generators per publishers.",
@@ -216,6 +226,8 @@ func run(ctx context.Context) int {
 		ConstLabels: constLabels,
 	})
 	reg.MustRegister(publishRatePerSecond)
+	reg.MustRegister(publishedMessagesCounter)
+	reg.MustRegister(numberOfRequestsCounter)
 	reg.MustRegister(msgGenLag)
 	reg.MustRegister(throttled)
 	// PROMETHEUS REGISTRY - END
@@ -407,9 +419,13 @@ func run(ctx context.Context) int {
 						continue
 					}
 					if err == nil {
-						publishedMessages.Add(1)
+						publishedMessages.Add(msg.NoOfEvents)
+						publishedMessagesCounter.Add(float64(msg.NoOfEvents))
+						numberOfRequestsCounter.WithLabelValues("false").Inc()
 						sentBytes.Add(int64(n))
 						continue
+					} else {
+						numberOfRequestsCounter.WithLabelValues("true").Inc()
 					}
 
 					switch mode {
