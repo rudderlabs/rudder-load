@@ -42,7 +42,11 @@ func run(ctx context.Context, log logger.Logger) error {
 		return fmt.Errorf("invalid inputs: %w", err)
 	}
 
-	cfg.SetEnvOverrides()
+	err = cfg.SetEnvOverrides()
+	if err != nil {
+		return fmt.Errorf("failed to set env overrides: %w", err)
+	}
+
 	cfg.SetDefaults()
 
 	helmClient := NewHelmClient(&commandExecutor{})

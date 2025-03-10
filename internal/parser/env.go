@@ -1,17 +1,21 @@
 package parser
 
 import (
+	"os"
+
 	"github.com/joho/godotenv"
 )
 
-func LoadEnvConfig() map[string]string {
-	// Load .env file
-	envVars, err := godotenv.Read(".env")
+func LoadEnvConfig(filePath string) (map[string]string, error) {
+	envVars, err := godotenv.Read(filePath)
 	if err != nil {
-		return map[string]string{}
+		if os.IsNotExist(err) {
+			return map[string]string{}, nil
+		}
+		return nil, err
 	}
 
-	return envVars
+	return envVars, nil
 }
 
 func MergeEnvVars(configEnvVars, envFileVars map[string]string) map[string]string {
