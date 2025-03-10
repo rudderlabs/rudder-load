@@ -1,8 +1,6 @@
 package parser
 
 import (
-	"fmt"
-
 	"github.com/joho/godotenv"
 )
 
@@ -12,8 +10,6 @@ func LoadEnvConfig() map[string]string {
 	if err != nil {
 		return map[string]string{}
 	}
-
-	fmt.Printf("envVars: %+v\n", envVars)
 
 	return envVars
 }
