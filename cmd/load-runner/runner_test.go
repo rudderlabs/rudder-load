@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -209,6 +212,91 @@ func TestParseDuration(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tc.expected, duration)
+			}
+		})
+	}
+}
+
+func TestLoadTestRunner_CreateValuesFileCopy(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "temp-values-test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	tests := []struct {
+		name          string
+		fileName      string
+		setup         func(dir string, fileName string) error
+		expectedError bool
+		errorContains string
+	}{
+		{
+			name:     "successful copy",
+			fileName: "http_values",
+			setup: func(dir string, fileName string) error {
+				return os.WriteFile(filepath.Join(dir, fmt.Sprintf("%s.yaml", fileName)), []byte("test content"), 0644)
+			},
+			expectedError: false,
+		},
+		{
+			name:     "overwrite existing file",
+			fileName: "http_values",
+			setup: func(dir string, fileName string) error {
+				err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("%s.yaml", fileName)), []byte("test content"), 0644)
+				if err != nil {
+					return err
+				}
+				return os.WriteFile(filepath.Join(dir, fmt.Sprintf("%s_copy.yaml", fileName)), []byte("overwrite content"), 0644)
+			},
+			expectedError: false,
+		},
+		{
+			name: "source file missing",
+			setup: func(dir string, fileName string) error {
+				return nil
+			},
+			expectedError: true,
+			errorContains: "failed to read source values file",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			testDir, err := os.MkdirTemp(tempDir, "case-")
+			require.NoError(t, err)
+
+			err = tc.setup(testDir, tc.fileName)
+			require.NoError(t, err, "Setup failed")
+
+			config := &parser.LoadTestConfig{
+				Name:          "http",
+				ChartFilePath: testDir,
+			}
+
+			logger := logger.NOP
+			helmClient := new(MockHelmClient)
+			runner := NewLoadTestRunner(config, helmClient, logger)
+
+			err = runner.createValuesFileCopy(context.Background())
+
+			if tc.expectedError {
+				require.Error(t, err)
+				if tc.errorContains != "" {
+					require.Contains(t, err.Error(), tc.errorContains)
+				}
+			} else {
+				require.NoError(t, err)
+
+				copyPath := filepath.Join(testDir, fmt.Sprintf("%s_copy.yaml", tc.fileName))
+				_, err := os.Stat(copyPath)
+				require.NoError(t, err, "Copy file should exist")
+
+				sourceContent, err := os.ReadFile(filepath.Join(testDir, fmt.Sprintf("%s.yaml", tc.fileName)))
+				require.NoError(t, err)
+
+				copyContent, err := os.ReadFile(copyPath)
+				require.NoError(t, err)
+
+				require.Equal(t, sourceContent, copyContent, "File contents should match")
 			}
 		})
 	}

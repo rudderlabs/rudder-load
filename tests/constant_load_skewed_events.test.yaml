@@ -1,0 +1,20 @@
+# This test maintains a constant load but with skewed event distribution
+# Track events dominate the traffic
+
+name: http
+namespace: rudder-load
+env:
+  MAX_EVENTS_PER_SECOND: "10000"
+  TOTAL_USERS: "100000"
+  HOT_USER_GROUPS: "50,50"
+  # Heavily skewed event types
+  # Track events dominate the traffic
+  EVENT_TYPES: "track,page,identify"
+  HOT_EVENT_TYPES: "70,20,10"
+  BATCH_SIZES: "1,3,5,10"
+  HOT_BATCH_SIZES: "10,20,30,40"
+  CONCURRENCY: "2000"
+  MESSAGE_GENERATORS: "500"
+phases:
+  - duration: 5m
+    replicas: 2

@@ -60,7 +60,13 @@ To add more event types simply do:
 3. now you have to define a function to populate your template inside `cmd/producer/event_types.go` and then update
    the `var eventGenerators = map[string]eventGenerator{}` map with your function (use name of the template as key)
 
-## How to deploy
+## Ways to Run Load Tests
+
+There are two primary approaches to run load tests with this tool:
+1. Using the Makefile (traditional approach)
+2. Using the load-runner (more flexible approach with configuration options)
+
+### Method 1: Using the Makefile
 
 In order to deploy you'll have to use the `Makefile` recipes.
 
@@ -78,7 +84,7 @@ If you want you can still build your own image by doing `make DOCKER_USER=<your-
 ! Remember to update your values file (e.g. `http_values_copy.yaml`) with the new image tag (see
 `deployment.image`).
 
-### Examples
+#### Examples
 
 ```shell
 # To deploy
@@ -91,47 +97,55 @@ K8S_NAMESPACE=my-ns make delete-http
 K8S_NAMESPACE=my-ns make logs
 ```
 
-## Use load runner to generate load for specific values file
+### Method 2: Using the load-runner
 
-### Build the load runner
+The load-runner is a more flexible tool that allows for dynamic configuration and running various load test scenarios. It can be run in two main ways:
+1. With command-line flags
+2. With a test configuration file
+
+#### Building the load-runner
+
+First, build the load-runner tool:
+
 ```shell
 go build -o load-runner ./cmd/load-runner
 ```
 
-### Run the load runner
+#### Option 1: Run with command-line flags
 
-```sh
+```shell
 ./load-runner -d <duration> -n <namespace> -l <values-file-prefix> -e CONCURRENCY=500
 
 # Example
 ./load-runner -d 1m -n rudder-load -l http
 ```
 
+#### Option 2: Run with a test configuration file
 
-### Run the load runner with a test config file
+For more complex load test scenarios with multiple phases, you can use a YAML configuration file.
 
-Create a test config yaml file.
+1. Create a test config YAML file:
 
 ```yaml
 # artifacts/helm/<load-name>_values_copy.yaml will be used
-name: <load-name>
-namespace: <namespace>
-env:
+name: http                # Values file prefix (http_values_copy.yaml)
+namespace: your-namespace # Kubernetes namespace for deployment
+env:                      # Global environment variables for all phases
   MESSAGE_GENERATORS: "200"
   MAX_EVENTS_PER_SECOND: "20000"
-phases:
-  - duration: 30s
-    replicas: 1
-  - duration: 30s
-    replicas: 2
-    env:
+phases:                   # Test phases with different configurations
+  - duration: 30s         # Phase 1: Run for 30 seconds
+    replicas: 1           # With 1 replica
+  - duration: 30s         # Phase 2: Run for another 30 seconds
+    replicas: 2           # With 2 replicas
+    env:                  # Override environment variables for this phase
       MESSAGE_GENERATORS: "300"
       CONCURRENCY: "600"
-  - duration: 30s
-    replicas: 1
+  - duration: 30s         # Phase 3: Final 30 seconds
+    replicas: 1           # Back to 1 replica
 ```
 
-Run the load runner with the test config file.
+2. Run the load-runner with the test config file:
 
 ```shell
 ./load-runner -t <path-to-test-config-file>
@@ -140,11 +154,182 @@ Run the load runner with the test config file.
 ./load-runner -t tests/spike.test.yaml
 ```
 
-### Load runner flags
+#### Load-runner flags
+
+The load-runner supports the following command-line flags:
 
 - `-d`: duration to run (e.g., 1h, 30m, 5s)
 - `-n`: namespace where the load runner will be deployed
-- `-l`: values file prefix
-- `-f`: path to the chart files (e.g., artifacts/helm)
+- `-l`: values file prefix (e.g., for "http", it will use "http_values_copy.yaml")
+- `-f`: path to the chart files (default: artifacts/helm)
 - `-t`: path to the test config file
 - `-e`: environment variables in KEY=VALUE format (can be used multiple times)
+
+#### Configuration Options
+
+The load-runner uses the values from your `<prefix>_values_copy.yaml` file (e.g., `http_values_copy.yaml`). Below is a sample configuration with detailed comments explaining each field:
+
+```yaml
+env:
+  # The mode of operation, typically "http"
+  MODE: "http"
+
+  # Unique identifier for the load test (if empty, a random UUID will be generated)
+  LOAD_RUN_ID: "loadRunID1"
+
+  # Number of go routines sending messages per replica (producers)
+  CONCURRENCY: "4000"
+
+  # Number of go routines that generate events and send them to producers
+  MESSAGE_GENERATORS: "1000"
+
+  # Rate limiting for events (set to 0 for no limit)
+  MAX_EVENTS_PER_SECOND: "60000"
+
+  # Source and User Configuration
+
+  # Comma-separated list of write keys
+  # These are the write keys used to send events to RudderStack
+  SOURCES: "writeKey1,writeKey2"
+
+  # Percentage distribution across sources (must sum to 100)
+  # This controls how traffic is distributed across the write keys
+  HOT_SOURCES: "60,40"
+
+  # Total number of unique users to simulate
+  TOTAL_USERS: "10000"
+
+  # Percentage distribution of user traffic (must sum to 100)
+  # For example: "70,30" means 70% of traffic goes to the first user group
+  # and 30% to the second user group
+  HOT_USER_GROUPS: "70,30"
+
+  # Event Configuration
+
+  # Comma-separated list of event types to generate
+  # Options include: track, page, identify, and custom types
+  EVENT_TYPES: "track,page,identify"
+
+  # Percentage distribution of event types (must sum to 100)
+  # Maps 1:1 with EVENT_TYPES, determining frequency of each type
+  HOT_EVENT_TYPES: "50,40,10"
+
+  # Comma-separated list of batch sizes
+  BATCH_SIZES: "1,2,3"
+
+  # Percentage distribution of batch sizes (must sum to 100)
+  # Controls how frequently each batch size is used
+  HOT_BATCH_SIZES: "33,33,34"
+
+  # HTTP Settings
+
+  # Enable/disable HTTP compression
+  HTTP_COMPRESSION: "true"
+
+  # HTTP read timeout duration
+  HTTP_READ_TIMEOUT: "5s"
+
+  # HTTP write timeout duration
+  HTTP_WRITE_TIMEOUT: "5s"
+
+  # Maximum idle connection time
+  HTTP_MAX_IDLE_CONN: "1h"
+
+  # Maximum connections per host
+  HTTP_MAX_CONNS_PER_HOST: "200000"
+
+  # HTTP concurrency setting
+  HTTP_CONCURRENCY: "200000"
+
+  # Content type for HTTP requests
+  HTTP_CONTENT_TYPE: "application/json"
+
+  # Target endpoint URL where events will be sent
+  HTTP_ENDPOINT: "https://dataplane.rudderstack.com/v1/batch"
+
+  # Other Settings
+
+  # Whether to use one client per slot
+  USE_ONE_CLIENT_PER_SLOT: "true"
+
+  # Enable memory usage limitation
+  ENABLE_SOFT_MEMORY_LIMIT: "true"
+
+  # Memory limit if ENABLE_SOFT_MEMORY_LIMIT is true
+  SOFT_MEMORY_LIMIT: "256mb"
+```
+
+#### Overriding Configuration
+
+You can override configuration in several ways:
+
+1. **Using command-line flags**: Use the `-e` flag to override specific environment variables:
+   ```shell
+   ./load-runner -d 5m -n my-namespace -l http -e CONCURRENCY=500 -e MAX_EVENTS_PER_SECOND=1000
+   ```
+
+2. **Using a test configuration file**: Define overrides in the `env` section:
+   ```yaml
+   name: http
+   namespace: load-test
+   env:
+     CONCURRENCY: "500"
+     MAX_EVENTS_PER_SECOND: "1000"
+   phases:
+     - duration: 1m
+       replicas: 2
+   ```
+
+3. **Using a .env file**: Create a `.env` file in the root directory with the desired overrides:
+   ```sh
+   SOURCES="writeKey1,writeKey2"
+   HTTP_ENDPOINT="https://dataplane.rudderstack.com/v1/batch"
+   ```
+
+> [!IMPORTANT]
+> For security reasons, sensitive information like `SOURCES` and `HTTP_ENDPOINT` should never be included in test YAML files that might be committed to version control. Always configure these values using the `.env` file or command-line flags.
+
+
+#### Example: Running a Simple Load Test
+
+Here's an example of running a simple load test for 5 minutes:
+
+```shell
+# Build the load-runner
+go build -o load-runner ./cmd/load-runner
+
+# Run a load test for 5 minutes
+./load-runner -d 5m -n my-namespace -l http -e HTTP_ENDPOINT="https://dataplane.rudderstack.com/v1/batch"
+```
+
+#### Example: Running a Multi-Phase Load Test
+
+For a test that gradually increases and then decreases load:
+
+1. Create a test configuration file named `escalating.test.yaml`:
+   ```yaml
+   name: http
+   namespace: load-test
+   env:
+     MAX_EVENTS_PER_SECOND: "5000"
+   phases:
+     - duration: 2m
+       replicas: 1
+     - duration: 3m
+       replicas: 2
+     - duration: 5m
+       replicas: 4
+       env:
+         MAX_EVENTS_PER_SECOND: "10000"
+     - duration: 3m
+       replicas: 2
+     - duration: 2m
+       replicas: 1
+   ```
+
+2. Run the test:
+   ```shell
+   ./load-runner -t escalating.test.yaml
+   ```
+
+This will create a 15-minute load test that follows the pattern: light load (2m) → medium load (3m) → heavy load (5m) → medium load (3m) → light load (2m), with appropriate adjustments to the configuration at each phase.
