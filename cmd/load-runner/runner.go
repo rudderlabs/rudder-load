@@ -79,18 +79,20 @@ func parseDuration(d string) (time.Duration, error) {
 }
 
 func (r *LoadTestRunner) createValuesFileCopy(ctx context.Context) error {
-	const valuesFileName = "http_values.yaml"
+	const (
+		valuesFileName = "http_values.yaml"
+		valuesFilePerm = 0644
+	)
 
 	sourceFile := fmt.Sprintf("%s/%s", r.config.ChartFilePath, valuesFileName)
 	copyFile := fmt.Sprintf("%s/%s_values_copy.yaml", r.config.ChartFilePath, r.config.Name)
-
 
 	content, err := os.ReadFile(sourceFile)
 	if err != nil {
 		return fmt.Errorf("failed to read source values file %s: %w", sourceFile, err)
 	}
 
-	if err := os.WriteFile(copyFile, content, 0644); err != nil {
+	if err := os.WriteFile(copyFile, content, valuesFilePerm); err != nil {
 		return fmt.Errorf("failed to write values copy file %s: %w", copyFile, err)
 	}
 
