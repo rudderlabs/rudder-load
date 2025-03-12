@@ -78,24 +78,24 @@ func NewHTTP2Producer(environ []string) (*HTTP2Producer, error) {
 	}, nil
 }
 
-func (p *HTTP2Producer) PublishTo(ctx context.Context, key string, message []byte, extra map[string]string) (int, error) {
+func (p *HTTP2Producer) PublishTo(ctx context.Context, key string, message []byte, extra map[string]string) ([]byte, error) {
 	var body io.Reader = bytes.NewBuffer(message)
 
 	if p.compression {
 		var buf bytes.Buffer
 		gz := gzip.NewWriter(&buf)
 		if _, err := gz.Write(message); err != nil {
-			return 0, fmt.Errorf("failed to compress message: %w", err)
+			return nil, fmt.Errorf("failed to compress message: %w", err)
 		}
 		if err := gz.Close(); err != nil {
-			return 0, fmt.Errorf("failed to finalize compression: %w", err)
+			return nil, fmt.Errorf("failed to finalize compression: %w", err)
 		}
 		body = &buf
 	}
 
 	req, err := http.NewRequestWithContext(ctx, fasthttp.MethodPost, p.endpoint, body)
 	if err != nil {
-		return 0, fmt.Errorf("cannot create http request: %w", err)
+		return nil, fmt.Errorf("cannot create http request: %w", err)
 	}
 
 	if p.keyHeader != "" {
@@ -110,19 +110,19 @@ func (p *HTTP2Producer) PublishTo(ctx context.Context, key string, message []byt
 
 	res, err := p.c.Do(req)
 	if err != nil {
-		return 0, fmt.Errorf("http request failed: %w", err)
+		return nil, fmt.Errorf("http request failed: %w", err)
 	}
 	defer httputil.CloseResponse(res)
 
 	responseBody, err := io.ReadAll(res.Body)
 	if err != nil {
-		return 0, fmt.Errorf("cannot read response body: %w", err)
+		return nil, fmt.Errorf("cannot read response body: %w", err)
 	}
 	if res.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("http request failed with status code: %d: %s", res.StatusCode, responseBody)
+		return nil, fmt.Errorf("http request failed with status code: %d: %s", res.StatusCode, responseBody)
 	}
 
-	return len(responseBody), err
+	return responseBody, err
 }
 
 func (p *HTTP2Producer) Close() error {

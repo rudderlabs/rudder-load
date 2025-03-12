@@ -104,14 +104,14 @@ func NewHTTPProducer(environ []string) (*HTTPProducer, error) {
 	}, nil
 }
 
-func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, extra map[string]string) (int, error) {
+func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, extra map[string]string) ([]byte, error) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI(p.endpoint)
 
 	if p.compression {
 		_, err := fasthttp.WriteGzipLevel(req.BodyWriter(), message, fasthttp.CompressBestSpeed)
 		if err != nil {
-			return 0, fmt.Errorf("cannot compress message: %w", err)
+			return nil, fmt.Errorf("cannot compress message: %w", err)
 		}
 		req.Header.Set("Content-Encoding", "gzip")
 	} else {
@@ -132,18 +132,17 @@ func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, 
 
 	res := fasthttp.AcquireResponse()
 	err := p.c.Do(req, res)
-	n := len(req.Body())
 	fasthttp.ReleaseRequest(req)
 	defer fasthttp.ReleaseResponse(res)
 
 	if err != nil {
-		return 0, fmt.Errorf("http request failed: %w", err)
+		return nil, fmt.Errorf("http request failed: %w", err)
 	}
 	if res.StatusCode() != http.StatusOK {
-		return 0, fmt.Errorf("http request failed with status code: %d: %s", res.StatusCode(), res.Body())
+		return nil, fmt.Errorf("http request failed with status code: %d: %s", res.StatusCode(), res.Body())
 	}
 
-	return n, err
+	return res.Body(), err
 }
 
 func (p *HTTPProducer) Close() error {

@@ -15,7 +15,7 @@ const (
 )
 
 type publisher interface {
-	PublishTo(ctx context.Context, key string, message []byte, extra map[string]string) (int, error)
+	PublishTo(ctx context.Context, key string, message []byte, extra map[string]string) ([]byte, error)
 	Close() error
 }
 
@@ -105,13 +105,13 @@ func (f *Factory) New(p publisher) *Stats {
 	}
 }
 
-func (s *Stats) PublishTo(ctx context.Context, key string, message []byte, extra map[string]string) (int, error) {
+func (s *Stats) PublishTo(ctx context.Context, key string, message []byte, extra map[string]string) ([]byte, error) {
 	start := time.Now()
-	n, err := s.p.PublishTo(ctx, key, message, extra)
+	rb, err := s.p.PublishTo(ctx, key, message, extra)
 	elapsed := time.Since(start).Seconds()
 
 	if errors.Is(err, context.Canceled) {
-		return 0, err
+		return nil, err
 	}
 
 	labels := prometheus.Labels{
@@ -126,7 +126,7 @@ func (s *Stats) PublishTo(ctx context.Context, key string, message []byte, extra
 	}
 	s.f.publishDurationSeconds.With(labels).Observe(elapsed)
 
-	return n, err
+	return rb, err
 }
 
 func (s *Stats) Close() error {
