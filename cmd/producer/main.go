@@ -46,7 +46,7 @@ const (
 )
 
 type publisher interface {
-	PublishTo(ctx context.Context, key string, messages []byte, extra map[string]string) (int, error)
+	PublishTo(ctx context.Context, key string, messages []byte, extra map[string]string) ([]byte, error)
 }
 
 type closer interface {
@@ -410,7 +410,7 @@ func run(ctx context.Context) int {
 						}
 					}
 
-					n, err := client.PublishTo(ctx, msg.UserID, msg.Payload, map[string]string{
+					rb, err := client.PublishTo(ctx, msg.UserID, msg.Payload, map[string]string{
 						"auth":         msg.WriteKey,
 						"anonymous_id": msg.UserID,
 					})
@@ -422,7 +422,7 @@ func run(ctx context.Context) int {
 						publishedMessages.Add(msg.NoOfEvents)
 						publishedMessagesCounter.Add(float64(msg.NoOfEvents))
 						numberOfRequestsCounter.WithLabelValues("false").Inc()
-						sentBytes.Add(int64(n))
+						sentBytes.Add(int64(len(rb)))
 						continue
 					} else {
 						numberOfRequestsCounter.WithLabelValues("true").Inc()
