@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"rudder-load/internal/parser"
 )
@@ -33,9 +34,13 @@ func (h *helmClient) Install(ctx context.Context, config *parser.LoadTestConfig)
 	}
 
 	for key, value := range config.EnvOverrides {
+		if strings.Contains(value, ",") {
+			value = strings.ReplaceAll(value, ",", "\\,")
+		}
 		args = append(args, "--set", fmt.Sprintf("deployment.env.%s=%s", key, value))
 	}
 
+	fmt.Printf("Running helm install with args: %v\n", args)
 	return h.executor.run(ctx, "helm", args...)
 }
 
@@ -52,10 +57,16 @@ func (h *helmClient) Upgrade(ctx context.Context, config *parser.LoadTestConfig,
 	}
 
 	for key, value := range config.EnvOverrides {
+		if strings.Contains(value, ",") {
+			value = strings.ReplaceAll(value, ",", "\\,")
+		}
 		args = append(args, "--set", fmt.Sprintf("deployment.env.%s=%s", key, value))
 	}
 
 	for key, value := range phase.EnvOverrides {
+		if strings.Contains(value, ",") {
+			value = strings.ReplaceAll(value, ",", "\\,")
+		}
 		args = append(args, "--set", fmt.Sprintf("deployment.env.%s=%s", key, value))
 	}
 
