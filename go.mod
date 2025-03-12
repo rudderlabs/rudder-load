@@ -6,8 +6,12 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/prometheus/client_golang v1.20.5
 	github.com/rudderlabs/rudder-go-kit v0.43.0
+	github.com/rudderlabs/rudder-observability-kit v0.0.3
 	github.com/stretchr/testify v1.10.0
+	github.com/sugawarayuuta/sonnet v0.0.0-20231004000330-239c7b6e4ce8
 	github.com/valyala/fasthttp v1.56.0
+	golang.org/x/net v0.29.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.2 // fix for JetBrains IDEs
@@ -36,7 +40,6 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.59.1 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	github.com/rudderlabs/rudder-observability-kit v0.0.3 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/samber/lo v1.47.0 // indirect
@@ -62,7 +65,6 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a // indirect
-	golang.org/x/net v0.29.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/text v0.18.0 // indirect
@@ -73,5 +75,4 @@ require (
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
