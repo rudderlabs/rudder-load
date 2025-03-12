@@ -27,11 +27,8 @@ deployment:
     MESSAGE_GENERATORS: "1000" # these push into the ch
     MAX_EVENTS_PER_SECOND: "60000" # set as 0 for no limit
     # SOURCES should be a comma separated list of writeKeys
-    # e.g. SOURCES: "2lNXnjJU9xrbUERT3Uy3Po8jKbr,2nYfF7hsD7KXz0Vp4SW1TivZCRu"
-    # Bol JS: 2nVv1Uge9ebQK7pGD2qP9XNY70k
-    # Bol iOS: 2nWL802xKbb9bDd0j7IBfulMjJN
-    # Bol Android: 2nWLFReUHdomabA7Dg7WdjPOssu
-    SOURCES: "2nVv1Uge9ebQK7pGD2qP9XNY70k,2nVv1Uge9ebQK7pGD2qP9XNY70k,2nWL802xKbb9bDd0j7IBfulMjJN,2nWLFReUHdomabA7Dg7WdjPOssu"
+    # e.g. SOURCES: "write-key-1,write-key-2"
+    SOURCES: ""
     # HOT_SOURCES: comma separated list of percentages
     # It should be a 1:1 match with the writeKeys in SOURCES.
     # If not provided, the sources will be equally distributed.
@@ -64,4 +61,4 @@ deployment:
     HTTP_MAX_CONNS_PER_HOST: "200000"
     HTTP_CONCURRENCY: "200000"
     HTTP_CONTENT_TYPE: "application/json"
-    HTTP_ENDPOINT: "https://rudderstacfvls.dataplane.rudderstack.com/v1/batch"
+    HTTP_ENDPOINT: ""
