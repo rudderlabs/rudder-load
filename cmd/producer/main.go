@@ -25,6 +25,7 @@ import (
 
 	"rudder-load/internal/producer"
 	"rudder-load/internal/stats"
+	"rudder-load/internal/validator"
 
 	"github.com/rudderlabs/rudder-go-kit/profiler"
 	kitsync "github.com/rudderlabs/rudder-go-kit/sync"
@@ -84,6 +85,7 @@ func run(ctx context.Context) int {
 		templatesPath         = optionalString("TEMPLATES_PATH", "../../templates/")
 		sourcesList           = mustList("SOURCES")
 		hotSourcesList        = optionalMap("HOT_SOURCES", sourcesList)
+		validatorType         = optionalString("VALIDATOR_TYPE", "")
 	)
 
 	if strings.Index(hostname, hostnameSep) != 0 {
@@ -167,6 +169,9 @@ func run(ctx context.Context) int {
 		printErr(fmt.Errorf("message generators has to be greater than zero: %d", messageGenerators))
 		return 1
 	}
+
+	// Creating validator
+	validatorFunc := validator.ValidateResponseBody(validatorType)
 
 	// Creating throttler
 	throttler, err := throttling.New(throttling.WithInMemoryGCRA(int64(maxEventsPerSecond)))
@@ -417,6 +422,12 @@ func run(ctx context.Context) int {
 					if ctx.Err() != nil {
 						printErr(ctx.Err())
 						continue
+					}
+					if err == nil && validatorFunc != nil {
+						if _, err = validatorFunc(rb); err != nil {
+							printErr(fmt.Errorf("error validating response body: %w", err))
+							continue
+						}
 					}
 					if err == nil {
 						publishedMessages.Add(msg.NoOfEvents)
