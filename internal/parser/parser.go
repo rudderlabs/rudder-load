@@ -87,3 +87,20 @@ func (c *LoadTestConfig) SetDefaults() {
 		c.ChartFilePath = defaultChartFilesPath
 	}
 }
+
+func (c *LoadTestConfig) SetEnvOverrides() error {
+	// .env filename is fixed and cannot be changed due to security policies enforced via ignore files
+	const envFileName = ".env"
+	envVars, err := LoadEnvConfig(envFileName)
+
+	if err != nil {
+		return err
+	}
+
+	if c.EnvOverrides == nil {
+		c.EnvOverrides = make(map[string]string)
+	}
+	c.EnvOverrides = MergeEnvVars(c.EnvOverrides, envVars)
+
+	return nil
+}

@@ -7,3 +7,4 @@ Dockerfile
 Makefile
 README.md
 rudder-load-producer
+.env
