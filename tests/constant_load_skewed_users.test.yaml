@@ -1,0 +1,17 @@
+# This test maintains a constant load but with skewed user distribution
+# A group of users generates most of the traffic
+
+name: http
+namespace: rudder-load
+env:
+  MAX_EVENTS_PER_SECOND: "10000"
+  # Skewed user groups
+  TOTAL_USERS: "10000"
+  HOT_USER_GROUPS: "90,10"
+  EVENT_TYPES: "track,page,identify"
+  HOT_EVENT_TYPES: "33,33,34"
+  CONCURRENCY: "2000"
+  MESSAGE_GENERATORS: "500"
+phases:
+  - duration: 5m
+    replicas: 2
