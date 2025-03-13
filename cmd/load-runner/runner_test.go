@@ -117,11 +117,18 @@ func TestLoadTestRunner_Run(t *testing.T) {
 		},
 	}
 
+	// Create a temporary directory for the test
+	tempDir, err := os.MkdirTemp("", "temp-values-test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+	os.WriteFile(filepath.Join(tempDir, "http_values.yaml"), []byte("test content"), 0644)
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockHelmClient := new(MockHelmClient)
 			tc.setupMock(mockHelmClient)
 
+			tc.config.ChartFilePath = tempDir
 			runner := NewLoadTestRunner(tc.config, mockHelmClient, logger.NOP)
 			err := runner.Run(context.Background())
 
@@ -138,8 +145,15 @@ func TestLoadTestRunner_Run(t *testing.T) {
 }
 
 func TestLoadTestRunner_RunCancellation(t *testing.T) {
+	// Create a temporary directory for the test
+	tempDir, err := os.MkdirTemp("", "temp-values-test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+	os.WriteFile(filepath.Join(tempDir, "http_values.yaml"), []byte("test content"), 0644)
+
 	config := &parser.LoadTestConfig{
-		Name: "test-scenario",
+		Name:          "test-scenario",
+		ChartFilePath: tempDir,
 		Phases: []parser.RunPhase{
 			{Duration: "1h"}, // Long duration to ensure we can cancel
 		},
@@ -162,7 +176,7 @@ func TestLoadTestRunner_RunCancellation(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	cancel()
 
-	err := <-errChan
+	err = <-errChan
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "operation cancelled by user")
 	mockHelmClient.AssertExpectations(t)
