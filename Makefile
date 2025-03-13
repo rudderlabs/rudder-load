@@ -39,3 +39,7 @@ delete-%:
 .PHONY: logs
 logs:
 	kubectl logs -f -n $(K8S_NAMESPACE) -l run=rudder-load
+
+.PHONY: test
+test:
+	go test -race -coverprofile=coverage.txt -covermode=atomic ./...;

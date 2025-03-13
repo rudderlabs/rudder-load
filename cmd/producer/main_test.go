@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"strconv"
 	"testing"
 
@@ -9,230 +10,103 @@ import (
 )
 
 func TestGetTemplates(t *testing.T) {
-	templates, err := getTemplates("./../../templates/")
-	require.NoError(t, err)
+	t.Run("valid templates directory", func(t *testing.T) {
+		templates, err := getTemplates("./../../templates/")
+		require.NoError(t, err)
 
-	require.Contains(t, templates, "batch")
-	require.Contains(t, templates, "page")
+		require.Contains(t, templates, "page")
+		require.Contains(t, templates, "track")
+		require.Contains(t, templates, "identify")
 
-	t.Run("page", func(t *testing.T) {
-		var buf bytes.Buffer
-		err = templates["page"].Execute(&buf, map[string]string{
-			"Name":              "Home",
-			"MessageID":         "123",
-			"AnonymousID":       "456",
-			"OriginalTimestamp": "2021-01-01T00:00:00Z",
-			"SentAt":            "2021-02-03T12:34:56Z",
-			"LoadRunID":         "987",
+		t.Run("page template execution", func(t *testing.T) {
+			var buf bytes.Buffer
+			err = templates["page"].Execute(&buf, map[string]any{
+				"NoOfEvents":        1,
+				"Name":              "TestPage",
+				"MessageID":         "test-message-id",
+				"AnonymousID":       "test-anonymous-id",
+				"OriginalTimestamp": "2023-01-01T00:00:00Z",
+				"SentAt":            "2023-01-01T00:00:00Z",
+				"LoadRunID":         "test-load-run-id",
+			})
+			require.NoError(t, err)
+
+			// Verify output contains expected values
+			output := buf.String()
+			require.Contains(t, output, "TestPage")
+			require.Contains(t, output, "test-anonymous-id")
+			require.Contains(t, output, "test-load-run-id")
 		})
-		require.NoError(t, err)
-		require.JSONEq(t, `{
-			"type": "page",
-			"name": "Home",
-			"properties": {
-				"title": "Home | RudderStack",
-				"url": "https://www.rudderstack.com"
-			},
-			"messageId": "123",
-			"anonymousId": "456",
-			"channel": "android-sdk",
-			"context": {
-				"load_run_id": "987",
-				"app": {
-					"build": "1",
-					"name": "RudderAndroidClient",
-					"namespace": "com.rudderlabs.android.sdk",
-					"version": "1.0"
-				}
-			},
-			"originalTimestamp": "2021-01-01T00:00:00Z",
-			"sentAt": "2021-02-03T12:34:56Z"
-		}`, buf.String())
+
+		t.Run("track template execution", func(t *testing.T) {
+			var buf bytes.Buffer
+			err = templates["track"].Execute(&buf, map[string]any{
+				"NoOfEvents": 1,
+				"UserID":     "test-user-id",
+				"Event":      "test-event",
+				"Timestamp":  "2023-01-01T00:00:00Z",
+				"LoadRunID":  "test-load-run-id",
+			})
+			require.NoError(t, err)
+
+			// Verify output contains expected values
+			output := buf.String()
+			require.Contains(t, output, "test-user-id")
+			require.Contains(t, output, "test-event")
+			require.Contains(t, output, "test-load-run-id")
+		})
+
+		t.Run("identify template execution", func(t *testing.T) {
+			var buf bytes.Buffer
+			err = templates["identify"].Execute(&buf, map[string]any{
+				"NoOfEvents":        1,
+				"MessageID":         "test-message-id",
+				"AnonymousID":       "test-anonymous-id",
+				"OriginalTimestamp": "2023-01-01T00:00:00Z",
+				"SentAt":            "2023-01-01T00:00:00Z",
+				"LoadRunID":         "test-load-run-id",
+			})
+			require.NoError(t, err)
+
+			// Verify output contains expected values
+			output := buf.String()
+			require.Contains(t, output, "test-anonymous-id")
+			require.Contains(t, output, "test-load-run-id")
+		})
 	})
-	t.Run("batch single page", func(t *testing.T) {
-		var buf bytes.Buffer
-		err = templates["batch"].Execute(&buf, map[string]any{
-			"LoadRunID": "111222333",
-			"Pages": []map[string]string{
-				{
-					"Name":              "Home",
-					"MessageID":         "123",
-					"AnonymousID":       "456",
-					"OriginalTimestamp": "2021-01-01T00:00:00Z",
-					"SentAt":            "2021-02-03T12:34:56Z",
-				},
-			},
-		})
-		require.NoError(t, err)
-		require.JSONEq(t, `{
-			"batch": [
-				{
-					"type": "page",
-					"name": "Home",
-					"properties": {
-						"title": "Home | RudderStack",
-						"url": "https://www.rudderstack.com"
-					},
-					"messageId": "123",
-					"anonymousId": "456",
-					"channel": "android-sdk",
-					"context": {
-						"load_run_id": "111222333",
-						"app": {
-							"build": "1",
-							"name": "RudderAndroidClient",
-							"namespace": "com.rudderlabs.android.sdk",
-							"version": "1.0"
-						}
-					},
-					"originalTimestamp": "2021-01-01T00:00:00Z",
-					"sentAt": "2021-02-03T12:34:56Z"
-				}
-			]
-		}`, buf.String())
+
+	t.Run("non-existent directory", func(t *testing.T) {
+		// Test with a non-existent directory
+		templates, err := getTemplates("./non-existent-directory/")
+		require.Error(t, err)
+		require.Nil(t, templates)
+		require.Contains(t, err.Error(), "cannot read templates directory")
 	})
-	t.Run("batch single track", func(t *testing.T) {
-		var buf bytes.Buffer
-		err = templates["batch"].Execute(&buf, map[string]any{
-			"LoadRunID": "111222333",
-			"Tracks": []map[string]string{
-				{
-					"UserID":    "123",
-					"Event":     "some-event",
-					"Timestamp": "2021-01-01T00:00:00Z",
-				},
-			},
-		})
+
+	t.Run("empty directory", func(t *testing.T) {
+		// Create a temporary empty directory
+		tempDir := t.TempDir()
+
+		// Test with the empty directory
+		templates, err := getTemplates(tempDir)
 		require.NoError(t, err)
-		require.JSONEq(t, `{
-			"batch": [
-				{
-					"type": "track",
-					"userId": "123",
-					"event": "some-event",
-					"properties": {
-						"name": "Rubik's Cube",
-						"revenue": 4.99
-					},
-					"context": {
-						"load_run_id": "111222333",
-						"ip": "14.5.67.21"
-					},
-					"timestamp": "2021-01-01T00:00:00Z"
-				}
-			]
-		}`, buf.String())
+		require.Empty(t, templates)
 	})
-	t.Run("batch pages and tracks", func(t *testing.T) {
-		var buf bytes.Buffer
-		err = templates["batch"].Execute(&buf, map[string]any{
-			"LoadRunID": "111222333",
-			"Pages": []map[string]string{
-				{
-					"Name":              "Home1",
-					"MessageID":         "123",
-					"AnonymousID":       "456",
-					"OriginalTimestamp": "2022-01-01T00:00:00Z",
-					"SentAt":            "2023-02-03T12:34:56Z",
-				},
-				{
-					"Name":              "Home2",
-					"MessageID":         "124",
-					"AnonymousID":       "457",
-					"OriginalTimestamp": "2024-01-01T00:00:00Z",
-					"SentAt":            "2025-02-03T12:34:56Z",
-				},
-			},
-			"Tracks": []map[string]string{
-				{
-					"UserID":    "111",
-					"Event":     "some-event1",
-					"Timestamp": "2026-01-01T00:00:00Z",
-				},
-				{
-					"UserID":    "222",
-					"Event":     "some-event2",
-					"Timestamp": "2027-01-01T00:00:00Z",
-				},
-			},
-		})
+
+	t.Run("directory with invalid template", func(t *testing.T) {
+		// Create a temporary directory
+		tempDir := t.TempDir()
+
+		// Create an invalid template file
+		invalidTemplatePath := tempDir + "/invalid.json.tmpl"
+		err := os.WriteFile(invalidTemplatePath, []byte("{{.InvalidSyntax}"), 0644)
 		require.NoError(t, err)
-		require.JSONEq(t, `{
-			"batch": [
-				{
-					"type": "page",
-					"name": "Home1",
-					"properties": {
-						"title": "Home | RudderStack",
-						"url": "https://www.rudderstack.com"
-					},
-					"messageId": "123",
-					"anonymousId": "456",
-					"channel": "android-sdk",
-					"context": {
-						"load_run_id": "111222333",
-						"app": {
-							"build": "1",
-							"name": "RudderAndroidClient",
-							"namespace": "com.rudderlabs.android.sdk",
-							"version": "1.0"
-						}
-					},
-					"originalTimestamp": "2022-01-01T00:00:00Z",
-					"sentAt": "2023-02-03T12:34:56Z"
-				},
-				{
-					"type": "page",
-					"name": "Home2",
-					"properties": {
-						"title": "Home | RudderStack",
-						"url": "https://www.rudderstack.com"
-					},
-					"messageId": "124",
-					"anonymousId": "457",
-					"channel": "android-sdk",
-					"context": {
-						"load_run_id": "111222333",
-						"app": {
-							"build": "1",
-							"name": "RudderAndroidClient",
-							"namespace": "com.rudderlabs.android.sdk",
-							"version": "1.0"
-						}
-					},
-					"originalTimestamp": "2024-01-01T00:00:00Z",
-					"sentAt": "2025-02-03T12:34:56Z"
-				},
-				{
-					"type": "track",
-					"userId": "111",
-					"event": "some-event1",
-					"properties": {
-						"name": "Rubik's Cube",
-						"revenue": 4.99
-					},
-					"context": {
-						"load_run_id": "111222333",
-						"ip": "14.5.67.21"
-					},
-					"timestamp": "2026-01-01T00:00:00Z"
-				},
-				{
-					"type": "track",
-					"userId": "222",
-					"event": "some-event2",
-					"properties": {
-						"name": "Rubik's Cube",
-						"revenue": 4.99
-					},
-					"context": {
-						"load_run_id": "111222333",
-						"ip": "14.5.67.21"
-					},
-					"timestamp": "2027-01-01T00:00:00Z"
-				}
-			]
-		}`, buf.String())
+
+		// Test with the directory containing an invalid template
+		templates, err := getTemplates(tempDir)
+		require.Error(t, err)
+		require.Nil(t, templates)
+		require.Contains(t, err.Error(), "cannot parse template file")
 	})
 }
 

@@ -4,3 +4,6 @@ load-runner
 !cmd/load-runner/
 templates/custom*
 .env
+
+# Coverage Reports
+coverage.txt
