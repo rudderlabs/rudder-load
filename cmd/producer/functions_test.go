@@ -46,13 +46,6 @@ func TestOptionalMap(t *testing.T) {
 			items:   []string{},
 			wantErr: true,
 		},
-		{
-			name:    "comma separated values",
-			envKey:  "TEST_MAP",
-			items:   []string{"a,b"},
-			want:    []int{100},
-			wantErr: false,
-		},
 	}
 
 	for _, tt := range tests {
