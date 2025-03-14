@@ -107,7 +107,7 @@ func run(ctx context.Context) int {
 		printErr(fmt.Errorf("error getting instance number from hostname: %v", err))
 		return 1
 	}
-	if len(sourcesList) < (instanceNumber + 1) {
+	if len(sourcesList) < (instanceNumber) {
 		printErr(fmt.Errorf("instance number %d is greater than the number of sources %d", instanceNumber, len(sourcesList)))
 		return 1
 	}

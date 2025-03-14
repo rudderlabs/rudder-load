@@ -2,10 +2,13 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -171,6 +174,272 @@ func TestGetUserIDs(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, userID >= 900 && userID < 1000, userID)
 		}
+	}
+}
+
+func TestRun(t *testing.T) {
+	tests := []struct {
+		name         string
+		env          map[string]string
+		wantExitCode int
+		timeout      time.Duration
+	}{
+		{
+			name: "valid configuration",
+			env: map[string]string{
+				"MODE":                     "stdout",
+				"HOSTNAME":                 "rudder-load-test-1",
+				"CONCURRENCY":              "2",
+				"MESSAGE_GENERATORS":       "1",
+				"TOTAL_USERS":              "100",
+				"SOURCES":                  "write-key-1",
+				"EVENT_TYPES":              "track",
+				"HOT_EVENT_TYPES":          "100",
+				"HOT_USER_GROUPS":          "100",
+				"BATCH_SIZES":              "1",
+				"HOT_BATCH_SIZES":          "100",
+				"MAX_EVENTS_PER_SECOND":    "100",
+				"SOFT_MEMORY_LIMIT":        "1GB",
+				"TEMPLATES_PATH":           "../../templates/",
+				"ENABLE_SOFT_MEMORY_LIMIT": "true",
+			},
+			wantExitCode: 0,
+			timeout:      2 * time.Second,
+		},
+		{
+			name: "valid sources configuration",
+			env: map[string]string{
+				"MODE":                     "stdout",
+				"HOSTNAME":                 "rudder-load-test-1",
+				"CONCURRENCY":              "2",
+				"MESSAGE_GENERATORS":       "1",
+				"TOTAL_USERS":              "100",
+				"SOURCES":                  "write-key-1,write-key-2",
+				"HOT_SOURCES":              "60,40", // Valid configuration
+				"EVENT_TYPES":              "track",
+				"HOT_EVENT_TYPES":          "100",
+				"HOT_USER_GROUPS":          "100",
+				"BATCH_SIZES":              "1",
+				"HOT_BATCH_SIZES":          "100",
+				"MAX_EVENTS_PER_SECOND":    "100",
+				"SOFT_MEMORY_LIMIT":        "1GB",
+				"TEMPLATES_PATH":           "../../templates/",
+				"ENABLE_SOFT_MEMORY_LIMIT": "true",
+			},
+			wantExitCode: 0, // Should succeed with valid configuration
+			timeout:      2 * time.Second,
+		},
+		{
+			name: "invalid hostname",
+			env: map[string]string{
+				"MODE":                  "stdout",
+				"HOSTNAME":              "invalid-hostname",
+				"CONCURRENCY":           "2",
+				"MESSAGE_GENERATORS":    "1",
+				"TOTAL_USERS":           "100",
+				"SOURCES":               "write-key-1",
+				"EVENT_TYPES":           "track",
+				"HOT_EVENT_TYPES":       "100",
+				"HOT_USER_GROUPS":       "100",
+				"BATCH_SIZES":           "1",
+				"HOT_BATCH_SIZES":       "100",
+				"MAX_EVENTS_PER_SECOND": "100",
+				"SOFT_MEMORY_LIMIT":     "1GB",
+			},
+			wantExitCode: 1,
+			timeout:      1 * time.Second,
+		},
+		{
+			name: "invalid event types distribution",
+			env: map[string]string{
+				"MODE":                  "stdout",
+				"HOSTNAME":              "rudder-load-test-1",
+				"CONCURRENCY":           "2",
+				"MESSAGE_GENERATORS":    "1",
+				"TOTAL_USERS":           "100",
+				"SOURCES":               "write-key-1",
+				"EVENT_TYPES":           "track,identify",
+				"HOT_EVENT_TYPES":       "60", // Should sum to 100
+				"HOT_USER_GROUPS":       "100",
+				"BATCH_SIZES":           "1",
+				"HOT_BATCH_SIZES":       "100",
+				"MAX_EVENTS_PER_SECOND": "100",
+				"SOFT_MEMORY_LIMIT":     "1GB",
+			},
+			wantExitCode: 1,
+			timeout:      1 * time.Second,
+		},
+		{
+			name: "invalid mode",
+			env: map[string]string{
+				"MODE":                  "invalid",
+				"HOSTNAME":              "rudder-load-test-1",
+				"CONCURRENCY":           "2",
+				"MESSAGE_GENERATORS":    "1",
+				"TOTAL_USERS":           "100",
+				"SOURCES":               "write-key-1",
+				"EVENT_TYPES":           "track",
+				"HOT_EVENT_TYPES":       "100",
+				"HOT_USER_GROUPS":       "100",
+				"BATCH_SIZES":           "1",
+				"HOT_BATCH_SIZES":       "100",
+				"MAX_EVENTS_PER_SECOND": "100",
+				"SOFT_MEMORY_LIMIT":     "1GB",
+			},
+			wantExitCode: 1,
+			timeout:      1 * time.Second,
+		},
+		{
+			name: "invalid concurrency",
+			env: map[string]string{
+				"MODE":                  "stdout",
+				"HOSTNAME":              "rudder-load-test-1",
+				"CONCURRENCY":           "0",
+				"MESSAGE_GENERATORS":    "1",
+				"TOTAL_USERS":           "100",
+				"SOURCES":               "write-key-1",
+				"EVENT_TYPES":           "track",
+				"HOT_EVENT_TYPES":       "100",
+				"HOT_USER_GROUPS":       "100",
+				"BATCH_SIZES":           "1",
+				"HOT_BATCH_SIZES":       "100",
+				"MAX_EVENTS_PER_SECOND": "100",
+				"SOFT_MEMORY_LIMIT":     "1GB",
+			},
+			wantExitCode: 1,
+			timeout:      1 * time.Second,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup environment
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
+
+			// Create context with timeout
+			ctx, cancel := context.WithTimeout(context.Background(), tt.timeout)
+			defer cancel()
+
+			// Run the function
+			exitCode := run(ctx)
+			assert.Equal(t, tt.wantExitCode, exitCode)
+		})
+	}
+}
+
+func TestRunCancellation(t *testing.T) {
+	// Setup valid environment
+	env := map[string]string{
+		"MODE":                     "stdout",
+		"HOSTNAME":                 "rudder-load-test-1",
+		"CONCURRENCY":              "2",
+		"MESSAGE_GENERATORS":       "1",
+		"TOTAL_USERS":              "100",
+		"SOURCES":                  "write-key-1",
+		"EVENT_TYPES":              "track",
+		"HOT_EVENT_TYPES":          "100",
+		"HOT_USER_GROUPS":          "100",
+		"BATCH_SIZES":              "1",
+		"HOT_BATCH_SIZES":          "100",
+		"MAX_EVENTS_PER_SECOND":    "100",
+		"SOFT_MEMORY_LIMIT":        "1GB",
+		"TEMPLATES_PATH":           "../../templates/",
+		"ENABLE_SOFT_MEMORY_LIMIT": "true",
+	}
+
+	for k, v := range env {
+		t.Setenv(k, v)
+	}
+
+	// Create cancellable context
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Run in goroutine
+	done := make(chan int)
+	go func() {
+		done <- run(ctx)
+	}()
+
+	// Cancel after short delay
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	// Check if program exits gracefully
+	select {
+	case exitCode := <-done:
+		assert.Equal(t, 0, exitCode)
+	case <-time.After(2 * time.Second):
+		t.Fatal("run did not exit after cancellation")
+	}
+}
+
+func TestRunPanics(t *testing.T) {
+	tests := []struct {
+		name string
+		env  map[string]string
+	}{
+		{
+			name: "more hot sources than total sources",
+			env: map[string]string{
+				"MODE":                     "stdout",
+				"HOSTNAME":                 "rudder-load-test-1",
+				"CONCURRENCY":              "2",
+				"MESSAGE_GENERATORS":       "1",
+				"TOTAL_USERS":              "100",
+				"SOURCES":                  "write-key-1",
+				"HOT_SOURCES":              "60,40", // Should panic: more hot sources than actual sources
+				"EVENT_TYPES":              "track",
+				"HOT_EVENT_TYPES":          "100",
+				"HOT_USER_GROUPS":          "100",
+				"BATCH_SIZES":              "1",
+				"HOT_BATCH_SIZES":          "100",
+				"MAX_EVENTS_PER_SECOND":    "100",
+				"SOFT_MEMORY_LIMIT":        "1GB",
+				"TEMPLATES_PATH":           "../../templates/",
+				"ENABLE_SOFT_MEMORY_LIMIT": "true",
+			},
+		},
+		{
+			name: "hot sources percentages don't sum to 100",
+			env: map[string]string{
+				"MODE":                     "stdout",
+				"HOSTNAME":                 "rudder-load-test-1",
+				"CONCURRENCY":              "2",
+				"MESSAGE_GENERATORS":       "1",
+				"TOTAL_USERS":              "100",
+				"SOURCES":                  "write-key-1,write-key-2",
+				"HOT_SOURCES":              "60,20", // Should panic: doesn't sum to 100
+				"EVENT_TYPES":              "track",
+				"HOT_EVENT_TYPES":          "100",
+				"HOT_USER_GROUPS":          "100",
+				"BATCH_SIZES":              "1",
+				"HOT_BATCH_SIZES":          "100",
+				"MAX_EVENTS_PER_SECOND":    "100",
+				"SOFT_MEMORY_LIMIT":        "1GB",
+				"TEMPLATES_PATH":           "../../templates/",
+				"ENABLE_SOFT_MEMORY_LIMIT": "true",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup environment
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
+
+			// Create context with timeout
+			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+			defer cancel()
+
+			// Assert that the function panics
+			assert.Panics(t, func() {
+				run(ctx)
+			}, "Expected run() to panic for test case: %s", tt.name)
+		})
 	}
 }
 
