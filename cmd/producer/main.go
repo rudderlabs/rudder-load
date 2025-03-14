@@ -80,7 +80,7 @@ func run(ctx context.Context) int {
 		batchSizes            = mustMap("BATCH_SIZES")
 		hotBatchSizes         = mustMap("HOT_BATCH_SIZES")
 		maxEventsPerSecond    = mustInt("MAX_EVENTS_PER_SECOND")
-		templatesPath         = optionalString("TEMPLATES_PATH", "./templates/")
+		templatesPath         = optionalString("TEMPLATES_PATH", "../../templates/")
 		sourcesList           = mustList("SOURCES")
 		hotSourcesList        = optionalMap("HOT_SOURCES", sourcesList)
 	)
@@ -107,7 +107,7 @@ func run(ctx context.Context) int {
 		printErr(fmt.Errorf("error getting instance number from hostname: %v", err))
 		return 1
 	}
-	if len(sourcesList) < (instanceNumber) {
+	if len(sourcesList) < (instanceNumber + 1) {
 		printErr(fmt.Errorf("instance number %d is greater than the number of sources %d", instanceNumber, len(sourcesList)))
 		return 1
 	}
@@ -161,7 +161,8 @@ func run(ctx context.Context) int {
 		printErr(fmt.Errorf("hot user groups should sum to 100"))
 		return 1
 	}
-	if totalUsers&len(hotUserGroups) != 0 {
+
+	if totalUsers%len(hotUserGroups) != 0 {
 		printErr(fmt.Errorf("total users should be a multiple of the number of hot user groups"))
 		return 1
 	}
