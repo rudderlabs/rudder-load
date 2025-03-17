@@ -398,8 +398,12 @@ func run(ctx context.Context) int {
 					)
 
 					if maxEventsPerSecond > 0 {
+						key := msg.WriteKey
+						if key == "" {
+							key = "default"
+						}
 						for {
-							allowed, after, _, err := throttler.AllowAfter(ctx, msg.NoOfEvents, int64(maxEventsPerSecond), 1, "key")
+							allowed, after, _, err := throttler.AllowAfter(ctx, msg.NoOfEvents, int64(maxEventsPerSecond), 1, key)
 							if err != nil {
 								panic(fmt.Errorf("error getting allowed events: %w", err))
 							}
