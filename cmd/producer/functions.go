@@ -336,5 +336,3 @@ func optionalMap(s string, items []string) []int {
 	// Parse provided percentages
 	return mustMap(s)
 }
-
-
