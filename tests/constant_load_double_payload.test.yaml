@@ -1,0 +1,12 @@
+name: http
+namespace: rudder-load
+env:
+  MAX_EVENTS_PER_SECOND: "10000"
+  TOTAL_USERS: "10000"
+  EVENT_TYPES: "custom-double-payload"
+  HOT_EVENT_TYPES: "100"
+  CONCURRENCY: "400"
+  MESSAGE_GENERATORS: "200"
+phases:
+  - duration: 5m
+    replicas: 2
