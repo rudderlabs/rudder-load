@@ -490,6 +490,28 @@ func TestRun(t *testing.T) {
 			wantExitCode: 1,
 			timeout:      1 * time.Second,
 		},
+		{
+			name: "empty write key in sources yields no error",
+			env: map[string]string{
+				"MODE":                     "stdout",
+				"HOSTNAME":                 "rudder-load-test-0",
+				"CONCURRENCY":              "2",
+				"MESSAGE_GENERATORS":       "1",
+				"TOTAL_USERS":              "100",
+				"SOURCES":                  ",,", // All sources are empty
+				"EVENT_TYPES":              "track",
+				"HOT_EVENT_TYPES":          "100",
+				"HOT_USER_GROUPS":          "100",
+				"BATCH_SIZES":              "1",
+				"HOT_BATCH_SIZES":          "100",
+				"MAX_EVENTS_PER_SECOND":    "1000",
+				"SOFT_MEMORY_LIMIT":        "1GB",
+				"TEMPLATES_PATH":           "../../templates/",
+				"ENABLE_SOFT_MEMORY_LIMIT": "true",
+			},
+			wantExitCode: 0,
+			timeout:      1 * time.Second,
+		},
 	}
 
 	for _, tt := range tests {
