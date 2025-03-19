@@ -2,7 +2,6 @@
 artifacts/helm/*_copy.yaml
 load-runner
 !cmd/load-runner/
-templates/custom*
 .env
 
 # Coverage Reports
