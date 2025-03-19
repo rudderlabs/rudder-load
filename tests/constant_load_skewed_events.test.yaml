@@ -1,6 +1,9 @@
 # This test maintains a constant load but with skewed event distribution
 # Track events dominate the traffic
 
+# Remark: For the tests to be executed successfully,
+# the .env file needs to contain 2 sources.
+
 name: http
 namespace: rudder-load
 env:

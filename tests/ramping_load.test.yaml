@@ -1,5 +1,8 @@
-# This test maintains a constant load throughout the test duration
+# This test ramps the load up in 3 steps throughout the test duration
 # with equal distribution of users, events, and sources
+
+# Remark: For the tests to be executed successfully,
+# the .env file needs to contain 6 sources.
 
 name: http
 namespace: rudder-load
