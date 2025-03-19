@@ -196,3 +196,86 @@ func TestGetBatchSizesConcentration(t *testing.T) {
 		})
 	}
 }
+
+func TestGetSourcesConcentration(t *testing.T) {
+	tests := []struct {
+		name       string
+		sources    []string
+		hotSources []int
+		wantPanic  bool
+		validate   func(t *testing.T, result []func() string)
+	}{
+		{
+			name:       "valid distribution 60/40",
+			sources:    []string{"source1", "source2"},
+			hotSources: []int{60, 40},
+			validate: func(t *testing.T, result []func() string) {
+				// Count occurrences of each source
+				counts := make(map[string]int)
+				for _, f := range result {
+					counts[f()]++
+				}
+
+				assert.Equal(t, 60, counts["source1"], "source1 should appear 60 times")
+				assert.Equal(t, 40, counts["source2"], "source2 should appear 40 times")
+				assert.Equal(t, 100, len(result), "should have 100 functions")
+			},
+		},
+		{
+			name:       "three sources distribution",
+			sources:    []string{"source1", "source2", "source3"},
+			hotSources: []int{50, 30, 20},
+			validate: func(t *testing.T, result []func() string) {
+				counts := make(map[string]int)
+				for _, f := range result {
+					counts[f()]++
+				}
+
+				assert.Equal(t, 50, counts["source1"])
+				assert.Equal(t, 30, counts["source2"])
+				assert.Equal(t, 20, counts["source3"])
+			},
+		},
+		{
+			name:       "panic on percentage not 100",
+			sources:    []string{"source1", "source2"},
+			hotSources: []int{60, 30}, // Only sums to 90
+			wantPanic:  true,
+		},
+		{
+			name:       "panic on length mismatch",
+			sources:    []string{"source1"},
+			hotSources: []int{60, 40}, // More hot sources than sources
+			wantPanic:  true,
+		},
+		{
+			name:       "single source 100%",
+			sources:    []string{"source1"},
+			hotSources: []int{100},
+			validate: func(t *testing.T, result []func() string) {
+				for _, f := range result {
+					assert.Equal(t, "source1", f())
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.wantPanic {
+				assert.Panics(t, func() {
+					getSourcesConcentration(tt.sources, tt.hotSources)
+				})
+				return
+			}
+
+			result := getSourcesConcentration(tt.sources, tt.hotSources)
+			assert.NotNil(t, result)
+			assert.Equal(t, 100, len(result), "should always return 100 functions")
+
+			if tt.validate != nil {
+				tt.validate(t, result)
+			}
+		})
+	}
+}
