@@ -1,0 +1,252 @@
+{
+    "batch": [
+        {{range $i := loop $.NoOfEvents }}
+        {
+            "type": "track",
+            "userId": "{{$.UserID}}",
+            "event": "{{$.Event}}",
+            "messageId": "{{uuid}}",
+            "properties": {
+                "link_text": "Request demo",
+                "target_url": "/request-demo/",
+                "click_type": "button",
+                "page_title": "The Warehouse Native Customer Data Platform",
+                "timezone": {
+                    "name": "Europe/Amsterdam"
+                },
+                "gclid": "",
+                "utm_referrer": "",
+                "component": "oneColumnContent",
+                "portableTextComponent": "button",
+                "link": {
+                    "url": "/request-demo/",
+                    "type": "button",
+                    "text": "Request demo"
+                },
+                "additional_metadata": {
+                    "device_info": {
+                        "screen_resolution": "1728x1117",
+                        "color_depth": 24,
+                        "pixel_ratio": 2,
+                        "platform": "MacOS",
+                        "browser_language": "en-GB"
+                    },
+                    "performance_metrics": {
+                        "page_load_time": 1250,
+                        "time_to_interactive": 850,
+                        "first_contentful_paint": 450,
+                        "largest_contentful_paint": 1100
+                    },
+                    "user_interaction": {
+                        "scroll_depth": 65,
+                        "time_on_page": 125,
+                        "mouse_movements": 47,
+                        "clicks": 3
+                    }
+                },
+                "page_metadata": {
+                    "template_version": "v2.1",
+                    "page_category": "product",
+                    "content_group": "main",
+                    "page_language": "en",
+                    "last_updated": "2024-03-15",
+                    "author": "RudderStack Team",
+                    "content_tags": ["CDP", "data", "warehouse", "native"]
+                },
+                "visitor_preferences": {
+                    "theme": "light",
+                    "notification_status": "opted_in",
+                    "cookie_consent": {
+                        "analytics": true,
+                        "marketing": true,
+                        "necessary": true,
+                        "preferences": true
+                    },
+                    "preferred_contact": "email"
+                },
+                "technical_details": {
+                    "network": {
+                        "connection_type": "wifi",
+                        "effective_bandwidth": "15.5",
+                        "rtt": "50",
+                        "downlink": "10.0",
+                        "ip_data": {
+                            "continent": "Europe",
+                            "country": "Netherlands",
+                            "city": "Amsterdam",
+                            "isp": "Example ISP",
+                            "connection_type": "broadband"
+                        }
+                    },
+                    "browser_capabilities": {
+                        "webp_support": true,
+                        "javascript_enabled": true,
+                        "cookies_enabled": true,
+                        "local_storage": true,
+                        "service_worker_support": true,
+                        "push_notification_support": true,
+                        "webgl_support": true
+                    },
+                    "viewport_data": {
+                        "zoom_level": 1,
+                        "orientation": "landscape",
+                        "dpi": 96,
+                        "visible_area": "976x992",
+                        "fold_position": 800
+                    }
+                },
+                "engagement_metrics": {
+                    "session_data": {
+                        "session_duration": 780,
+                        "pages_viewed": 4,
+                        "average_time_per_page": 195,
+                        "bounce_likelihood": 0.15,
+                        "engagement_score": 8.5
+                    },
+                    "interaction_details": {
+                        "form_interactions": {
+                            "started": 2,
+                            "completed": 1,
+                            "abandoned": 1,
+                            "time_to_start": 45,
+                            "completion_time": 120
+                        },
+                        "content_engagement": {
+                            "paragraphs_read": 8,
+                            "images_viewed": 6,
+                            "videos_started": 1,
+                            "video_completion_rate": 0.75,
+                            "scroll_velocity": 150
+                        }
+                    },
+                    "feature_usage": {
+                        "search_used": true,
+                        "filters_applied": 3,
+                        "downloads_initiated": 1,
+                        "social_shares": 0,
+                        "tool_tips_viewed": 4
+                    }
+                },
+                "marketing_data": {
+                    "campaign_details": {
+                        "source": "google",
+                        "medium": "cpc",
+                        "campaign_id": "spring_2024_demo",
+                        "ad_group": "cdp_benefits",
+                        "keyword": "customer data platform",
+                        "creative": "responsive_ad_1",
+                        "placement": "search_results",
+                        "target_audience": "data_engineers"
+                    },
+                    "attribution": {
+                        "first_touch": {
+                            "source": "organic_search",
+                            "timestamp": "2024-03-01T10:15:30Z",
+                            "landing_page": "/features/"
+                        },
+                        "last_touch": {
+                            "source": "paid_search",
+                            "timestamp": "2024-03-15T14:22:45Z",
+                            "landing_page": "/request-demo/"
+                        },
+                        "touchpoint_count": 5
+                    }
+                },
+                "splitTestName": "001_Homepage_Reorder_v1_Web1777",
+                "splitTestVariant": "Variant 1",
+                "splitTestPath": "/001/",
+                "mutiny_experiences": [
+                    {
+                        "audienceSegment": "All Traffic",
+                        "experience": " RJF032 - Homepage headlines v3",
+                        "impressionType": "personalized",
+                        "page": "https://www.rudderstack.com/",
+                        "variationKey": "abc",
+                        "variationName": "Data Leaders turn customer data into competitive advantage"
+                    }
+                ],
+                "mutiny_visitor": {
+                    "data": {
+                        "browser": {
+                            "device_type": "desktop",
+                            "referrer": "https://www.rudderstack.com/",
+                            "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+                        },
+                        "person": {
+                            "behavior": {
+                                "session_number": 26,
+                                "viewed_questionnaires": [],
+                                "visited_url": [
+                                    {
+                                        "query": {},
+                                        "token": "abc",
+                                        "url": "https://www.rudderstack.com/"
+                                    }
+                                ],
+                                "conversions": []
+                            }
+                        },
+                        "query": {},
+                        "client": {
+                            "mode": "default",
+                            "disabled": false
+                        },
+                        "person_identification_token": {},
+                        "generated_at": "2024-10-28T09:42:15-07:00",
+                        "dynamic_dom_updates": {},
+                        "account": {
+                            "properties": {},
+                            "lists": [],
+                            "cleaned_properties": {}
+                        }
+                    },
+                    "token": "abc"
+                }
+            },
+            "context": {
+                "load_run_id": "{{$.LoadRunID}}",
+                "traits": {
+                    "activation_api_experience": false
+                },
+                "sessionId": {{nowNano}},
+                "app": {
+                    "name": "RudderLabs JavaScript SDK",
+                    "namespace": "com.rudderlabs.javascript",
+                    "version": "3.0.3"
+                },
+                "library": {
+                    "name": "RudderLabs JavaScript SDK",
+                    "version": "3.0.3"
+                },
+                "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+                "os": {
+                    "name": "",
+                    "version": ""
+                },
+                "locale": "en-GB",
+                "screen": {
+                    "width": 1728,
+                    "height": 1117,
+                    "density": 2,
+                    "innerWidth": 976,
+                    "innerHeight": 992
+                },
+                "campaign": {},
+                "page": {
+                    "path": "/001/",
+                    "referrer": "https://www.rudderstack.com/",
+                    "referring_domain": "www.rudderstack.com",
+                    "search": "",
+                    "title": "The Warehouse Native Customer Data Platform",
+                    "url": "https://www.rudderstack.com/001/",
+                    "tab_url": "https://www.rudderstack.com/",
+                    "initial_referrer": "https://www.google.com/",
+                    "initial_referring_domain": "www.google.com"
+                },
+                "timezone": "GMT+0100"
+            },
+            "timestamp": "{{$.Timestamp}}"
+        }{{if lt $i (sub $.NoOfEvents 1)}},{{end}}
+        {{- end }}
+    ]
+}
