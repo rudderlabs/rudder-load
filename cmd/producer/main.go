@@ -456,11 +456,7 @@ func run(ctx context.Context) int {
 				batchSize := batchSizesConcentration[random]
 				writeKey := sourcesConcentration[random]()
 				if writeKey == "" {
-					results := make([]string, len(sourcesConcentration))
-					for i, f := range sourcesConcentration {
-						results[i] = f()
-					}
-					printErr(fmt.Errorf("empty write key: current index: %d, concentration list: %v", random, results))
+					printErr(fmt.Errorf("empty write key: current index: %d", random))
 				}
 				msg := eventTypesConcentration[random](userID, batchSize)
 				processedBytes.Add(int64(len(msg)))
