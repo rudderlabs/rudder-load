@@ -140,7 +140,7 @@ func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, 
 		return 0, fmt.Errorf("http request failed: %w", err)
 	}
 	if res.StatusCode() != http.StatusOK {
-		return 0, fmt.Errorf("http request failed with status code: %d: %s, auth: %s", res.StatusCode(), res.Body(), extra["auth"])
+		return 0, fmt.Errorf("http request failed with status code: %d: %s", res.StatusCode(), res.Body())
 	}
 
 	return n, err
