@@ -1,3 +1,7 @@
+# This test maintains a constant load throughout the test duration
+# with equal distribution of users, events, and sources
+# for events that have double the size of the standard payloads
+
 name: http
 namespace: rudder-load
 env:
