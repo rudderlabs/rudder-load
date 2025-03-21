@@ -1,9 +1,6 @@
 # This test maintains a constant load but with skewed user distribution
 # A group of users generates most of the traffic
 
-# Remark: For the tests to be executed successfully,
-# the .env file needs to contain 2 sources.
-
 name: http
 namespace: rudder-load
 env:

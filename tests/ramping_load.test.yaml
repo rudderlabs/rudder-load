@@ -1,15 +1,11 @@
 # This test ramps the load up in 3 steps throughout the test duration
 # with equal distribution of users, events, and sources
 
-# Remark: For the tests to be executed successfully,
-# the .env file needs to contain 6 sources.
-
 name: http
 namespace: rudder-load
 env:
   MAX_EVENTS_PER_SECOND: "2000"
   TOTAL_USERS: "100000"
-  HOT_USER_GROUPS: "50,50"
   EVENT_TYPES: "track,page,identify"
   HOT_EVENT_TYPES: "33,33,34"
   CONCURRENCY: "2000"

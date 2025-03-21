@@ -2,9 +2,6 @@
 # with equal distribution of users, events, and sources
 # for events that have double the size of the standard payloads
 
-# Remark: For the tests to be executed successfully,
-# the .env file needs to contain 2 sources.
-
 name: http
 namespace: rudder-load
 env:

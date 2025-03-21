@@ -2,9 +2,6 @@
 # One source should dominate the traffic
 # Configure 2 sources in your .env file with one source receiving ~90% of traffic
 
-# Remark: For the tests to be executed successfully,
-# the .env file needs to contain 2 sources.
-
 name: http
 namespace: rudder-load
 env:
