@@ -326,7 +326,7 @@ func TestRun(t *testing.T) {
 				"MAX_EVENTS_PER_SECOND": "100",
 				"SOFT_MEMORY_LIMIT":     "1GB",
 			},
-			wantExitCode: 1,
+			wantExitCode: 0,
 			timeout:      1 * time.Second,
 		},
 		{
