@@ -107,10 +107,6 @@ func run(ctx context.Context) int {
 		printErr(fmt.Errorf("error getting instance number from hostname: %v", err))
 		return 1
 	}
-	if len(sourcesList) < (instanceNumber + 1) {
-		printErr(fmt.Errorf("instance number %d is greater than the number of sources %d", instanceNumber, len(sourcesList)))
-		return 1
-	}
 	if concurrency < 1 {
 		printErr(fmt.Errorf("concurrency has to be greater than zero: %d", concurrency))
 		return 1
@@ -455,6 +451,9 @@ func run(ctx context.Context) int {
 				userID := userIDsConcentration[random]()
 				batchSize := batchSizesConcentration[random]
 				writeKey := sourcesConcentration[random]()
+				if writeKey == "" {
+					printErr(fmt.Errorf("empty write key: current index: %d", random))
+				}
 				msg := eventTypesConcentration[random](userID, batchSize)
 				processedBytes.Add(int64(len(msg)))
 
