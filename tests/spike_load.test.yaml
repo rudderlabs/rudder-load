@@ -1,0 +1,17 @@
+# This test starts with a constant load and then spikes the load to a higher value
+# with equal distribution of users, events, and sources
+
+name: http
+namespace: rudder-load
+env:
+  MAX_EVENTS_PER_SECOND: "3000"
+  TOTAL_USERS: "100000"
+  EVENT_TYPES: "track,page,identify"
+  HOT_EVENT_TYPES: "33,33,34"
+  CONCURRENCY: "2000"
+  MESSAGE_GENERATORS: "500"
+phases:
+  - duration: 2m
+    replicas: 2
+  - duration: 3m
+    replicas: 6
