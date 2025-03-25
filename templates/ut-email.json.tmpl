@@ -83,6 +83,20 @@
             "transformationId": "fn-test-1"
         },
         "destination": {
+            "ID": "",
+            "Name": "",
+            "DestinationDefinition": {
+                "ID": "",
+                "Name": "",
+                "DisplayName": "",
+                "Config": null,
+                "ResponseRules": null
+            },
+            "Config": null,
+            "Enabled": false,
+            "WorkspaceID": "",
+            "IsProcessorEnabled": false,
+            "RevisionID": "",
             "Transformations": [
                 {
                     "VersionID": "2tG0U2Ytf4Sia0ThGyOXyoOa9ad",
@@ -90,6 +104,13 @@
                     "Config": {}
                 }
             ]
+        },
+        "connection": {
+            "sourceId": "",
+            "destinationId": "",
+            "enabled": false,
+            "config": null,
+            "processorEnabled": false
         }
     }{{if lt $i (sub $.NoOfEvents 1)}},{{end}}
     {{- end }}
