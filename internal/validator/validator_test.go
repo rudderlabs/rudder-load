@@ -271,6 +271,90 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "invalid hot sources - empty string",
+			config: &parser.LoadTestConfig{
+				Name:      "test-load",
+				Namespace: "test-ns",
+				Phases: []parser.RunPhase{
+					{Duration: "1h30m", Replicas: 2},
+				},
+				EnvOverrides: map[string]string{
+					"HOT_SOURCES": "",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid hot sources - only comma",
+			config: &parser.LoadTestConfig{
+				Name:      "test-load",
+				Namespace: "test-ns",
+				Phases: []parser.RunPhase{
+					{Duration: "1h30m", Replicas: 2},
+				},
+				EnvOverrides: map[string]string{
+					"HOT_SOURCES": ",",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid hot sources - contains whitespace",
+			config: &parser.LoadTestConfig{
+				Name:      "test-load",
+				Namespace: "test-ns",
+				Phases: []parser.RunPhase{
+					{Duration: "1h30m", Replicas: 2},
+				},
+				EnvOverrides: map[string]string{
+					"HOT_SOURCES": "60, 40",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid hot sources - empty value between commas",
+			config: &parser.LoadTestConfig{
+				Name:      "test-load",
+				Namespace: "test-ns",
+				Phases: []parser.RunPhase{
+					{Duration: "1h30m", Replicas: 2},
+				},
+				EnvOverrides: map[string]string{
+					"HOT_SOURCES": "60,,40",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid hot sources - trailing comma",
+			config: &parser.LoadTestConfig{
+				Name:      "test-load",
+				Namespace: "test-ns",
+				Phases: []parser.RunPhase{
+					{Duration: "1h30m", Replicas: 2},
+				},
+				EnvOverrides: map[string]string{
+					"HOT_SOURCES": "60,40,",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid hot sources - decimal number",
+			config: &parser.LoadTestConfig{
+				Name:      "test-load",
+				Namespace: "test-ns",
+				Phases: []parser.RunPhase{
+					{Duration: "1h30m", Replicas: 2},
+				},
+				EnvOverrides: map[string]string{
+					"HOT_SOURCES": "60.5,39.5",
+				},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
