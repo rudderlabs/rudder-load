@@ -1,0 +1,18 @@
+# This test maintains a constant load throughout the test duration
+# with equal distribution of users, events, and sources
+
+# Remark: This test is intended to load the data plane with enough events
+# to test the processing and delivery throughput.
+
+name: http
+namespace: rudder-load
+env:
+  MAX_EVENTS_PER_SECOND: "5000"
+  TOTAL_USERS: "100000"
+  EVENT_TYPES: "track,page,identify"
+  HOT_EVENT_TYPES: "33,33,34"
+  CONCURRENCY: "2000"
+  MESSAGE_GENERATORS: "500"
+phases:
+  - duration: 5m
+    replicas: 2
