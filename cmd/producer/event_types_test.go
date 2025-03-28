@@ -22,7 +22,7 @@ func TestEventGenerators(t *testing.T) {
 	})
 
 	t.Run("track generator", func(t *testing.T) {
-		tmpl, err := template.New("track").Parse(`{"type": "track", "userId": "{{.UserID}}", "event": "{{.Event}}", "loadRunId": "{{.LoadRunID}}", "noOfEvents": {{.NoOfEvents}}}`)
+		tmpl, err := template.New("track").Parse(`{"type": "track", "errorProbability": 0.5, "userId": "{{.UserID}}", "event": "{{.Event}}", "loadRunId": "{{.LoadRunID}}", "noOfEvents": {{.NoOfEvents}}}`)
 		require.NoError(t, err)
 
 		result := trackFunc(tmpl, "test-user", "test-run", 1, nil)
@@ -31,6 +31,7 @@ func TestEventGenerators(t *testing.T) {
 		require.Contains(t, output, `"userId": "test-user"`)
 		require.Contains(t, output, `"loadRunId": "test-run"`)
 		require.Contains(t, output, `"noOfEvents": 1`)
+		require.Contains(t, output, `"errorProbability": 0.5`)
 	})
 
 	t.Run("identify generator", func(t *testing.T) {
