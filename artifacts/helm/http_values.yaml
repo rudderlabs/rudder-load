@@ -45,11 +45,11 @@ deployment:
     # The custom event templates are gitignored.
     # Custom event types should start with "custom"
     # e.g. EVENT_TYPES: "track,page,identify,custom_purchase,custom_add_to_cart"
-    EVENT_TYPES: "track,page,identify"
+    # EVENT_TYPES: "track,page,identify"
     # HOT_EVENT_TYPES: sum should be 100 (%) and values comma separated
     # It should be a 1:1 match with the groups in EVENT_TYPES.
     # The groups here define the percentage of the events in EVENT_TYPES.
-    HOT_EVENT_TYPES: "50,40,10"
+    # HOT_EVENT_TYPES: "50,40,10"
     BATCH_SIZES: "1,2,3"
     # 33% of chances to get a batch size of 1, 33% of chances to get a batch size of 2,
     # and 34% of chances to get a batch size of 3 (see BATCH_SIZES)
