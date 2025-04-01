@@ -40,9 +40,6 @@ func ValidateDuration(duration string) error {
 
 func ValidateSources(sources string) error {
 	v := strings.Split(sources, ",")
-	if len(v) < 1 {
-		return fmt.Errorf("invalid sources: %s", sources)
-	}
 	for _, source := range v {
 		if strings.TrimSpace(source) == "" {
 			return fmt.Errorf("invalid sources: contains empty source")
@@ -52,10 +49,8 @@ func ValidateSources(sources string) error {
 }
 
 func ValidateHotSources(hotSources string) error {
+	totalPercentage := 0
 	values := strings.Split(hotSources, ",")
-	if len(values) == 0 {
-		return fmt.Errorf("empty hot sources: %s", hotSources)
-	}
 	for _, value := range values {
 		if strings.TrimSpace(value) == "" {
 			return fmt.Errorf("invalid hot sources: %s", hotSources)
@@ -66,18 +61,6 @@ func ValidateHotSources(hotSources string) error {
 		}
 		if percentage < 0 || percentage > 100 {
 			return fmt.Errorf("hot sources percentage must be between 0 and 100: %s", hotSources)
-		}
-	}
-	return nil
-}
-
-func ValidateHotSourcesPercentage(hotSources string) error {
-	totalPercentage := 0
-	values := strings.Split(hotSources, ",")
-	for _, value := range values {
-		percentage, err := strconv.Atoi(value)
-		if err != nil {
-			return fmt.Errorf("hot sources percentage must be an integer: %s", hotSources)
 		}
 		totalPercentage += percentage
 	}
@@ -116,9 +99,6 @@ func ValidateLoadTestConfig(config *parser.LoadTestConfig) error {
 	}
 	if hotSources, ok := config.EnvOverrides["HOT_SOURCES"]; ok {
 		if err := ValidateHotSources(hotSources); err != nil {
-			return err
-		}
-		if err := ValidateHotSourcesPercentage(hotSources); err != nil {
 			return err
 		}
 		if err := ValidateHotSourcesDistribution(os.Getenv("SOURCES"), hotSources); err != nil {

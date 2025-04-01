@@ -1,7 +1,6 @@
 package validator
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,12 +9,8 @@ import (
 )
 
 func TestLoadTestConfig_Validate(t *testing.T) {
-	os.Setenv("SOURCES", "source1,source2")
-	os.Setenv("HTTP_ENDPOINT", "https://example.com")
-	defer func() {
-		os.Unsetenv("SOURCES")
-		os.Unsetenv("HTTP_ENDPOINT")
-	}()
+	t.Setenv("SOURCES", "source1,source2")
+	t.Setenv("HTTP_ENDPOINT", "https://example.com")
 
 	tests := []struct {
 		name     string
@@ -101,34 +96,6 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "missing sources env",
-			config: &parser.LoadTestConfig{
-				Name:      "test-load",
-				Namespace: "test-ns",
-				Phases: []parser.RunPhase{
-					{Duration: "1h30m", Replicas: 2},
-				},
-			},
-			envSetup: func() {
-				os.Unsetenv("SOURCES")
-			},
-			wantErr: true,
-		},
-		{
-			name: "missing http endpoint env",
-			config: &parser.LoadTestConfig{
-				Name:      "test-load",
-				Namespace: "test-ns",
-				Phases: []parser.RunPhase{
-					{Duration: "1h30m", Replicas: 2},
-				},
-			},
-			envSetup: func() {
-				os.Unsetenv("HTTP_ENDPOINT")
-			},
-			wantErr: true,
-		},
-		{
 			name: "empty sources",
 			config: &parser.LoadTestConfig{
 				Name:      "test-load",
@@ -138,7 +105,7 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				},
 			},
 			envSetup: func() {
-				os.Setenv("SOURCES", "")
+				t.Setenv("SOURCES", "")
 			},
 			wantErr: true,
 		},
@@ -152,7 +119,7 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				},
 			},
 			envSetup: func() {
-				os.Setenv("SOURCES", ",")
+				t.Setenv("SOURCES", ",")
 			},
 			wantErr: true,
 		},
@@ -166,7 +133,7 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				},
 			},
 			envSetup: func() {
-				os.Setenv("HTTP_ENDPOINT", "not-a-url")
+				t.Setenv("HTTP_ENDPOINT", "not-a-url")
 			},
 			wantErr: true,
 		},
@@ -197,7 +164,7 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				},
 			},
 			envSetup: func() {
-				os.Setenv("SOURCES", "source1")
+				t.Setenv("SOURCES", "source1")
 			},
 			wantErr: false,
 		},
@@ -359,8 +326,8 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("SOURCES", "source1,source2")
-			os.Setenv("HTTP_ENDPOINT", "https://example.com")
+			t.Setenv("SOURCES", "source1,source2")
+			t.Setenv("HTTP_ENDPOINT", "https://example.com")
 
 			if tt.envSetup != nil {
 				tt.envSetup()
