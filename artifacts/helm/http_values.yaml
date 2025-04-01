@@ -8,7 +8,7 @@ deployment:
   restartPolicy: Always
   command: ["/rudder-load-producer"]
   backoffLimit: 1
-  replicas: 4
+  replicas: 1
   resources:
     cpuRequests: 500m
     memoryRequests: 256Mi
