@@ -8,7 +8,7 @@ The service is designed to be run in a Kubernetes cluster.
 
 It is possible to create multiple replicas of the service to increase the load.
 
-Each replica owns a specific writeKey and will send events via multiple go routines. Each go routine will send events
+Each replica owns all writeKeys and will send events via multiple go routines using the configured distribution for each source. Each go routine will send events
 owning a set of keys. This way we can guarantee in-order delivery of events per writeKey-userId.
 
 ## Example configuration
@@ -16,49 +16,45 @@ owning a set of keys. This way we can guarantee in-order delivery of events per 
 1. Replicas: 3
 2. WriteKeys: 3
 3. Concurrency: 200 (number of go routines sending messages per replica, aka "producers")
-4. Message generators: 10
+4. Message generators: 10 (number of go routines that will generate events and send them to the **producers**, see point 3)
+5. Total users: 100000 (number of unique users that will be used to generate the messages for each replica)
+6. Hot user groups: 70,30 (creates equal number of groups of users and defines their distribution for the events sent)
+    - Rules:
+      
+      a. the sum of all the comma separated values must be equal to 100 (percentage)
 
-   a. number of go routines that will generate events and send them to the **producers** (see point 3)
-5. Total users: 100000
-
-   a. number of unique users that will be used to generate the messages
-6. Hot user groups: 70,30
-
-   a. the sum of all the comma separated values must be equal to 100 (percentage)
-
-   b. the percentage of user IDs concentration that will be used to generate the messages.
-      - In this case we have 100,000 total users (see point 5) and we are defining 2 hot user groups so we just divide
+      b. the percentage of user IDs concentration that will be used to generate the messages.
+        
+        - Example:  In this case we have 100,000 total users (see point 5) and we are defining 2 hot user groups so we just divide
       100,000 by 2 which gives us 2 groups of 50k users each. The probability of a message being generated for a user
       in the first group is 70% and 30% for the second group.
-7. Event types: page,batch(10,0),batch(30,100)
+7. Event types: page,batch(10,0),batch(30,100) (Types of events to be sent based on the event templates)
 
-   a. the types of events that will be generated. In this case, the program will generate 3 different types of events:
+   - Example: In this case, the program will generate 3 different types of events:
       * page
       * batch with 10 pages
       * batch with 30 pages and 100 track events
-8. Hot event types: 60,25,15
 
-   a. the sum of all the comma separated values must be equal to 100 (percentage)
+8. Hot event types: 60,25,15 (Event types distribution)
 
-   b. the percentage of event types concentration that will be used to generate the messages.
-      - In this case we have 3 event types (see point 7) and we are defining 3 hot event types, one for each event type.
+    - Rules:
+
+      a. the sum of all the comma separated values must be equal to 100 (percentage)
+
+      b. the percentage of event types concentration that will be used to generate the messages.
+      - Example:  In this case we have 3 event types (see point 7) and we are defining 3 hot event types, one for each event type.
       Given `page,batch(10,0),batch(30,100)` and hot event types `60,25,15` we'll have 60% probability to get a `page`,
       25% probability to get a `batch(10,0)` and 15% probability to get a `batch(30,100)`.
-9. Batches sizes and hot batch sizes (they would work the same as hot event types but for the batch sizes)
-10. Custom event types: custom_purchase,custom_add_to_cart
 
-   a. the templates for these event types should be inside the `templates` folder
-
-   b. the event types should start with "custom"
+9. Batch sizes and hot batch sizes (they would work the same as hot event types but for the batch sizes)
 
 
 ## Adding more event types
 
 To add more event types simply do:
-1. add template inside `templates` folder like `page.json.tmpl`
-2. the name of the file without extension can now be used as an event type
-3. now you have to define a function to populate your template inside `cmd/producer/event_types.go` and then update
-   the `var eventGenerators = map[string]eventGenerator{}` map with your function (use name of the template as key)
+1. add template inside `templates` folder like `page.json.tmpl` with a file name that starts with `"custom"` E.g. `custom-page.json.tmpl`
+2. the name of the file without extension can now be used as an event type E.g. `custom-page`
+3. in order to be able to use the new event type one needs to build the rudder-load image that contains the change and use the corresponding image in the values file.
 
 ## Ways to Run Load Tests
 
@@ -72,11 +68,11 @@ In order to deploy you'll have to use the `Makefile` recipes.
 
 The `Makefile` has 2 important variables:
 * `K8S_NAMESPACE`: the Kubernetes namespace where it should deploy the `rudder-load` service
-
-Those are the only variables that you can tune via the `Makefile`.
-Before deploying you will have to create a copy of your value file (e.g. `http_values.yaml`) and add `_copy.yaml` at the
+* Values file prefix: The prefix of the values file to be used for the deployment. Before deploying you will have to create a copy of your value file (e.g. `http_values.yaml`) and add `_copy.yaml` at the
 end of the file name (e.g. `http_values_copy.yaml`). The `Makefile` will use the copied file.
 Also, that file is ignored by git so you can add whatever you want to it.
+
+Those are the only variables that you can tune via the `Makefile`.
 
 The docker image is built in the CI pipeline.
 If you want you can still build your own image by doing `make DOCKER_USER=<your-docker-username> build`.
@@ -299,7 +295,7 @@ Here's an example of running a simple load test for 5 minutes:
 go build -o load-runner ./cmd/load-runner
 
 # Run a load test for 5 minutes
-./load-runner -d 5m -n my-namespace -l http -e HTTP_ENDPOINT="https://dataplane.rudderstack.com/v1/batch"
+./load-runner -d 5m -n my-namespace -l http -e HTTP_ENDPOINT="https://dataplane.rudderstack.com/v1/batch" -e EVENT_TYPES: "track,page,identify"
 ```
 
 #### Example: Running a Multi-Phase Load Test
@@ -311,6 +307,7 @@ For a test that gradually increases and then decreases load:
    name: http
    namespace: load-test
    env:
+     EVENT_TYPES: "track,page,identify"
      MAX_EVENTS_PER_SECOND: "5000"
    phases:
      - duration: 2m
