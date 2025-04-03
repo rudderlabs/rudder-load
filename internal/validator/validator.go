@@ -14,7 +14,7 @@ var (
 	namespaceValidator    = regexp.MustCompile(`^[a-z0-9-]+$`)
 	loadNameValidator     = regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
 	durationValidator     = regexp.MustCompile(`^(\d+[hms])+$`)
-	httpEndpointValidator = regexp.MustCompile(`^https?://[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+$`)
+	httpEndpointValidator = regexp.MustCompile(`^https?://[a-zA-Z0-9.-]+(:\d+)?(/.*)?$`)
 )
 
 func ValidateNamespace(namespace string) error {
