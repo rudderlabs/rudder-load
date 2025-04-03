@@ -342,3 +342,68 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestHttpEndpointValidator(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint string
+		wantErr  bool
+	}{
+		{
+			name:     "valid http endpoint",
+			endpoint: "http://example.com",
+			wantErr:  false,
+		},
+		{
+			name:     "valid https endpoint",
+			endpoint: "https://example.com",
+			wantErr:  false,
+		},
+		{
+			name:     "valid endpoint with path",
+			endpoint: "https://example.com/api/v1",
+			wantErr:  false,
+		},
+		{
+			name:     "valid endpoint with subdomain",
+			endpoint: "https://api.example.com",
+			wantErr:  false,
+		},
+		{
+			name:     "valid endpoint with port",
+			endpoint: "https://example.com:8080",
+			wantErr:  false,
+		},
+		{
+			name:     "valid endpoint with query params",
+			endpoint: "https://example.com/api?v=1",
+			wantErr:  false,
+		},
+		{
+			name:     "invalid endpoint - missing protocol",
+			endpoint: "example.com",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid endpoint - wrong protocol",
+			endpoint: "ftp://example.com",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid endpoint - empty string",
+			endpoint: "",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateHttpEndpoint(tt.endpoint)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
