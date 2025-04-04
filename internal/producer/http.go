@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -23,9 +24,10 @@ type HTTPProducer struct {
 	keyHeader   string
 	clientType  string
 	compression bool
+	config      *config
 }
 
-func NewHTTPProducer(environ []string) (*HTTPProducer, error) {
+func NewHTTPProducer(environ []string, opts ...Option) (*HTTPProducer, error) {
 	conf, err := readConfiguration("HTTP_", environ)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read http configuration: %v", err)
@@ -94,6 +96,10 @@ func NewHTTPProducer(environ []string) (*HTTPProducer, error) {
 		return nil, err
 	}
 
+	var producerConfig config
+	for _, opt := range opts {
+		opt(&producerConfig)
+	}
 	return &HTTPProducer{
 		c:           client,
 		endpoint:    endpoint,
@@ -101,6 +107,7 @@ func NewHTTPProducer(environ []string) (*HTTPProducer, error) {
 		keyHeader:   keyHeader,
 		clientType:  clientType,
 		compression: compression,
+		config:      &producerConfig,
 	}, nil
 }
 
@@ -139,6 +146,20 @@ func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, 
 	if err != nil {
 		return 0, fmt.Errorf("http request failed: %w", err)
 	}
+
+	if p.config.validate != nil {
+		headers := make(map[string]string, res.Header.Len())
+		res.Header.VisitAll(func(key, value []byte) {
+			headers[strings.ToLower(string(key))] = string(value)
+		})
+		err = p.config.validate(headers, res.StatusCode(), res.Body())
+		if err != nil {
+			return 0, fmt.Errorf("http request failed validation: %w", err)
+		}
+		return n, nil
+	}
+
+	// no custom validator is defined, just check if status code is 200
 	if res.StatusCode() != http.StatusOK {
 		return 0, fmt.Errorf("http request failed with status code: %d: %s", res.StatusCode(), res.Body())
 	}
