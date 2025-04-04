@@ -333,3 +333,20 @@ For a test that gradually increases and then decreases load:
    ```
 
 This will create a 15-minute load test that follows the pattern: light load (2m) → medium load (3m) → heavy load (5m) → medium load (3m) → light load (2m), with appropriate adjustments to the configuration at each phase.
+
+## Reporting Configuration
+
+The load test tool supports reporting metrics to a monitoring system. This is configured in the test configuration file under the `reporting` section:
+
+```yaml
+reporting:
+  namespace: mimir          # Namespace for mimir
+  interval: 30s             # How often to report metrics
+  metrics:
+    - name: rps             # Name of the metric to report
+```
+
+Currently supported metrics:
+- `rps`: Reports the requests per second being sent to the target endpoint
+
+The reporting feature allows you to monitor the load test performance in real-time and analyze the results after the test completes.

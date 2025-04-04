@@ -220,3 +220,76 @@ func TestLoadTestConfig_SetDefaults(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadTestConfig_Reporting(t *testing.T) {
+	yamlContent := `
+name: test-load
+namespace: test-ns
+chartFilePath: /test/path
+reporting:
+  namespace: monitoring
+  interval: 30s
+  metrics:
+    - name: request_latency
+      query: "rate(http_request_duration_seconds_sum[5m])"
+    - name: error_rate
+      query: "rate(http_requests_total{status=~'5..'}[5m])"
+phases:
+  - duration: 1h30m
+    replicas: 2
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test-config.yaml")
+	err := os.WriteFile(tmpFile, []byte(yamlContent), 0644)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name    string
+		args    *CLIArgs
+		want    *LoadTestConfig
+		wantErr bool
+	}{
+		{
+			name: "from file with reporting config",
+			args: &CLIArgs{
+				TestFile: tmpFile,
+			},
+			want: &LoadTestConfig{
+				Name:          "test-load",
+				Namespace:     "test-ns",
+				ChartFilePath: "/test/path",
+				Phases: []RunPhase{
+					{Duration: "1h30m", Replicas: 2},
+				},
+				Reporting: Reporting{
+					Namespace: "monitoring",
+					Interval:  "30s",
+					Metrics: []Metric{
+						{
+							Name:  "request_latency",
+							Query: "rate(http_request_duration_seconds_sum[5m])",
+						},
+						{
+							Name:  "error_rate",
+							Query: "rate(http_requests_total{status=~'5..'}[5m])",
+						},
+					},
+				},
+				FromFile: true,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseLoadTestConfig(tt.args)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}

@@ -22,6 +22,7 @@ type LoadTestConfig struct {
 	ChartFilePath string            `yaml:"chartFilePath"`
 	Phases        []RunPhase        `yaml:"phases"`
 	EnvOverrides  map[string]string `yaml:"env"`
+	Reporting     Reporting         `yaml:"reporting"`
 
 	ReleaseName string
 	FromFile    bool
@@ -31,6 +32,17 @@ type RunPhase struct {
 	Duration     string            `yaml:"duration"`
 	Replicas     int               `yaml:"replicas"`
 	EnvOverrides map[string]string `yaml:"env"`
+}
+
+type Reporting struct {
+	Namespace string   `yaml:"namespace"`
+	Interval  string   `yaml:"interval"`
+	Metrics   []Metric `yaml:"metrics"`
+}
+
+type Metric struct {
+	Name  string `yaml:"name"`
+	Query string `yaml:"query"`
 }
 
 func ParseLoadTestConfig(args *CLIArgs) (*LoadTestConfig, error) {

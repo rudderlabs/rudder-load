@@ -12,6 +12,7 @@ import (
 
 	"rudder-load/internal/parser"
 	"rudder-load/internal/validator"
+	"rudder-load/internal/metrics"
 )
 
 func main() {
@@ -51,7 +52,8 @@ func run(ctx context.Context, log logger.Logger) error {
 	cfg.SetDefaults()
 
 	helmClient := NewHelmClient(&commandExecutor{})
-	runner := NewLoadTestRunner(cfg, helmClient, log)
+	mimirClient := metrics.NewMimirClient("http://localhost:9898")
+	runner := NewLoadTestRunner(cfg, helmClient, mimirClient, log)
 
 	if err := runner.Run(ctx); err != nil {
 		return fmt.Errorf("failed to run load test: %w", err)
