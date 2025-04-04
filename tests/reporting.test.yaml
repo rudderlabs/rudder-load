@@ -1,5 +1,4 @@
-# This test maintains a constant load throughout the test duration
-# with equal distribution of users, events, and sources
+# This test reports metrics from mimir
 
 name: http
 namespace: rudder-load
