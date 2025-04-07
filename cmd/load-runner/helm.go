@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 
 	"rudder-load/internal/parser"
@@ -51,8 +53,25 @@ func (h *helmClient) Upgrade(ctx context.Context, config *parser.LoadTestConfig,
 		"--values", fmt.Sprintf("%s/%s_values_copy.yaml", config.ChartFilePath, config.Name),
 	}
 
-	args = processHelmEnvVars(args, config.EnvOverrides)
-	args = processHelmEnvVars(args, phase.EnvOverrides)
+	// Merge config and phase overrides, with phase taking precedence
+	mergedOverrides := make(map[string]string)
+
+	// First add config overrides
+	if config.EnvOverrides != nil {
+		for k, v := range config.EnvOverrides {
+			mergedOverrides[k] = v
+		}
+	}
+
+	// Then add phase overrides (overriding any duplicates)
+	if phase.EnvOverrides != nil {
+		for k, v := range phase.EnvOverrides {
+			mergedOverrides[k] = v
+		}
+	}
+
+	// Process the merged overrides
+	args = processHelmEnvVars(args, mergedOverrides)
 
 	return h.executor.run(ctx, "helm", args...)
 }
@@ -67,11 +86,34 @@ func (h *helmClient) Uninstall(config *parser.LoadTestConfig) error {
 }
 
 func processHelmEnvVars(args []string, envVars map[string]string) []string {
+	args = calculateLoadParameters(args, envVars)
 	for key, value := range envVars {
 		if strings.Contains(value, ",") {
 			value = strings.ReplaceAll(value, ",", "\\,")
 		}
 		args = append(args, "--set", fmt.Sprintf("deployment.env.%s=%s", key, value))
 	}
+
+	return args
+}
+
+func calculateLoadParameters(args []string, envVars map[string]string) []string {
+	if envVars["RESOURCE_CALCULATION"] != "auto" {
+		return args
+	}
+	maxEventsPerSecond, err := strconv.Atoi(envVars["MAX_EVENTS_PER_SECOND"])
+	if err != nil {
+		log.Fatalf("Failed to convert MAX_EVENTS_PER_SECOND to int: %v", err)
+		return args
+	}
+	resourceMultiplier := maxEventsPerSecond/5000 + 1
+	envVars["CONCURRENCY"] = strconv.Itoa(resourceMultiplier * 2000)
+	envVars["MESSAGE_GENERATORS"] = strconv.Itoa(resourceMultiplier * 500)
+	args = append(args, "--set", fmt.Sprintf("deployment.resources.cpuRequests=%d", resourceMultiplier),
+		"--set", fmt.Sprintf("deployment.resources.cpuLimits=%d", resourceMultiplier),
+		"--set", fmt.Sprintf("deployment.resources.memoryRequests=%dGi", resourceMultiplier*2),
+		"--set", fmt.Sprintf("deployment.resources.memoryLimits=%dGi", resourceMultiplier*2),
+	)
+
 	return args
 }

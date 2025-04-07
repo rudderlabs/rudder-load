@@ -245,7 +245,7 @@ func TestHelmClient_Upgrade_WithPhaseEnvOverrides(t *testing.T) {
 	}
 
 	mockExecutor.On("run", ctx, "helm", mock.MatchedBy(func(args []string) bool {
-		if len(args) != 21 {
+		if len(args) != 19 {
 			return false
 		}
 
@@ -276,8 +276,7 @@ func TestHelmClient_Upgrade_WithPhaseEnvOverrides(t *testing.T) {
 			}
 		}
 
-		return envVarSet["deployment.env.MESSAGE_GENERATORS=200"] &&
-			envVarSet["deployment.env.MAX_EVENTS_PER_SECOND=15000"] &&
+		return envVarSet["deployment.env.MAX_EVENTS_PER_SECOND=15000"] &&
 			envVarSet["deployment.env.MESSAGE_GENERATORS=300"] &&
 			envVarSet["deployment.env.CONCURRENCY=500"]
 	})).Return(nil)
