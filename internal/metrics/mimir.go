@@ -17,7 +17,7 @@ import (
 type MimirClient interface {
 	Query(ctx context.Context, query string, time int64) (QueryResponse, error)
 	QueryRange(ctx context.Context, query string, start int64, end int64, step string) (QueryResponse, error)
-	GetMetrics(ctx context.Context, mts []parser.Metric) (MetricsResponse, error)
+	GetMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error)
 }
 
 type mimirClient struct {
@@ -38,7 +38,8 @@ type QueryResponse struct {
 }
 
 type MetricsResponse struct {
-	RPS float64
+	Key   string
+	Value float64
 }
 
 func NewMimirClient(baseURL string) MimirClient {
@@ -137,32 +138,47 @@ func (m *mimirClient) QueryRange(ctx context.Context, query string, start int64,
 	return queryResp, nil
 }
 
-func (m *mimirClient) GetMetrics(ctx context.Context, mts []parser.Metric) (MetricsResponse, error) {
-	var metricsResp MetricsResponse
+func (m *mimirClient) GetMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
+	var metricsResponses []MetricsResponse
+
+	var knownMetrics = []struct {
+		Name  string
+		Query string
+	}{
+		{Name: "rps", Query: "sum(rate(rudder_load_publish_duration_seconds_count[1m]))"},
+	}
 
 	for _, metric := range mts {
-		switch metric.Name {
-		case "rps":
-			rpsQuery := `sum(rate(rudder_load_publish_duration_seconds_count[1m]))`
-			if metric.Query != "" {
-				rpsQuery = metric.Query
+		var matchingMetric *struct {
+			Name  string
+			Query string
+		}
+		for _, km := range knownMetrics {
+			if km.Name == metric.Name {
+				matchingMetric = &km
+				break
 			}
-			rpsResp, err := m.Query(ctx, rpsQuery, time.Now().Unix())
-			if err != nil {
-				return metricsResp, fmt.Errorf("failed to query RPS: %w", err)
-			}
-			if len(rpsResp.Data.Result) > 0 {
-				if str, ok := rpsResp.Data.Result[0].Value[1].(string); ok {
-					metricsResp.RPS, err = strconv.ParseFloat(str, 64)
-					if err != nil {
-						return metricsResp, fmt.Errorf("failed to parse RPS value: %w", err)
-					}
-					metricsResp.RPS = math.Round(metricsResp.RPS)
+		}
+
+		if matchingMetric != nil && metric.Query == "" {
+			metric.Query = matchingMetric.Query
+		}
+
+		resp, err := m.Query(ctx, metric.Query, time.Now().Unix())
+
+		if err != nil {
+			return metricsResponses, fmt.Errorf("failed to query %s: %w", metric.Name, err)
+		}
+
+		if len(resp.Data.Result) > 0 {
+			if str, ok := resp.Data.Result[0].Value[1].(string); ok {
+				value, err := strconv.ParseFloat(str, 64)
+				if err != nil {
+					return metricsResponses, fmt.Errorf("failed to parse %s value: %w", metric.Name, err)
 				}
+				metricsResponses = append(metricsResponses, MetricsResponse{Key: metric.Name, Value: math.Round(value)})
 			}
-		default:
-			return metricsResp, fmt.Errorf("unknown metric: %s", metric.Name)
 		}
 	}
-	return metricsResp, nil
+	return metricsResponses, nil
 }

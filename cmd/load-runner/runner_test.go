@@ -41,9 +41,9 @@ type MockMimirClient struct {
 	mock.Mock
 }
 
-func (m *MockMimirClient) GetMetrics(ctx context.Context, mts []parser.Metric) (metrics.MetricsResponse, error) {
+func (m *MockMimirClient) GetMetrics(ctx context.Context, mts []parser.Metric) ([]metrics.MetricsResponse, error) {
 	args := m.Called(ctx, mts)
-	return args.Get(0).(metrics.MetricsResponse), args.Error(1)
+	return args.Get(0).([]metrics.MetricsResponse), args.Error(1)
 }
 
 func (m *MockMimirClient) Query(ctx context.Context, query string, time int64) (metrics.QueryResponse, error) {

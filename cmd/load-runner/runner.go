@@ -159,7 +159,11 @@ func (r *LoadTestRunner) monitorMetrics(ctx context.Context, startTime time.Time
 				r.logger.Errorn("Failed to get current metrics", obskit.Error(err))
 				continue
 			}
-			r.logger.Infon("", logger.NewStringField("metrics", fmt.Sprintf("%+v", metrics)))
+			fields := make([]logger.Field, len(metrics))
+			for i, m := range metrics {
+				fields[i] = logger.NewField(m.Key, m.Value)
+			}
+			r.logger.Infon("Load test metrics", fields...)
 		}
 	}
 }

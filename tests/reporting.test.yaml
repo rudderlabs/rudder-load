@@ -14,3 +14,5 @@ reporting:
   interval: 30s
   metrics:
     - name: rps
+    - name: errors
+      query: sum(rate(rudder_load_publish_error_rate_total[1m]))

@@ -197,12 +197,13 @@ func TestMimirClient_QueryRange(t *testing.T) {
 
 func TestMimirClient_GetMetrics(t *testing.T) {
 	tests := []struct {
-		name          string
-		metrics       []parser.Metric
-		mockResponse  QueryResponse
-		mockStatus    int
-		expectedRPS   float64
-		expectedError string
+		name                string
+		metrics             []parser.Metric
+		mockResponse        QueryResponse
+		mockStatus          int
+		expectedMetricKey   string
+		expectedMetricValue float64
+		expectedError       string
 	}{
 		{
 			name: "successful RPS query",
@@ -231,15 +232,40 @@ func TestMimirClient_GetMetrics(t *testing.T) {
 					},
 				},
 			},
-			mockStatus:  http.StatusOK,
-			expectedRPS: 43, // Rounded up from 42.5
+			mockStatus:          http.StatusOK,
+			expectedMetricKey:   "rps",
+			expectedMetricValue: 43, // Rounded up from 42.5
 		},
 		{
-			name: "unknown metric",
+			name: "custom metric",
 			metrics: []parser.Metric{
-				{Name: "unknown"},
+				{Name: "custom_metric"},
 			},
-			expectedError: "unknown metric: unknown",
+			mockResponse: QueryResponse{
+				Status: "success",
+				Data: struct {
+					ResultType string `json:"resultType"`
+					Result     []struct {
+						Metric map[string]string `json:"metric"`
+						Value  []interface{}     `json:"value"`
+						Values [][]interface{}   `json:"values"`
+					} `json:"result"`
+				}{
+					ResultType: "vector",
+					Result: []struct {
+						Metric map[string]string `json:"metric"`
+						Value  []interface{}     `json:"value"`
+						Values [][]interface{}   `json:"values"`
+					}{
+						{
+							Value: []interface{}{1234567890, "42.5"},
+						},
+					},
+				},
+			},
+			mockStatus:          http.StatusOK,
+			expectedMetricKey:   "custom_metric",
+			expectedMetricValue: 43, // Rounded up from 42.5
 		},
 	}
 
@@ -252,7 +278,7 @@ func TestMimirClient_GetMetrics(t *testing.T) {
 			defer server.Close()
 
 			client := NewMimirClient(server.URL)
-			resp, err := client.GetMetrics(context.Background(), tt.metrics)
+			responses, err := client.GetMetrics(context.Background(), tt.metrics)
 
 			if tt.expectedError != "" {
 				if err == nil || err.Error() != tt.expectedError {
@@ -266,8 +292,26 @@ func TestMimirClient_GetMetrics(t *testing.T) {
 				return
 			}
 
-			if resp.RPS != tt.expectedRPS {
-				t.Errorf("expected RPS %f, got %f", tt.expectedRPS, resp.RPS)
+			if len(responses) == 0 {
+				t.Error("expected at least one response")
+				return
+			}
+
+			var metricResp *MetricsResponse
+			for _, resp := range responses {
+				if resp.Key == tt.expectedMetricKey {
+					metricResp = &resp
+					break
+				}
+			}
+
+			if metricResp == nil {
+				t.Error("RPS metric not found in response")
+				return
+			}
+
+			if metricResp.Value != tt.expectedMetricValue {
+				t.Errorf("expected RPS %f, got %f", tt.expectedMetricValue, metricResp.Value)
 			}
 		})
 	}
