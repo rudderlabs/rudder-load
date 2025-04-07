@@ -342,3 +342,96 @@ func TestLoadTestRunner_CreateValuesFileCopy(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadTestRunner_MonitorMetrics(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      *parser.LoadTestConfig
+		mockMetrics []metrics.MetricsResponse
+		mockError   error
+		expectCall  bool
+	}{
+		{
+			name: "empty interval",
+			config: &parser.LoadTestConfig{
+				Reporting: parser.Reporting{
+					Interval: "",
+					Metrics: []parser.Metric{
+						{Name: "rps"},
+					},
+				},
+			},
+			mockMetrics: nil,
+			mockError:   nil,
+			expectCall:  false,
+		},
+		{
+			name: "invalid interval",
+			config: &parser.LoadTestConfig{
+				Reporting: parser.Reporting{
+					Interval: "invalid",
+					Metrics: []parser.Metric{
+						{Name: "rps"},
+					},
+				},
+			},
+			mockMetrics: nil,
+			mockError:   nil,
+			expectCall:  false,
+		},
+		{
+			name: "successful metrics collection",
+			config: &parser.LoadTestConfig{
+				Reporting: parser.Reporting{
+					Interval: "10ms",
+					Metrics: []parser.Metric{
+						{Name: "rps"},
+						{Name: "latency"},
+					},
+				},
+			},
+			mockMetrics: []metrics.MetricsResponse{
+				{Key: "rps", Value: 100},
+				{Key: "latency", Value: 50},
+			},
+			expectCall: true,
+		},
+		{
+			name: "metrics collection with error",
+			config: &parser.LoadTestConfig{
+				Reporting: parser.Reporting{
+					Interval: "10ms",
+					Metrics: []parser.Metric{
+						{Name: "rps"},
+					},
+				},
+			},
+			mockError:  fmt.Errorf("failed to get metrics"),
+			expectCall: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockMimirClient := new(MockMimirClient)
+			mockMimirClient.On("GetMetrics", mock.Anything, tt.config.Reporting.Metrics).Return(tt.mockMetrics, tt.mockError)
+
+			runner := &LoadTestRunner{
+				config:      tt.config,
+				mimirClient: mockMimirClient,
+				logger:      logger.NOP,
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+			defer cancel()
+
+			runner.monitorMetrics(ctx)
+
+			if tt.expectCall {
+				mockMimirClient.AssertExpectations(t)
+			} else {
+				mockMimirClient.AssertNotCalled(t, "GetMetrics", mock.Anything, mock.Anything)
+			}
+		})
+	}
+}

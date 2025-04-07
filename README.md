@@ -20,11 +20,11 @@ owning a set of keys. This way we can guarantee in-order delivery of events per 
 5. Total users: 100000 (number of unique users that will be used to generate the messages for each replica)
 6. Hot user groups: 70,30 (creates equal number of groups of users and defines their distribution for the events sent)
     - Rules:
-      
+
       a. the sum of all the comma separated values must be equal to 100 (percentage)
 
       b. the percentage of user IDs concentration that will be used to generate the messages.
-        
+
         - Example:  In this case we have 100,000 total users (see point 5) and we are defining 2 hot user groups so we just divide
       100,000 by 2 which gives us 2 groups of 50k users each. The probability of a message being generated for a user
       in the first group is 70% and 30% for the second group.
@@ -347,3 +347,23 @@ Currently supported metrics:
 - `rps`: Reports the requests per second being sent to the target endpoint
 
 The reporting feature allows you to monitor the load test performance in real-time and analyze the results after the test completes.
+
+### Adding Custom Queries for Reporting Metrics
+
+The load test tool allows you to add custom queries for reporting metrics. This can be configured in the test configuration file under the `reporting` section. You can specify custom queries for metrics by adding a `query` field to the metric definition.
+
+Example configuration with custom queries:
+
+```yaml
+reporting:
+  namespace: mimir          # Namespace for mimir
+  interval: 30s             # How often to report metrics
+  metrics:
+    - name: rps             # Name of the metric to report
+    - name: errors          # Custom metric for error rate
+      query: sum(rate(rudder_load_publish_error_rate_total[1m]))
+```
+
+In this example, a custom query is added for the `errors` metric, which calculates the error rate using the Prometheus query language. This allows for more detailed and specific monitoring of the load test performance.
+
+Refer to [tests/reporting.test.yaml](tests/reporting.test.yaml) for an example of how to configure custom queries in a test configuration file.

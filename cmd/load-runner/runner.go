@@ -43,10 +43,9 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		}
 		defer stopPortForward()
 
-		startTime := time.Now()
 		monitoringCtx, cancelMonitoring := context.WithCancel(ctx)
 		defer cancelMonitoring()
-		go r.monitorMetrics(monitoringCtx, startTime)
+		go r.monitorMetrics(monitoringCtx)
 	}
 
 	r.logger.Infon("Installing Helm chart for load scenario", logger.NewStringField("load_scenario", r.config.Name))
@@ -135,7 +134,7 @@ func (r *LoadTestRunner) startPortForward(ctx context.Context, namespace string)
 	return stopPortForward, nil
 }
 
-func (r *LoadTestRunner) monitorMetrics(ctx context.Context, startTime time.Time) {
+func (r *LoadTestRunner) monitorMetrics(ctx context.Context) {
 	if r.config.Reporting.Interval == "" {
 		return
 	}
