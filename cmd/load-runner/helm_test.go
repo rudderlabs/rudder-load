@@ -453,3 +453,105 @@ func TestHelmClient_Install_Error(t *testing.T) {
 	assert.Equal(t, expectedError, err)
 	mockExecutor.AssertExpectations(t)
 }
+
+func TestCalculateLoadParameters(t *testing.T) {
+	tests := []struct {
+		name            string
+		envVars         map[string]string
+		expectedArgs    []string
+		expectedEnvVars map[string]string
+	}{
+		{
+			name: "auto calculation enabled with valid MAX_EVENTS_PER_SECOND",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "auto",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs: []string{
+				"--set", "deployment.resources.cpuRequests=3",
+				"--set", "deployment.resources.cpuLimits=3",
+				"--set", "deployment.resources.memoryRequests=6Gi",
+				"--set", "deployment.resources.memoryLimits=6Gi",
+			},
+			expectedEnvVars: map[string]string{
+				"RESOURCE_CALCULATION":  "auto",
+				"MAX_EVENTS_PER_SECOND": "10000",
+				"CONCURRENCY":           "6000",
+				"MESSAGE_GENERATORS":    "1500",
+			},
+		},
+		{
+			name: "auto calculation enabled with low MAX_EVENTS_PER_SECOND",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "auto",
+				"MAX_EVENTS_PER_SECOND": "1000",
+			},
+			expectedArgs: []string{
+				"--set", "deployment.resources.cpuRequests=1",
+				"--set", "deployment.resources.cpuLimits=1",
+				"--set", "deployment.resources.memoryRequests=2Gi",
+				"--set", "deployment.resources.memoryLimits=2Gi",
+			},
+			expectedEnvVars: map[string]string{
+				"RESOURCE_CALCULATION":  "auto",
+				"MAX_EVENTS_PER_SECOND": "1000",
+				"CONCURRENCY":           "2000",
+				"MESSAGE_GENERATORS":    "500",
+			},
+		},
+		{
+			name: "auto calculation disabled",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "manual",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs: []string{},
+			expectedEnvVars: map[string]string{
+				"RESOURCE_CALCULATION":  "manual",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+		},
+		{
+			name:            "empty env vars",
+			envVars:         map[string]string{},
+			expectedArgs:    []string{},
+			expectedEnvVars: map[string]string{},
+		},
+		{
+			name: "non integer MAX_EVENTS_PER_SECOND",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "auto",
+				"MAX_EVENTS_PER_SECOND": "invalid",
+			},
+			expectedArgs: []string{},
+			expectedEnvVars: map[string]string{
+				"RESOURCE_CALCULATION":  "auto",
+				"MAX_EVENTS_PER_SECOND": "invalid",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a copy of the input env vars to avoid modifying the test data
+			inputEnvVars := make(map[string]string)
+			for k, v := range tt.envVars {
+				inputEnvVars[k] = v
+			}
+
+			// Call the function
+			args := calculateLoadParameters([]string{}, inputEnvVars)
+
+			// Verify the returned args
+			assert.Equal(t, tt.expectedArgs, args, "args mismatch")
+
+			// Verify the env vars were updated correctly
+			for k, v := range tt.expectedEnvVars {
+				assert.Equal(t, v, inputEnvVars[k], "env var %s mismatch", k)
+			}
+
+			// Verify no unexpected env vars were added
+			assert.Equal(t, len(tt.expectedEnvVars), len(inputEnvVars), "unexpected env vars added")
+		})
+	}
+}
