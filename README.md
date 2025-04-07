@@ -20,11 +20,11 @@ owning a set of keys. This way we can guarantee in-order delivery of events per 
 5. Total users: 100000 (number of unique users that will be used to generate the messages for each replica)
 6. Hot user groups: 70,30 (creates equal number of groups of users and defines their distribution for the events sent)
     - Rules:
-
+      
       a. the sum of all the comma separated values must be equal to 100 (percentage)
 
       b. the percentage of user IDs concentration that will be used to generate the messages.
-
+        
         - Example:  In this case we have 100,000 total users (see point 5) and we are defining 2 hot user groups so we just divide
       100,000 by 2 which gives us 2 groups of 50k users each. The probability of a message being generated for a user
       in the first group is 70% and 30% for the second group.
