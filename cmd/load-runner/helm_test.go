@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -24,7 +25,7 @@ func (m *MockExecutor) run(ctx context.Context, command string, args ...string) 
 func TestHelmClient_Install(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -58,7 +59,7 @@ func TestHelmClient_Install(t *testing.T) {
 func TestHelmClient_Install_WithEnvOverrides(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -118,7 +119,7 @@ func TestHelmClient_Install_WithEnvOverrides(t *testing.T) {
 func TestHelmClient_Upgrade(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -157,7 +158,7 @@ func TestHelmClient_Upgrade(t *testing.T) {
 func TestHelmClient_Upgrade_WithGlobalEnvOverrides(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -222,7 +223,7 @@ func TestHelmClient_Upgrade_WithGlobalEnvOverrides(t *testing.T) {
 func TestHelmClient_Upgrade_WithPhaseEnvOverrides(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -291,7 +292,7 @@ func TestHelmClient_Upgrade_WithPhaseEnvOverrides(t *testing.T) {
 
 func TestHelmClient_Install_WithCommaEscaping(t *testing.T) {
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -345,7 +346,7 @@ func TestHelmClient_Install_WithCommaEscaping(t *testing.T) {
 
 func TestHelmClient_Upgrade_WithCommaEscaping(t *testing.T) {
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -405,7 +406,7 @@ func TestHelmClient_Upgrade_WithCommaEscaping(t *testing.T) {
 func TestHelmClient_Uninstall(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 
 	config := &parser.LoadTestConfig{
 		ReleaseName: "test-release",
@@ -432,7 +433,7 @@ func TestHelmClient_Uninstall(t *testing.T) {
 func TestHelmClient_Install_Error(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -583,7 +584,7 @@ func TestCalculateLoadParameters(t *testing.T) {
 			}
 
 			// Call the function
-			args := calculateLoadParameters([]string{}, inputEnvVars)
+			args := calculateLoadParameters([]string{}, inputEnvVars, logger.NOP)
 
 			// Verify the returned args
 			assert.Equal(t, tt.expectedArgs, args, "args mismatch")

@@ -10,9 +10,9 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 
+	"rudder-load/internal/metrics"
 	"rudder-load/internal/parser"
 	"rudder-load/internal/validator"
-	"rudder-load/internal/metrics"
 )
 
 func main() {
@@ -51,7 +51,7 @@ func run(ctx context.Context, log logger.Logger) error {
 
 	cfg.SetDefaults()
 
-	helmClient := NewHelmClient(&commandExecutor{})
+	helmClient := NewHelmClient(&commandExecutor{}, log)
 	mimirClient := metrics.NewMimirClient("http://localhost:9898")
 	runner := NewLoadTestRunner(cfg, helmClient, mimirClient, log)
 

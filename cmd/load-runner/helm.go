@@ -3,10 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/rudderlabs/rudder-go-kit/logger"
 
 	"rudder-load/internal/parser"
 )
@@ -19,10 +20,11 @@ type HelmClient interface {
 
 type helmClient struct {
 	executor CommandExecutor
+	logger   logger.Logger
 }
 
-func NewHelmClient(executor CommandExecutor) *helmClient {
-	return &helmClient{executor: executor}
+func NewHelmClient(executor CommandExecutor, logger logger.Logger) *helmClient {
+	return &helmClient{executor: executor, logger: logger}
 }
 
 func (h *helmClient) Install(ctx context.Context, config *parser.LoadTestConfig) error {
@@ -36,7 +38,7 @@ func (h *helmClient) Install(ctx context.Context, config *parser.LoadTestConfig)
 		"--values", fmt.Sprintf("%s/%s_values_copy.yaml", config.ChartFilePath, config.Name),
 	}
 
-	args = processHelmEnvVars(args, config.EnvOverrides)
+	args = processHelmEnvVars(args, config.EnvOverrides, h.logger)
 
 	fmt.Printf("Running helm install with args: %v\n", args)
 	return h.executor.run(ctx, "helm", args...)
@@ -72,7 +74,7 @@ func (h *helmClient) Upgrade(ctx context.Context, config *parser.LoadTestConfig,
 	}
 
 	// Process the merged overrides
-	args = processHelmEnvVars(args, mergedOverrides)
+	args = processHelmEnvVars(args, mergedOverrides, h.logger)
 
 	return h.executor.run(ctx, "helm", args...)
 }
@@ -86,8 +88,8 @@ func (h *helmClient) Uninstall(config *parser.LoadTestConfig) error {
 	return h.executor.run(context.Background(), "helm", args...)
 }
 
-func processHelmEnvVars(args []string, envVars map[string]string) []string {
-	args = calculateLoadParameters(args, envVars)
+func processHelmEnvVars(args []string, envVars map[string]string, logger logger.Logger) []string {
+	args = calculateLoadParameters(args, envVars, logger)
 	for key, value := range envVars {
 		if strings.Contains(value, ",") {
 			value = strings.ReplaceAll(value, ",", "\\,")
@@ -98,14 +100,14 @@ func processHelmEnvVars(args []string, envVars map[string]string) []string {
 	return args
 }
 
-func calculateLoadParameters(args []string, envVars map[string]string) []string {
+func calculateLoadParameters(args []string, envVars map[string]string, logger logger.Logger) []string {
 	resourceCalculation := envVars["RESOURCE_CALCULATION"]
 
 	// Handle auto calculation
 	if resourceCalculation == "auto" {
 		maxEventsPerSecond, err := strconv.Atoi(envVars["MAX_EVENTS_PER_SECOND"])
 		if err != nil {
-			log.Fatalf("Failed to convert MAX_EVENTS_PER_SECOND to int: %v", err)
+			logger.Fatal("Failed to convert MAX_EVENTS_PER_SECOND to int: %v", err)
 		}
 		resourceMultiplier := maxEventsPerSecond/5000 + 1
 		envVars["CONCURRENCY"] = strconv.Itoa(resourceMultiplier * 2000)
@@ -122,21 +124,21 @@ func calculateLoadParameters(args []string, envVars map[string]string) []string 
 	if strings.HasPrefix(resourceCalculation, "overprovision,") {
 		parts := strings.Split(resourceCalculation, ",")
 		if len(parts) != 2 {
-			log.Fatalf("Invalid RESOURCE_CALCULATION format for overprovision. Expected 'overprovision,<percentage>'")
+			logger.Fatal("Invalid RESOURCE_CALCULATION format for overprovision", "overprovision,<percentage>")
 		}
 
 		overprovisionPercent, err := strconv.Atoi(parts[1])
 		if err != nil {
-			log.Fatalf("Failed to convert overprovision percentage to int: %v", err)
+			logger.Fatal("Failed to convert overprovision percentage to int", err)
 		}
 
 		if overprovisionPercent < 0 || overprovisionPercent > 100 {
-			log.Fatalf("Overprovision percentage must be between 0 and 100, got: %d", overprovisionPercent)
+			logger.Fatal("Overprovision percentage must be between 0 and 100", overprovisionPercent)
 		}
 
 		maxEventsPerSecond, err := strconv.Atoi(envVars["MAX_EVENTS_PER_SECOND"])
 		if err != nil {
-			log.Fatalf("Failed to convert MAX_EVENTS_PER_SECOND to int: %v", err)
+			logger.Fatal("Failed to convert MAX_EVENTS_PER_SECOND to int", err)
 		}
 
 		// Calculate base resource multiplier
