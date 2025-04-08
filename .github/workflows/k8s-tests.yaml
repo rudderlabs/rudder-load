@@ -1,0 +1,65 @@
+name: Execute tests on kubernetes
+on:
+  workflow_dispatch:
+    inputs:
+      test_file:
+        description: "Test file to run (e.g., constant_load.test.yaml)"
+        required: true
+        type: string
+        default: "constant_load.test.yaml"
+      k8s_namespace:
+        description: "Kubernetes namespace to run the test in"
+        required: true
+        type: string
+        default: "rudder-load"
+
+jobs:
+  run-k8s-test:
+    name: Run Kubernetes Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Checkout rudder-devops
+        uses: actions/checkout@v4
+        with:
+          repository: rudderlabs/rudder-devops
+          token: ${{ secrets.PAT }}
+          path: rudder-devops
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - name: Configure AWS credentials from Test account
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: "us-east-1"
+
+      - name: Install aws-iam-authenticator
+        run: |
+          wget https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v0.5.7/aws-iam-authenticator_0.5.7_linux_arm64
+          chmod +x aws-iam-authenticator_0.5.7_linux_arm64
+          sudo mv aws-iam-authenticator_0.5.7_linux_arm64 /usr/bin/aws-iam-authenticator
+          aws-iam-authenticator version
+
+      - name: Install helm
+        run: |
+          curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+          chmod 700 get_helm.sh
+          ./get_helm.sh
+
+      - name: Create kubernetes configuration
+        run: |
+          mkdir ~/.kube
+          cat rudder-devops/terraform/eks/staging/staging-us/kubeconfig_staging > ~/.kube/config
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Run the test
+        run: |
+          go build -o load-runner ./cmd/load-runner
+          ./load-runner -t tests/${{ github.event.inputs.test_file }} -n ${{ github.event.inputs.k8s_namespace }}
