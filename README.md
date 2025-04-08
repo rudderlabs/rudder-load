@@ -333,3 +333,40 @@ For a test that gradually increases and then decreases load:
    ```
 
 This will create a 15-minute load test that follows the pattern: light load (2m) → medium load (3m) → heavy load (5m) → medium load (3m) → light load (2m), with appropriate adjustments to the configuration at each phase.
+
+## Reporting Configuration
+
+The load test tool supports reporting metrics to a monitoring system. This is configured in the test configuration file under the `reporting` section:
+
+```yaml
+reporting:
+  namespace: mimir          # Namespace for mimir
+  interval: 30s             # How often to report metrics
+  metrics:
+    - name: rps             # Name of the metric to report
+```
+
+Currently supported metrics:
+- `rps`: Reports the requests per second being sent to the target endpoint
+
+The reporting feature allows you to monitor the load test performance in real-time and analyze the results after the test completes.
+
+### Adding Custom Queries for Reporting Metrics
+
+The load test tool allows you to add custom queries for reporting metrics. This can be configured in the test configuration file under the `reporting` section. You can specify custom queries for metrics by adding a `query` field to the metric definition.
+
+Example configuration with custom queries:
+
+```yaml
+reporting:
+  namespace: mimir          # Namespace for mimir
+  interval: 30s             # How often to report metrics
+  metrics:
+    - name: rps             # Name of the metric to report
+    - name: errors          # Custom metric for error rate
+      query: sum(rate(rudder_load_publish_error_rate_total[1m]))
+```
+
+In this example, a custom query is added for the `errors` metric, which calculates the error rate using the Prometheus query language. This allows for more detailed and specific monitoring of the load test performance.
+
+Refer to [tests/reporting.test.yaml](tests/reporting.test.yaml) for an example of how to configure custom queries in a test configuration file.
