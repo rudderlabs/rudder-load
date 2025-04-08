@@ -517,18 +517,6 @@ func TestCalculateLoadParameters(t *testing.T) {
 			expectedArgs:    []string{},
 			expectedEnvVars: map[string]string{},
 		},
-		{
-			name: "non integer MAX_EVENTS_PER_SECOND",
-			envVars: map[string]string{
-				"RESOURCE_CALCULATION":  "auto",
-				"MAX_EVENTS_PER_SECOND": "invalid",
-			},
-			expectedArgs: []string{},
-			expectedEnvVars: map[string]string{
-				"RESOURCE_CALCULATION":  "auto",
-				"MAX_EVENTS_PER_SECOND": "invalid",
-			},
-		},
 	}
 
 	for _, tt := range tests {

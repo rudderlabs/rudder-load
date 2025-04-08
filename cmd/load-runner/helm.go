@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -102,8 +103,7 @@ func calculateLoadParameters(args []string, envVars map[string]string) []string 
 	}
 	maxEventsPerSecond, err := strconv.Atoi(envVars["MAX_EVENTS_PER_SECOND"])
 	if err != nil {
-		fmt.Errorf("Failed to convert MAX_EVENTS_PER_SECOND to int: %v", err)
-		return args
+		log.Fatalf("Failed to convert MAX_EVENTS_PER_SECOND to int: %v", err)
 	}
 	resourceMultiplier := maxEventsPerSecond/5000 + 1
 	envVars["CONCURRENCY"] = strconv.Itoa(resourceMultiplier * 2000)
