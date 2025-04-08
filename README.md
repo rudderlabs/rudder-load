@@ -256,6 +256,10 @@ env:
 
   # Automatically define CPU, memory, message generators and concurrency based on the target event rate set in `MAX_EVENTS_PER_SECOND`
   RESOURCE_CALCULATION: "auto"
+
+  # Automatically define CPU, memory, message generators and concurrency based on the target event rate set in `MAX_EVENTS_PER_SECOND`
+  # overprovisioning each resource by the percentage mentioned after the comma e.g. "overprovision,20" means overprovision by 20%
+  RESOURCE_CALCULATION: "overprovision,20"
 ```
 
 #### Overriding Configuration

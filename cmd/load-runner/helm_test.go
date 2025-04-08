@@ -502,12 +502,10 @@ func TestCalculateLoadParameters(t *testing.T) {
 		{
 			name: "auto calculation disabled",
 			envVars: map[string]string{
-				"RESOURCE_CALCULATION":  "manual",
 				"MAX_EVENTS_PER_SECOND": "10000",
 			},
 			expectedArgs: []string{},
 			expectedEnvVars: map[string]string{
-				"RESOURCE_CALCULATION":  "manual",
 				"MAX_EVENTS_PER_SECOND": "10000",
 			},
 		},
@@ -516,6 +514,63 @@ func TestCalculateLoadParameters(t *testing.T) {
 			envVars:         map[string]string{},
 			expectedArgs:    []string{},
 			expectedEnvVars: map[string]string{},
+		},
+		{
+			name: "overprovision calculation with 10%",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,10",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs: []string{
+				"--set", "deployment.resources.cpuRequests=3.3",
+				"--set", "deployment.resources.cpuLimits=3.3",
+				"--set", "deployment.resources.memoryRequests=7Gi",
+				"--set", "deployment.resources.memoryLimits=7Gi",
+			},
+			expectedEnvVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,10",
+				"MAX_EVENTS_PER_SECOND": "10000",
+				"CONCURRENCY":           "6600",
+				"MESSAGE_GENERATORS":    "1650",
+			},
+		},
+		{
+			name: "overprovision calculation with 50%",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,50",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs: []string{
+				"--set", "deployment.resources.cpuRequests=4.5",
+				"--set", "deployment.resources.cpuLimits=4.5",
+				"--set", "deployment.resources.memoryRequests=9Gi",
+				"--set", "deployment.resources.memoryLimits=9Gi",
+			},
+			expectedEnvVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,50",
+				"MAX_EVENTS_PER_SECOND": "10000",
+				"CONCURRENCY":           "9000",
+				"MESSAGE_GENERATORS":    "2250",
+			},
+		},
+		{
+			name: "overprovision calculation with 100%",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,100",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs: []string{
+				"--set", "deployment.resources.cpuRequests=6",
+				"--set", "deployment.resources.cpuLimits=6",
+				"--set", "deployment.resources.memoryRequests=12Gi",
+				"--set", "deployment.resources.memoryLimits=12Gi",
+			},
+			expectedEnvVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,100",
+				"MAX_EVENTS_PER_SECOND": "10000",
+				"CONCURRENCY":           "12000",
+				"MESSAGE_GENERATORS":    "3000",
+			},
 		},
 	}
 

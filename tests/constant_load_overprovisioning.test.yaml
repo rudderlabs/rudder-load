@@ -1,6 +1,6 @@
 # This test maintains a constant load throughout the test duration
 # with equal distribution of users, events, and sources
-# The test automatically calculates the resources based on the target event rate
+# The test overprovisions the resources by 10% based on the target event rate
 
 name: http
 namespace: rudder-load
@@ -10,7 +10,7 @@ env:
   HOT_USER_GROUPS: "50,50"
   EVENT_TYPES: "track,page,identify"
   HOT_EVENT_TYPES: "33,33,34"
-  RESOURCE_CALCULATION: "auto"
+  RESOURCE_CALCULATION: "overprovision,10"
 phases:
   - duration: 5m
     replicas: 1
