@@ -1,0 +1,18 @@
+# This test reports metrics from mimir
+
+name: http
+namespace: rudder-load
+env:
+  MAX_EVENTS_PER_SECOND: 100
+  CONCURRENCY: 100
+  MESSAGE_GENERATORS: 100
+phases:
+  - duration: 15m
+    replicas: 2
+reporting:
+  namespace: mimir
+  interval: 30s
+  metrics:
+    - name: rps
+    - name: errors
+      query: sum(rate(rudder_load_publish_error_rate_total[1m]))

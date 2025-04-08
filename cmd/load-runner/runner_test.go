@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"rudder-load/internal/metrics"
 	"rudder-load/internal/parser"
 )
 
@@ -34,6 +35,25 @@ func (m *MockHelmClient) Uninstall(config *parser.LoadTestConfig) error {
 func (m *MockHelmClient) Upgrade(ctx context.Context, config *parser.LoadTestConfig, phase parser.RunPhase) error {
 	args := m.Called(ctx, config, phase)
 	return args.Error(0)
+}
+
+type MockMimirClient struct {
+	mock.Mock
+}
+
+func (m *MockMimirClient) GetMetrics(ctx context.Context, mts []parser.Metric) ([]metrics.MetricsResponse, error) {
+	args := m.Called(ctx, mts)
+	return args.Get(0).([]metrics.MetricsResponse), args.Error(1)
+}
+
+func (m *MockMimirClient) Query(ctx context.Context, query string, time int64) (metrics.QueryResponse, error) {
+	args := m.Called(ctx, query, time)
+	return args.Get(0).(metrics.QueryResponse), args.Error(1)
+}
+
+func (m *MockMimirClient) QueryRange(ctx context.Context, query string, start int64, end int64, step string) (metrics.QueryResponse, error) {
+	args := m.Called(ctx, query, start, end, step)
+	return args.Get(0).(metrics.QueryResponse), args.Error(1)
 }
 
 func TestLoadTestRunner_Run(t *testing.T) {
@@ -126,10 +146,11 @@ func TestLoadTestRunner_Run(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockHelmClient := new(MockHelmClient)
+			mockMimirClient := new(MockMimirClient)
 			tc.setupMock(mockHelmClient)
 
 			tc.config.ChartFilePath = tempDir
-			runner := NewLoadTestRunner(tc.config, mockHelmClient, logger.NOP)
+			runner := NewLoadTestRunner(tc.config, mockHelmClient, mockMimirClient, logger.NOP)
 			err := runner.Run(context.Background())
 
 			if tc.expectedError != "" {
@@ -160,10 +181,11 @@ func TestLoadTestRunner_RunCancellation(t *testing.T) {
 	}
 
 	mockHelmClient := new(MockHelmClient)
+	mockMimirClient := new(MockMimirClient)
 	mockHelmClient.On("Install", mock.Anything, mock.Anything).Return(nil)
 	mockHelmClient.On("Uninstall", mock.Anything).Return(nil)
 
-	runner := NewLoadTestRunner(config, mockHelmClient, logger.NOP)
+	runner := NewLoadTestRunner(config, mockHelmClient, mockMimirClient, logger.NOP)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	errChan := make(chan error)
@@ -172,8 +194,6 @@ func TestLoadTestRunner_RunCancellation(t *testing.T) {
 		errChan <- runner.Run(ctx)
 	}()
 
-	// Cancel the context after a short delay
-	time.Sleep(100 * time.Millisecond)
 	cancel()
 
 	err = <-errChan
@@ -284,11 +304,18 @@ func TestLoadTestRunner_CreateValuesFileCopy(t *testing.T) {
 			config := &parser.LoadTestConfig{
 				Name:          "http",
 				ChartFilePath: testDir,
+				Reporting: parser.Reporting{
+					Metrics: []parser.Metric{
+						{Name: "test_metric"},
+					},
+					Interval: "10ms",
+				},
 			}
 
 			logger := logger.NOP
 			helmClient := new(MockHelmClient)
-			runner := NewLoadTestRunner(config, helmClient, logger)
+			mimirClient := new(MockMimirClient)
+			runner := NewLoadTestRunner(config, helmClient, mimirClient, logger)
 
 			err = runner.createValuesFileCopy(context.Background())
 
@@ -311,6 +338,99 @@ func TestLoadTestRunner_CreateValuesFileCopy(t *testing.T) {
 				require.NoError(t, err)
 
 				require.Equal(t, sourceContent, copyContent, "File contents should match")
+			}
+		})
+	}
+}
+
+func TestLoadTestRunner_MonitorMetrics(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      *parser.LoadTestConfig
+		mockMetrics []metrics.MetricsResponse
+		mockError   error
+		expectCall  bool
+	}{
+		{
+			name: "empty interval",
+			config: &parser.LoadTestConfig{
+				Reporting: parser.Reporting{
+					Interval: "",
+					Metrics: []parser.Metric{
+						{Name: "rps"},
+					},
+				},
+			},
+			mockMetrics: nil,
+			mockError:   nil,
+			expectCall:  false,
+		},
+		{
+			name: "invalid interval",
+			config: &parser.LoadTestConfig{
+				Reporting: parser.Reporting{
+					Interval: "invalid",
+					Metrics: []parser.Metric{
+						{Name: "rps"},
+					},
+				},
+			},
+			mockMetrics: nil,
+			mockError:   nil,
+			expectCall:  false,
+		},
+		{
+			name: "successful metrics collection",
+			config: &parser.LoadTestConfig{
+				Reporting: parser.Reporting{
+					Interval: "10ms",
+					Metrics: []parser.Metric{
+						{Name: "rps"},
+						{Name: "latency"},
+					},
+				},
+			},
+			mockMetrics: []metrics.MetricsResponse{
+				{Key: "rps", Value: 100},
+				{Key: "latency", Value: 50},
+			},
+			expectCall: true,
+		},
+		{
+			name: "metrics collection with error",
+			config: &parser.LoadTestConfig{
+				Reporting: parser.Reporting{
+					Interval: "10ms",
+					Metrics: []parser.Metric{
+						{Name: "rps"},
+					},
+				},
+			},
+			mockError:  fmt.Errorf("failed to get metrics"),
+			expectCall: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockMimirClient := new(MockMimirClient)
+			mockMimirClient.On("GetMetrics", mock.Anything, tt.config.Reporting.Metrics).Return(tt.mockMetrics, tt.mockError)
+
+			runner := &LoadTestRunner{
+				config:      tt.config,
+				mimirClient: mockMimirClient,
+				logger:      logger.NOP,
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+			defer cancel()
+
+			runner.monitorMetrics(ctx)
+
+			if tt.expectCall {
+				mockMimirClient.AssertExpectations(t)
+			} else {
+				mockMimirClient.AssertNotCalled(t, "GetMetrics", mock.Anything, mock.Anything)
 			}
 		})
 	}
