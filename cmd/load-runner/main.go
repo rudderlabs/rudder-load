@@ -6,13 +6,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 
+	"rudder-load/internal/metrics"
 	"rudder-load/internal/parser"
 	"rudder-load/internal/validator"
-	"rudder-load/internal/metrics"
 )
 
 func main() {
@@ -53,8 +54,8 @@ func run(ctx context.Context, log logger.Logger) error {
 
 	helmClient := NewHelmClient(&commandExecutor{})
 	mimirClient := metrics.NewMimirClient("http://localhost:9898")
-	runner := NewLoadTestRunner(cfg, helmClient, mimirClient, log)
-
+	portForwarder := metrics.NewPortForward(time.Second * 5)
+	runner := NewLoadTestRunner(cfg, helmClient, mimirClient, portForwarder, log)
 	if err := runner.Run(ctx); err != nil {
 		return fmt.Errorf("failed to run load test: %w", err)
 	}

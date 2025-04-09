@@ -14,20 +14,20 @@ import (
 )
 
 type LoadTestRunner struct {
-	config      *parser.LoadTestConfig
-	helmClient  HelmClient
-	mimirClient metrics.MimirClient
-	portForward *metrics.PortForward
-	logger      logger.Logger
+	config        *parser.LoadTestConfig
+	helmClient    HelmClient
+	mimirClient   metrics.MimirClient
+	portForwarder metrics.PortForward
+	logger        logger.Logger
 }
 
-func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient HelmClient, mimirClient metrics.MimirClient, logger logger.Logger) *LoadTestRunner {
+func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient HelmClient, mimirClient metrics.MimirClient, portForwarder metrics.PortForward, logger logger.Logger) *LoadTestRunner {
 	return &LoadTestRunner{
-		config:      config,
-		helmClient:  helmClient,
-		mimirClient: mimirClient,
-		portForward: metrics.NewPortForward(time.Second * 5),
-		logger:      logger,
+		config:        config,
+		helmClient:    helmClient,
+		mimirClient:   mimirClient,
+		portForwarder: portForwarder,
+		logger:        logger,
 	}
 }
 
@@ -36,13 +36,18 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		return err
 	}
 
-	if r.config.Reporting.Metrics != nil {
-		stopPortForward, err := r.startPortForward(ctx, r.config.Reporting.Namespace)
-		if err != nil {
-			return err
-		}
-		defer stopPortForward()
+	monitoringNamespace := r.config.Reporting.Namespace
+	if monitoringNamespace == "" {
+		monitoringNamespace = "mimir"
+	}
 
+	stopPortForward, err := r.startPortForward(ctx, monitoringNamespace)
+	if err != nil {
+		return err
+	}
+	defer stopPortForward()
+
+	if r.config.Reporting.Metrics != nil {
 		monitoringCtx, cancelMonitoring := context.WithCancel(ctx)
 		defer cancelMonitoring()
 		go r.monitorMetrics(monitoringCtx)
@@ -61,6 +66,8 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		r.logger.Infon("Done!")
 	}()
 
+	var totalDuration = time.Duration(0)
+
 	for i, phase := range r.config.Phases {
 		r.logger.Infon("Running phase", logger.NewIntField("phase", int64(i+1)), logger.NewStringField("duration", phase.Duration))
 
@@ -74,6 +81,7 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		totalDuration += duration
 
 		select {
 		case <-time.After(duration):
@@ -82,6 +90,19 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 			return fmt.Errorf("operation cancelled by user")
 		}
 	}
+
+	summaryMetrics, err := r.mimirClient.GetMetrics(ctx, []parser.Metric{
+		{Name: "average rps", Query: fmt.Sprintf("sum(avg_over_time(rudder_load_publish_rate_per_second{}[%v]))", totalDuration)},
+		{Name: "error rate", Query: fmt.Sprintf("sum(rate(rudder_load_publish_error_rate_total[%v]))", totalDuration)},
+	})
+	if err != nil {
+		r.logger.Errorn("Failed to get current metrics", obskit.Error(err))
+	}
+	fields := make([]logger.Field, len(summaryMetrics))
+	for i, m := range summaryMetrics {
+		fields[i] = logger.NewField(m.Key, m.Value)
+	}
+	r.logger.Infon("Load test summary metrics", fields...)
 
 	return nil
 }
@@ -122,11 +143,11 @@ func (r *LoadTestRunner) createValuesFileCopy(ctx context.Context) error {
 }
 
 func (r *LoadTestRunner) startPortForward(ctx context.Context, namespace string) (func(), error) {
-	if err := r.portForward.Start(ctx, namespace); err != nil {
+	if err := r.portForwarder.Start(ctx, namespace); err != nil {
 		return nil, fmt.Errorf("failed to start port-forward: %w", err)
 	}
 	stopPortForward := func() {
-		if err := r.portForward.Stop(); err != nil {
+		if err := r.portForwarder.Stop(); err != nil {
 			r.logger.Errorn("Failed to stop port-forward", obskit.Error(err))
 		}
 	}
