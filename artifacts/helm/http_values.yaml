@@ -10,9 +10,9 @@ deployment:
   backoffLimit: 1
   replicas: 1
   resources:
-    cpuRequests: 500m
-    memoryRequests: 256Mi
-    cpuLimits: 2
+    cpuRequests: 1
+    memoryRequests: 2Gi
+    cpuLimits: 1
     memoryLimits: 2Gi
   ports:
     - name: metrics
@@ -23,8 +23,8 @@ deployment:
     MODE: http
     LOAD_RUN_ID: "loadRunID1" # if empty, a random UUID will be generated
     # CONCURRENCY determines how many slots are used to send data to the server.
-    CONCURRENCY: "4000" # these read from the ch
-    MESSAGE_GENERATORS: "1000" # these push into the ch
+    CONCURRENCY: "2000" # these read from the ch
+    MESSAGE_GENERATORS: "500" # these push into the ch
     MAX_EVENTS_PER_SECOND: "60000" # set as 0 for no limit
     # SOURCES should be a comma separated list of writeKeys
     # e.g. SOURCES: "write-key-1,write-key-2"
@@ -35,7 +35,7 @@ deployment:
     # HOT_SOURCES: "20,20,30,30"
     USE_ONE_CLIENT_PER_SLOT: "true"
     ENABLE_SOFT_MEMORY_LIMIT: "true"
-    TOTAL_USERS: "187500"
+    TOTAL_USERS: "100000"
     # HOT_USER_GROUPS: sum should be 100 (%) and values comma separated
     # TOTAL_USERS will be divided by the number of groups and given the desired data concentration
     HOT_USER_GROUPS: "100"
