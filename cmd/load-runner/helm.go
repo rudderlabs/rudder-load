@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 
 	"rudder-load/internal/parser"
 )
@@ -40,7 +41,7 @@ func (h *helmClient) Install(ctx context.Context, config *parser.LoadTestConfig)
 
 	args = processHelmEnvVars(args, config.EnvOverrides, h.logger)
 
-	fmt.Printf("Running helm install with args: %v\n", args)
+	h.logger.Info("Running helm install with args", "args", args)
 	return h.executor.run(ctx, "helm", args...)
 }
 
@@ -110,9 +111,7 @@ func calculateLoadParameters(args []string, envVars map[string]string, logger lo
 
 	// Validate resource calculation value
 	if resourceCalculation != "auto" && !strings.HasPrefix(resourceCalculation, "overprovision,") {
-		logger.Warn("Invalid RESOURCE_CALCULATION value",
-			"value", resourceCalculation,
-			"expected", "auto or overprovision,<percentage>")
+		logger.Warnn(fmt.Sprintf("Invalid RESOURCE_CALCULATION value: %s, expected: auto or overprovision,<percentage>", resourceCalculation))
 		return args
 	}
 
@@ -130,7 +129,7 @@ func calculateLoadParameters(args []string, envVars map[string]string, logger lo
 
 	maxEventsPerSecond, err := strconv.Atoi(envVars["MAX_EVENTS_PER_SECOND"])
 	if err != nil {
-		logger.Fatal("Failed to convert MAX_EVENTS_PER_SECOND to int: %v", err)
+		logger.Fataln("Failed to convert MAX_EVENTS_PER_SECOND to int", obskit.Error(err))
 	}
 
 	baseMultiplier := maxEventsPerSecond/baseEventsPerResourceUnit + 1
@@ -139,16 +138,16 @@ func calculateLoadParameters(args []string, envVars map[string]string, logger lo
 	if strings.HasPrefix(resourceCalculation, "overprovision,") {
 		parts := strings.Split(resourceCalculation, ",")
 		if len(parts) != 2 {
-			logger.Fatal("Invalid RESOURCE_CALCULATION format for overprovision", "overprovision,<percentage>")
+			logger.Fataln("Invalid RESOURCE_CALCULATION format for overprovision, expecting: overprovision,<percentage>")
 		}
 
 		overprovisionPercentage, err := strconv.Atoi(parts[1])
 		if err != nil {
-			logger.Fatal("Failed to convert overprovision percentage to int", err)
+			logger.Fataln("Failed to convert overprovision percentage to int", obskit.Error(err))
 		}
 
 		if overprovisionPercentage < 1 || overprovisionPercentage > 100 {
-			logger.Fatal("Overprovision percentage must be between 1 and 100", overprovisionPercentage)
+			logger.Fataln("Overprovision percentage must be between 1 and 100")
 		}
 
 		overprovisionFactor = 1.0 + float64(overprovisionPercentage)/100.0
