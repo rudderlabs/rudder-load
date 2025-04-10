@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	"rudder-load/internal/parser"
 )
 
-// MockExecutor implements CommandExecutor interface for testing
 type MockExecutor struct {
 	mock.Mock
 }
@@ -24,7 +24,7 @@ func (m *MockExecutor) run(ctx context.Context, command string, args ...string) 
 func TestHelmClient_Install(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -58,7 +58,7 @@ func TestHelmClient_Install(t *testing.T) {
 func TestHelmClient_Install_WithEnvOverrides(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -118,7 +118,7 @@ func TestHelmClient_Install_WithEnvOverrides(t *testing.T) {
 func TestHelmClient_Upgrade(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -157,7 +157,7 @@ func TestHelmClient_Upgrade(t *testing.T) {
 func TestHelmClient_Upgrade_WithGlobalEnvOverrides(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -222,7 +222,7 @@ func TestHelmClient_Upgrade_WithGlobalEnvOverrides(t *testing.T) {
 func TestHelmClient_Upgrade_WithPhaseEnvOverrides(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -245,7 +245,7 @@ func TestHelmClient_Upgrade_WithPhaseEnvOverrides(t *testing.T) {
 	}
 
 	mockExecutor.On("run", ctx, "helm", mock.MatchedBy(func(args []string) bool {
-		if len(args) != 21 {
+		if len(args) != 19 {
 			return false
 		}
 
@@ -276,8 +276,7 @@ func TestHelmClient_Upgrade_WithPhaseEnvOverrides(t *testing.T) {
 			}
 		}
 
-		return envVarSet["deployment.env.MESSAGE_GENERATORS=200"] &&
-			envVarSet["deployment.env.MAX_EVENTS_PER_SECOND=15000"] &&
+		return envVarSet["deployment.env.MAX_EVENTS_PER_SECOND=15000"] &&
 			envVarSet["deployment.env.MESSAGE_GENERATORS=300"] &&
 			envVarSet["deployment.env.CONCURRENCY=500"]
 	})).Return(nil)
@@ -292,7 +291,7 @@ func TestHelmClient_Upgrade_WithPhaseEnvOverrides(t *testing.T) {
 
 func TestHelmClient_Install_WithCommaEscaping(t *testing.T) {
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -346,7 +345,7 @@ func TestHelmClient_Install_WithCommaEscaping(t *testing.T) {
 
 func TestHelmClient_Upgrade_WithCommaEscaping(t *testing.T) {
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -406,7 +405,7 @@ func TestHelmClient_Upgrade_WithCommaEscaping(t *testing.T) {
 func TestHelmClient_Uninstall(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 
 	config := &parser.LoadTestConfig{
 		ReleaseName: "test-release",
@@ -433,7 +432,7 @@ func TestHelmClient_Uninstall(t *testing.T) {
 func TestHelmClient_Install_Error(t *testing.T) {
 	// Setup
 	mockExecutor := new(MockExecutor)
-	helmClient := NewHelmClient(mockExecutor)
+	helmClient := NewHelmClient(mockExecutor, logger.NOP)
 	ctx := context.Background()
 
 	config := &parser.LoadTestConfig{
@@ -453,4 +452,224 @@ func TestHelmClient_Install_Error(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, expectedError, err)
 	mockExecutor.AssertExpectations(t)
+}
+
+func TestCalculateLoadParameters(t *testing.T) {
+	tests := []struct {
+		name            string
+		envVars         map[string]string
+		expectedArgs    []string
+		expectedEnvVars map[string]string
+		wantErr         bool
+		errContains     string
+	}{
+		{
+			name: "auto calculation enabled with valid MAX_EVENTS_PER_SECOND",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "auto",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs: []string{
+				"--set", "deployment.resources.cpuRequests=3",
+				"--set", "deployment.resources.cpuLimits=3",
+				"--set", "deployment.resources.memoryRequests=6Gi",
+				"--set", "deployment.resources.memoryLimits=6Gi",
+			},
+			expectedEnvVars: map[string]string{
+				"RESOURCE_CALCULATION":  "auto",
+				"MAX_EVENTS_PER_SECOND": "10000",
+				"CONCURRENCY":           "6000",
+				"MESSAGE_GENERATORS":    "1500",
+			},
+			wantErr:     false,
+			errContains: "",
+		},
+		{
+			name: "auto calculation enabled with low MAX_EVENTS_PER_SECOND",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "auto",
+				"MAX_EVENTS_PER_SECOND": "1000",
+			},
+			expectedArgs: []string{
+				"--set", "deployment.resources.cpuRequests=1",
+				"--set", "deployment.resources.cpuLimits=1",
+				"--set", "deployment.resources.memoryRequests=2Gi",
+				"--set", "deployment.resources.memoryLimits=2Gi",
+			},
+			expectedEnvVars: map[string]string{
+				"RESOURCE_CALCULATION":  "auto",
+				"MAX_EVENTS_PER_SECOND": "1000",
+				"CONCURRENCY":           "2000",
+				"MESSAGE_GENERATORS":    "500",
+			},
+			wantErr:     false,
+			errContains: "",
+		},
+		{
+			name: "auto calculation disabled",
+			envVars: map[string]string{
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs: []string{},
+			expectedEnvVars: map[string]string{
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			wantErr:     false,
+			errContains: "",
+		},
+		{
+			name:            "empty env vars",
+			envVars:         map[string]string{},
+			expectedArgs:    []string{},
+			expectedEnvVars: map[string]string{},
+			wantErr:         false,
+			errContains:     "",
+		},
+		{
+			name: "overprovision calculation with 10%",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,10",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs: []string{
+				"--set", "deployment.resources.cpuRequests=3.3",
+				"--set", "deployment.resources.cpuLimits=3.3",
+				"--set", "deployment.resources.memoryRequests=7Gi",
+				"--set", "deployment.resources.memoryLimits=7Gi",
+			},
+			expectedEnvVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,10",
+				"MAX_EVENTS_PER_SECOND": "10000",
+				"CONCURRENCY":           "6600",
+				"MESSAGE_GENERATORS":    "1650",
+			},
+			wantErr:     false,
+			errContains: "",
+		},
+		{
+			name: "overprovision calculation with 50%",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,50",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs: []string{
+				"--set", "deployment.resources.cpuRequests=4.5",
+				"--set", "deployment.resources.cpuLimits=4.5",
+				"--set", "deployment.resources.memoryRequests=9Gi",
+				"--set", "deployment.resources.memoryLimits=9Gi",
+			},
+			expectedEnvVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,50",
+				"MAX_EVENTS_PER_SECOND": "10000",
+				"CONCURRENCY":           "9000",
+				"MESSAGE_GENERATORS":    "2250",
+			},
+			wantErr:     false,
+			errContains: "",
+		},
+		{
+			name: "overprovision calculation with 100%",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,100",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs: []string{
+				"--set", "deployment.resources.cpuRequests=6",
+				"--set", "deployment.resources.cpuLimits=6",
+				"--set", "deployment.resources.memoryRequests=12Gi",
+				"--set", "deployment.resources.memoryLimits=12Gi",
+			},
+			expectedEnvVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,100",
+				"MAX_EVENTS_PER_SECOND": "10000",
+				"CONCURRENCY":           "12000",
+				"MESSAGE_GENERATORS":    "3000",
+			},
+			wantErr:     false,
+			errContains: "",
+		},
+		{
+			name: "invalid MAX_EVENTS_PER_SECOND",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,100",
+				"MAX_EVENTS_PER_SECOND": "10000.34",
+			},
+			expectedArgs:    nil,
+			expectedEnvVars: nil,
+			wantErr:         true,
+			errContains:     "failed to convert MAX_EVENTS_PER_SECOND to int",
+		},
+		{
+			name: "invalid resource calculation value",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "manual",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs:    nil,
+			expectedEnvVars: nil,
+			wantErr:         true,
+			errContains:     "invalid RESOURCE_CALCULATION value: manual, expected: auto or overprovision,<percentage>",
+		},
+		{
+			name: "invalid overprovision value format",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,2,3",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs:    nil,
+			expectedEnvVars: nil,
+			wantErr:         true,
+			errContains:     "invalid RESOURCE_CALCULATION format for overprovision, expecting: overprovision,<percentage>",
+		},
+		{
+			name: "non integer overprovision percentage",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,99.3",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs:    nil,
+			expectedEnvVars: nil,
+			wantErr:         true,
+			errContains:     "failed to convert overprovision percentage to int",
+		},
+		{
+			name: "overprovision percentage out of range",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,101",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs:    nil,
+			expectedEnvVars: nil,
+			wantErr:         true,
+			errContains:     "overprovision percentage must be between 1 and 100",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			inputEnvVars := make(map[string]string)
+			for k, v := range tt.envVars {
+				inputEnvVars[k] = v
+			}
+
+			args, err := calculateLoadParameters([]string{}, inputEnvVars, logger.NOP)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+				return
+			}
+
+			assert.Equal(t, tt.expectedArgs, args, "args mismatch")
+
+			for k, v := range tt.expectedEnvVars {
+				assert.Equal(t, v, inputEnvVars[k], "env var %s mismatch", k)
+			}
+
+			assert.Equal(t, len(tt.expectedEnvVars), len(inputEnvVars), "unexpected env vars added")
+		})
+	}
 }

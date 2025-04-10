@@ -16,6 +16,21 @@ import (
 	"rudder-load/internal/parser"
 )
 
+type helmClient interface {
+	Install(ctx context.Context, config *parser.LoadTestConfig) error
+	Upgrade(ctx context.Context, config *parser.LoadTestConfig, phase parser.RunPhase) error
+	Uninstall(config *parser.LoadTestConfig) error
+}
+
+type LoadTestRunner struct {
+	config      *parser.LoadTestConfig
+	helmClient  helmClient
+	mimirClient metrics.MimirClient
+	portForward *metrics.PortForward
+	logger      logger.Logger
+}
+
+func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient helmClient, mimirClient metrics.MimirClient, logger logger.Logger) *LoadTestRunner {
 type MetricsRecord struct {
 	Timestamp time.Time                 `json:"timestamp"`
 	Metrics   []metrics.MetricsResponse `json:"metrics"`

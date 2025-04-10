@@ -7,7 +7,7 @@ import (
 )
 
 func TestDefaultCommandExecutor_Run(t *testing.T) {
-	executor := &commandExecutor{}
+	executor := &CommandExecutor{}
 
 	t.Run("successful command execution", func(t *testing.T) {
 		ctx := context.Background()
