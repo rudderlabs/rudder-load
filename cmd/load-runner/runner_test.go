@@ -17,7 +17,6 @@ import (
 	"rudder-load/internal/parser"
 )
 
-// MockHelmClient implements HelmClient interface for testing
 type MockHelmClient struct {
 	mock.Mock
 }
