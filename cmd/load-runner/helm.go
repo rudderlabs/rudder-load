@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
-	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 
 	"rudder-load/internal/parser"
 )
@@ -39,7 +38,10 @@ func (h *helmClient) Install(ctx context.Context, config *parser.LoadTestConfig)
 		"--values", fmt.Sprintf("%s/%s_values_copy.yaml", config.ChartFilePath, config.Name),
 	}
 
-	args = processHelmEnvVars(args, config.EnvOverrides, h.logger)
+	args, err := processHelmEnvVars(args, config.EnvOverrides, h.logger)
+	if err != nil {
+		return err
+	}
 
 	h.logger.Info("Running helm install with args", "args", args)
 	return h.executor.run(ctx, "helm", args...)
@@ -75,7 +77,10 @@ func (h *helmClient) Upgrade(ctx context.Context, config *parser.LoadTestConfig,
 	}
 
 	// Process the merged overrides
-	args = processHelmEnvVars(args, mergedOverrides, h.logger)
+	args, err := processHelmEnvVars(args, mergedOverrides, h.logger)
+	if err != nil {
+		return err
+	}
 
 	return h.executor.run(ctx, "helm", args...)
 }
@@ -89,8 +94,12 @@ func (h *helmClient) Uninstall(config *parser.LoadTestConfig) error {
 	return h.executor.run(context.Background(), "helm", args...)
 }
 
-func processHelmEnvVars(args []string, envVars map[string]string, logger logger.Logger) []string {
-	args = calculateLoadParameters(args, envVars, logger)
+func processHelmEnvVars(args []string, envVars map[string]string, logger logger.Logger) ([]string, error) {
+	args, err := calculateLoadParameters(args, envVars, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	for key, value := range envVars {
 		if strings.Contains(value, ",") {
 			value = strings.ReplaceAll(value, ",", "\\,")
@@ -98,21 +107,20 @@ func processHelmEnvVars(args []string, envVars map[string]string, logger logger.
 		args = append(args, "--set", fmt.Sprintf("deployment.env.%s=%s", key, value))
 	}
 
-	return args
+	return args, nil
 }
 
-func calculateLoadParameters(args []string, envVars map[string]string, logger logger.Logger) []string {
+func calculateLoadParameters(args []string, envVars map[string]string, logger logger.Logger) ([]string, error) {
 	resourceCalculation := envVars["RESOURCE_CALCULATION"]
 
 	// If no resource calculation is specified, return args unchanged
 	if resourceCalculation == "" {
-		return args
+		return args, nil
 	}
 
 	// Validate resource calculation value
-	if resourceCalculation != "auto" && !strings.HasPrefix(resourceCalculation, "overprovision,") {
-		logger.Warnn(fmt.Sprintf("Invalid RESOURCE_CALCULATION value: %s, expected: auto or overprovision,<percentage>", resourceCalculation))
-		return args
+	if resourceCalculation != "auto" && !strings.HasPrefix(resourceCalculation, "overprovision") {
+		return nil, fmt.Errorf("invalid RESOURCE_CALCULATION value: %s, expected: auto or overprovision,<percentage>", resourceCalculation)
 	}
 
 	const (
@@ -129,7 +137,7 @@ func calculateLoadParameters(args []string, envVars map[string]string, logger lo
 
 	maxEventsPerSecond, err := strconv.Atoi(envVars["MAX_EVENTS_PER_SECOND"])
 	if err != nil {
-		logger.Fataln("Failed to convert MAX_EVENTS_PER_SECOND to int", obskit.Error(err))
+		return nil, fmt.Errorf("failed to convert MAX_EVENTS_PER_SECOND to int: %v", err)
 	}
 
 	baseMultiplier := maxEventsPerSecond/baseEventsPerResourceUnit + 1
@@ -138,16 +146,16 @@ func calculateLoadParameters(args []string, envVars map[string]string, logger lo
 	if strings.HasPrefix(resourceCalculation, "overprovision,") {
 		parts := strings.Split(resourceCalculation, ",")
 		if len(parts) != 2 {
-			logger.Fataln("Invalid RESOURCE_CALCULATION format for overprovision, expecting: overprovision,<percentage>")
+			return nil, fmt.Errorf("invalid RESOURCE_CALCULATION format for overprovision, expecting: overprovision,<percentage>")
 		}
 
 		overprovisionPercentage, err := strconv.Atoi(parts[1])
 		if err != nil {
-			logger.Fataln("Failed to convert overprovision percentage to int", obskit.Error(err))
+			return nil, fmt.Errorf("failed to convert overprovision percentage to int: %v", err)
 		}
 
 		if overprovisionPercentage < 1 || overprovisionPercentage > 100 {
-			logger.Fataln("Overprovision percentage must be between 1 and 100")
+			return nil, fmt.Errorf("overprovision percentage must be between 1 and 100: %v", overprovisionPercentage)
 		}
 
 		overprovisionFactor = 1.0 + float64(overprovisionPercentage)/100.0
@@ -166,5 +174,5 @@ func calculateLoadParameters(args []string, envVars map[string]string, logger lo
 		"--set", fmt.Sprintf("deployment.resources.memoryRequests=%vGi", memory),
 		"--set", fmt.Sprintf("deployment.resources.memoryLimits=%vGi", memory),
 	)
-	return args
+	return args, nil
 }

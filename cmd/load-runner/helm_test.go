@@ -461,6 +461,8 @@ func TestCalculateLoadParameters(t *testing.T) {
 		envVars         map[string]string
 		expectedArgs    []string
 		expectedEnvVars map[string]string
+		wantErr         bool
+		errContains     string
 	}{
 		{
 			name: "auto calculation enabled with valid MAX_EVENTS_PER_SECOND",
@@ -480,6 +482,8 @@ func TestCalculateLoadParameters(t *testing.T) {
 				"CONCURRENCY":           "6000",
 				"MESSAGE_GENERATORS":    "1500",
 			},
+			wantErr:     false,
+			errContains: "",
 		},
 		{
 			name: "auto calculation enabled with low MAX_EVENTS_PER_SECOND",
@@ -499,6 +503,8 @@ func TestCalculateLoadParameters(t *testing.T) {
 				"CONCURRENCY":           "2000",
 				"MESSAGE_GENERATORS":    "500",
 			},
+			wantErr:     false,
+			errContains: "",
 		},
 		{
 			name: "auto calculation disabled",
@@ -509,12 +515,16 @@ func TestCalculateLoadParameters(t *testing.T) {
 			expectedEnvVars: map[string]string{
 				"MAX_EVENTS_PER_SECOND": "10000",
 			},
+			wantErr:     false,
+			errContains: "",
 		},
 		{
 			name:            "empty env vars",
 			envVars:         map[string]string{},
 			expectedArgs:    []string{},
 			expectedEnvVars: map[string]string{},
+			wantErr:         false,
+			errContains:     "",
 		},
 		{
 			name: "overprovision calculation with 10%",
@@ -534,6 +544,8 @@ func TestCalculateLoadParameters(t *testing.T) {
 				"CONCURRENCY":           "6600",
 				"MESSAGE_GENERATORS":    "1650",
 			},
+			wantErr:     false,
+			errContains: "",
 		},
 		{
 			name: "overprovision calculation with 50%",
@@ -553,6 +565,8 @@ func TestCalculateLoadParameters(t *testing.T) {
 				"CONCURRENCY":           "9000",
 				"MESSAGE_GENERATORS":    "2250",
 			},
+			wantErr:     false,
+			errContains: "",
 		},
 		{
 			name: "overprovision calculation with 100%",
@@ -572,29 +586,90 @@ func TestCalculateLoadParameters(t *testing.T) {
 				"CONCURRENCY":           "12000",
 				"MESSAGE_GENERATORS":    "3000",
 			},
+			wantErr:     false,
+			errContains: "",
+		},
+		{
+			name: "invalid MAX_EVENTS_PER_SECOND",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,100",
+				"MAX_EVENTS_PER_SECOND": "10000.34",
+			},
+			expectedArgs:    nil,
+			expectedEnvVars: nil,
+			wantErr:         true,
+			errContains:     "failed to convert MAX_EVENTS_PER_SECOND to int",
+		},
+		{
+			name: "invalid resource calculation value",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "manual",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs:    nil,
+			expectedEnvVars: nil,
+			wantErr:         true,
+			errContains:     "invalid RESOURCE_CALCULATION value: manual, expected: auto or overprovision,<percentage>",
+		},
+		{
+			name: "invalid overprovision value format",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,2,3",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs:    nil,
+			expectedEnvVars: nil,
+			wantErr:         true,
+			errContains:     "invalid RESOURCE_CALCULATION format for overprovision, expecting: overprovision,<percentage>",
+		},
+		{
+			name: "non integer overprovision percentage",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,99.3",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs:    nil,
+			expectedEnvVars: nil,
+			wantErr:         true,
+			errContains:     "failed to convert overprovision percentage to int",
+		},
+		{
+			name: "overprovision percentage out of range",
+			envVars: map[string]string{
+				"RESOURCE_CALCULATION":  "overprovision,101",
+				"MAX_EVENTS_PER_SECOND": "10000",
+			},
+			expectedArgs:    nil,
+			expectedEnvVars: nil,
+			wantErr:         true,
+			errContains:     "overprovision percentage must be between 1 and 100",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a copy of the input env vars to avoid modifying the test data
+
 			inputEnvVars := make(map[string]string)
 			for k, v := range tt.envVars {
 				inputEnvVars[k] = v
 			}
 
-			// Call the function
-			args := calculateLoadParameters([]string{}, inputEnvVars, logger.NOP)
+			args, err := calculateLoadParameters([]string{}, inputEnvVars, logger.NOP)
 
-			// Verify the returned args
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+				return
+			}
+
 			assert.Equal(t, tt.expectedArgs, args, "args mismatch")
 
-			// Verify the env vars were updated correctly
 			for k, v := range tt.expectedEnvVars {
 				assert.Equal(t, v, inputEnvVars[k], "env var %s mismatch", k)
 			}
 
-			// Verify no unexpected env vars were added
 			assert.Equal(t, len(tt.expectedEnvVars), len(inputEnvVars), "unexpected env vars added")
 		})
 	}
