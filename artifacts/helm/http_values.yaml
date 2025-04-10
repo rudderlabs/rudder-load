@@ -35,7 +35,7 @@ deployment:
     # HOT_SOURCES: "20,20,30,30"
     USE_ONE_CLIENT_PER_SLOT: "true"
     ENABLE_SOFT_MEMORY_LIMIT: "true"
-    TOTAL_USERS: "187500"
+    TOTAL_USERS: "100000"
     # HOT_USER_GROUPS: sum should be 100 (%) and values comma separated
     # TOTAL_USERS will be divided by the number of groups and given the desired data concentration
     HOT_USER_GROUPS: "100"
