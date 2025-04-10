@@ -16,7 +16,7 @@ on:
 jobs:
   run-k8s-test:
     name: Run Kubernetes Test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64]
     permissions:
       id-token: write  
       contents: read
