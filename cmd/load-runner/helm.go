@@ -13,11 +13,11 @@ import (
 )
 
 type HelmClient struct {
-	executor CommandExecutor
+	executor commandExecutor
 	logger   logger.Logger
 }
 
-func NewHelmClient(executor CommandExecutor, logger logger.Logger) *HelmClient {
+func NewHelmClient(executor commandExecutor, logger logger.Logger) *HelmClient {
 	return &HelmClient{executor: executor, logger: logger}
 }
 

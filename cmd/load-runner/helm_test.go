@@ -12,7 +12,6 @@ import (
 	"rudder-load/internal/parser"
 )
 
-// MockExecutor implements CommandExecutor interface for testing
 type MockExecutor struct {
 	mock.Mock
 }

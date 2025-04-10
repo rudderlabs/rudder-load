@@ -15,6 +15,10 @@ import (
 	"rudder-load/internal/validator"
 )
 
+type commandExecutor interface {
+	run(ctx context.Context, name string, args ...string) error
+}
+
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -51,7 +55,7 @@ func run(ctx context.Context, log logger.Logger) error {
 
 	cfg.SetDefaults()
 
-	helmClient := NewHelmClient(&commandExecutor{}, log)
+	helmClient := NewHelmClient(&CommandExecutor{}, log)
 	mimirClient := metrics.NewMimirClient("http://localhost:9898")
 	runner := NewLoadTestRunner(cfg, helmClient, mimirClient, log)
 
