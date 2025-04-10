@@ -6,6 +6,8 @@ env:
   MAX_EVENTS_PER_SECOND: 100
   CONCURRENCY: 100
   MESSAGE_GENERATORS: 100
+  EVENT_TYPES: "track,page,identify"
+  HOT_EVENT_TYPES: "33,33,34"
 phases:
   - duration: 15m
     replicas: 2
