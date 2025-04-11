@@ -12,6 +12,14 @@ on:
         required: true
         type: string
         default: "rudder-load"
+      sources:
+        description: "Source write keys to be used for the test as a comma separated string"
+        required: true
+        type: string
+      http_endpoint:
+        description: "HTTP endpoint to be used for the test"
+        required: true
+        type: string
 
 jobs:
   run-k8s-test:
@@ -58,4 +66,4 @@ jobs:
       - name: Run the test
         run: |
           go build -o load-runner ./cmd/load-runner
-          ./load-runner -t tests/${{ github.event.inputs.test_file }} -n ${{ github.event.inputs.k8s_namespace }}
+          ./load-runner -t tests/${{ github.event.inputs.test_file }} -n ${{ github.event.inputs.k8s_namespace }} -e SOURCES=${{ github.event.inputs.sources }} -e HTTP_ENDPOINT=${{ github.event.inputs.http_endpoint }}
