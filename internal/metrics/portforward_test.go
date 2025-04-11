@@ -36,6 +36,17 @@ func TestPortForward_Start(t *testing.T) {
 			},
 			expectedError: "exec: already started",
 		},
+		{
+			name:      "port-forward process exited prematurely",
+			namespace: "test-namespace",
+			commandCreator: func(ctx context.Context, name string, arg ...string) *exec.Cmd {
+				cmd := exec.Command("echo", "mock command")
+				cmd.Process = &os.Process{Pid: 12345}
+				cmd.ProcessState = &os.ProcessState{}
+				return cmd
+			},
+			expectedError: "port-forward process exited prematurely",
+		},
 	}
 
 	for _, tt := range tests {
