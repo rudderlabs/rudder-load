@@ -260,6 +260,9 @@ env:
   # Automatically define CPU, memory, message generators and concurrency based on the target event rate set in `MAX_EVENTS_PER_SECOND`
   # overprovisioning each resource by the percentage mentioned after the comma e.g. "overprovision,20" means overprovision by 20%
   RESOURCE_CALCULATION: "overprovision,20"
+
+  # Timeout when attempting to port forward 
+  PORT_FORWARDING_TIMEOUT: "10s"
 ```
 
 #### Overriding Configuration
@@ -374,3 +377,35 @@ reporting:
 In this example, a custom query is added for the `errors` metric, which calculates the error rate using the Prometheus query language. This allows for more detailed and specific monitoring of the load test performance.
 
 Refer to [tests/reporting.test.yaml](tests/reporting.test.yaml) for an example of how to configure custom queries in a test configuration file.
+
+#### Metrics Storage
+
+All collected metrics are stored in JSON files with the following structure:
+
+```json
+[
+  {
+    "timestamp": "2024-03-21T10:30:00Z",
+    "metrics": [
+      {
+        "key": "rps",
+        "value": 100
+      },
+      {
+        "key": "errors",
+        "value": 5
+      }
+    ]
+  }
+]
+```
+
+#### Metrics File Location
+
+Metrics files are stored in a `metrics_reports` directory in the current working directory. Each load test generates a unique file named:
+
+```
+{test-name}_metrics_{timestamp}.json
+```
+
+For example: `http_metrics_20240321_103000.json`

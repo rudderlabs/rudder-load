@@ -55,11 +55,46 @@ func (m *MockMimirClient) QueryRange(ctx context.Context, query string, start in
 	return args.Get(0).(metrics.QueryResponse), args.Error(1)
 }
 
+type MockPortForwarder struct {
+	mock.Mock
+}
+
+func (m *MockPortForwarder) Start(ctx context.Context, namespace string) error {
+	args := m.Called(ctx, namespace)
+	return args.Error(0)
+}
+
+func (m *MockPortForwarder) Stop() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+// MockFileSystem is a mock implementation of file system operations
+type MockFileSystem struct {
+	mock.Mock
+}
+
+func (m *MockFileSystem) MkdirAll(path string, perm os.FileMode) error {
+	args := m.Called(path, perm)
+	return args.Error(0)
+}
+
+func (m *MockFileSystem) WriteFile(filename string, data []byte, perm os.FileMode) error {
+	args := m.Called(filename, data, perm)
+	return args.Error(0)
+}
+
+// Variables to store original functions for restoration
+var (
+	osMkdirAll  = os.MkdirAll
+	osWriteFile = os.WriteFile
+)
+
 func TestLoadTestRunner_Run(t *testing.T) {
 	testCases := []struct {
 		name          string
 		config        *parser.LoadTestConfig
-		setupMock     func(*MockHelmClient)
+		setupMock     func(*MockHelmClient, *MockMimirClient, *MockPortForwarder)
 		expectedError string
 	}{
 		{
@@ -71,9 +106,12 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "100ms"},
 				},
 			},
-			setupMock: func(m *MockHelmClient) {
-				m.On("Install", mock.Anything, mock.Anything).Return(nil)
-				m.On("Uninstall", mock.Anything).Return(nil)
+			setupMock: func(h *MockHelmClient, m *MockMimirClient, p *MockPortForwarder) {
+				h.On("Install", mock.Anything, mock.Anything).Return(nil)
+				h.On("Uninstall", mock.Anything).Return(nil)
+				m.On("GetMetrics", mock.Anything, mock.Anything).Return([]metrics.MetricsResponse{}, nil)
+				p.On("Start", mock.Anything, "mimir").Return(nil)
+				p.On("Stop").Return(nil)
 			},
 		},
 		{
@@ -85,10 +123,13 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "100ms"},
 				},
 			},
-			setupMock: func(m *MockHelmClient) {
-				m.On("Install", mock.Anything, mock.Anything).Return(nil)
-				m.On("Upgrade", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-				m.On("Uninstall", mock.Anything).Return(nil)
+			setupMock: func(h *MockHelmClient, m *MockMimirClient, p *MockPortForwarder) {
+				h.On("Install", mock.Anything, mock.Anything).Return(nil)
+				h.On("Upgrade", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				h.On("Uninstall", mock.Anything).Return(nil)
+				m.On("GetMetrics", mock.Anything, mock.Anything).Return([]metrics.MetricsResponse{}, nil)
+				p.On("Start", mock.Anything, "mimir").Return(nil)
+				p.On("Stop").Return(nil)
 			},
 		},
 		{
@@ -99,8 +140,10 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "100ms"},
 				},
 			},
-			setupMock: func(m *MockHelmClient) {
-				m.On("Install", mock.Anything, mock.Anything).Return(errors.New("install failed"))
+			setupMock: func(h *MockHelmClient, m *MockMimirClient, p *MockPortForwarder) {
+				h.On("Install", mock.Anything, mock.Anything).Return(errors.New("install failed"))
+				p.On("Start", mock.Anything, "mimir").Return(nil)
+				p.On("Stop").Return(nil)
 			},
 			expectedError: "install failed",
 		},
@@ -113,10 +156,12 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "100ms"},
 				},
 			},
-			setupMock: func(m *MockHelmClient) {
-				m.On("Install", mock.Anything, mock.Anything).Return(nil)
-				m.On("Upgrade", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("upgrade failed"))
-				m.On("Uninstall", mock.Anything).Return(nil)
+			setupMock: func(h *MockHelmClient, m *MockMimirClient, p *MockPortForwarder) {
+				h.On("Install", mock.Anything, mock.Anything).Return(nil)
+				h.On("Upgrade", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("upgrade failed"))
+				h.On("Uninstall", mock.Anything).Return(nil)
+				p.On("Start", mock.Anything, "mimir").Return(nil)
+				p.On("Stop").Return(nil)
 			},
 			expectedError: "upgrade failed",
 		},
@@ -128,11 +173,26 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "invalid"},
 				},
 			},
-			setupMock: func(m *MockHelmClient) {
-				m.On("Install", mock.Anything, mock.Anything).Return(nil)
-				m.On("Uninstall", mock.Anything).Return(nil)
+			setupMock: func(h *MockHelmClient, m *MockMimirClient, p *MockPortForwarder) {
+				h.On("Install", mock.Anything, mock.Anything).Return(nil)
+				h.On("Uninstall", mock.Anything).Return(nil)
+				p.On("Start", mock.Anything, "mimir").Return(nil)
+				p.On("Stop").Return(nil)
 			},
 			expectedError: `time: invalid duration "invalid"`,
+		},
+		{
+			name: "failed to start port-forwarding",
+			config: &parser.LoadTestConfig{
+				Name: "test-scenario",
+				Phases: []parser.RunPhase{
+					{Duration: "invalid"},
+				},
+			},
+			setupMock: func(h *MockHelmClient, m *MockMimirClient, p *MockPortForwarder) {
+				p.On("Start", mock.Anything, "mimir").Return(errors.New("failed to connect service"))
+			},
+			expectedError: `failed to start port-forward: failed to connect service`,
 		},
 	}
 
@@ -146,10 +206,11 @@ func TestLoadTestRunner_Run(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockHelmClient := new(MockHelmClient)
 			mockMimirClient := new(MockMimirClient)
-			tc.setupMock(mockHelmClient)
+			portForwarder := new(MockPortForwarder)
+			tc.setupMock(mockHelmClient, mockMimirClient, portForwarder)
 
 			tc.config.ChartFilePath = tempDir
-			runner := NewLoadTestRunner(tc.config, mockHelmClient, mockMimirClient, logger.NOP)
+			runner := NewLoadTestRunner(tc.config, mockHelmClient, mockMimirClient, portForwarder, logger.NOP)
 			err := runner.Run(context.Background())
 
 			if tc.expectedError != "" {
@@ -160,6 +221,7 @@ func TestLoadTestRunner_Run(t *testing.T) {
 			}
 
 			mockHelmClient.AssertExpectations(t)
+			mockMimirClient.AssertExpectations(t)
 		})
 	}
 }
@@ -181,10 +243,13 @@ func TestLoadTestRunner_RunCancellation(t *testing.T) {
 
 	mockHelmClient := new(MockHelmClient)
 	mockMimirClient := new(MockMimirClient)
+	mockPortForwarder := new(MockPortForwarder)
 	mockHelmClient.On("Install", mock.Anything, mock.Anything).Return(nil)
 	mockHelmClient.On("Uninstall", mock.Anything).Return(nil)
+	mockPortForwarder.On("Start", mock.Anything, mock.Anything).Return(nil)
+	mockPortForwarder.On("Stop", mock.Anything).Return(nil)
 
-	runner := NewLoadTestRunner(config, mockHelmClient, mockMimirClient, logger.NOP)
+	runner := NewLoadTestRunner(config, mockHelmClient, mockMimirClient, mockPortForwarder, logger.NOP)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	errChan := make(chan error)
@@ -314,7 +379,7 @@ func TestLoadTestRunner_CreateValuesFileCopy(t *testing.T) {
 			logger := logger.NOP
 			helmClient := new(MockHelmClient)
 			mimirClient := new(MockMimirClient)
-			runner := NewLoadTestRunner(config, helmClient, mimirClient, logger)
+			runner := NewLoadTestRunner(config, helmClient, mimirClient, metrics.NewPortForwarder(time.Second*5, logger), logger)
 
 			err = runner.createValuesFileCopy(context.Background())
 
@@ -431,6 +496,77 @@ func TestLoadTestRunner_MonitorMetrics(t *testing.T) {
 			} else {
 				mockMimirClient.AssertNotCalled(t, "GetMetrics", mock.Anything, mock.Anything)
 			}
+		})
+	}
+}
+
+func TestLoadTestRunner_WriteMetricsToFile(t *testing.T) {
+	// Create test metrics data
+	testMetrics := []metricsRecord{
+		{
+			Timestamp: time.Now(),
+			Metrics: []metrics.MetricsResponse{
+				{Key: "test_metric", Value: 100},
+			},
+		},
+	}
+
+	tests := []struct {
+		name          string
+		setupMock     func(*MockFileSystem)
+		metricsData   []metricsRecord
+		expectedError string
+	}{
+		{
+			name: "successful write",
+			setupMock: func(mockFS *MockFileSystem) {
+				mockFS.On("MkdirAll", "metrics_reports", os.FileMode(0755)).Return(nil)
+				mockFS.On("WriteFile", mock.Anything, mock.Anything, os.FileMode(0644)).Return(nil)
+			},
+			metricsData:   testMetrics,
+			expectedError: "",
+		},
+		{
+			name: "empty metrics data",
+			setupMock: func(mockFS *MockFileSystem) {
+				// No mock setup needed as the function should return early
+			},
+			metricsData:   []metricsRecord{},
+			expectedError: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mock file system
+			mockFS := new(MockFileSystem)
+			tt.setupMock(mockFS)
+
+			// Replace the real functions with our mock
+			osMkdirAll = mockFS.MkdirAll
+			osWriteFile = mockFS.WriteFile
+
+			runner := &LoadTestRunner{
+				config: &parser.LoadTestConfig{
+					Name: "test-metrics",
+				},
+				logger:      logger.NOP,
+				metricsData: tt.metricsData,
+				metricsFile: "metrics.json",
+			}
+
+			err := runner.writeMetricsToFile()
+
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
+
+			// Restore the original functions
+			osMkdirAll = os.MkdirAll
+			osWriteFile = os.WriteFile
 		})
 	}
 }

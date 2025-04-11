@@ -31,3 +31,11 @@ func MergeEnvVars(configEnvVars, envFileVars map[string]string) map[string]strin
 
 	return result
 }
+
+func GetEnvOrDefault(key, fallback string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		return fallback
+	}
+	return val
+}

@@ -141,27 +141,13 @@ func (m *mimirClient) QueryRange(ctx context.Context, query string, start int64,
 func (m *mimirClient) GetMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
 	var metricsResponses []MetricsResponse
 
-	var knownMetrics = []struct {
-		Name  string
-		Query string
-	}{
-		{Name: "rps", Query: "sum(rate(rudder_load_publish_duration_seconds_count[1m]))"},
+	knownMetrics := map[string]string{
+		"rps": "sum(rate(rudder_load_publish_duration_seconds_count[1m]))",
 	}
 
 	for _, metric := range mts {
-		var matchingMetric *struct {
-			Name  string
-			Query string
-		}
-		for _, km := range knownMetrics {
-			if km.Name == metric.Name {
-				matchingMetric = &km
-				break
-			}
-		}
-
-		if matchingMetric != nil && metric.Query == "" {
-			metric.Query = matchingMetric.Query
+		if query, ok := knownMetrics[metric.Name]; ok {
+			metric.Query = query
 		}
 
 		resp, err := m.Query(ctx, metric.Query, time.Now().Unix())
