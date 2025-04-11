@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
@@ -58,7 +57,12 @@ func run(ctx context.Context, log logger.Logger) error {
 
 	helmClient := NewHelmClient(&CommandExecutor{}, log)
 	mimirClient := metrics.NewMimirClient("http://localhost:9898")
-	portForwarder := metrics.NewPortForwarder(time.Second*5, log)
+	portForwardingTimeoutString := parser.GetEnvOrDefault("PORT_FORWARDING_TIMEOUT", "5s")
+	portForwardingTimeout, err := parseDuration(portForwardingTimeoutString)
+	if err != nil {
+		return fmt.Errorf("failed to parse port forwarding timeout: %w", err)
+	}
+	portForwarder := metrics.NewPortForwarder(portForwardingTimeout, log)
 	runner := NewLoadTestRunner(cfg, helmClient, mimirClient, portForwarder, log)
 	if err := runner.Run(ctx); err != nil {
 		return fmt.Errorf("failed to run load test: %w", err)
