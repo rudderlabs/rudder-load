@@ -42,7 +42,7 @@ func ValidateSources(sources string) error {
 	v := strings.Split(sources, ",")
 	for _, source := range v {
 		if strings.TrimSpace(source) == "" {
-			return fmt.Errorf("invalid sources: contains empty source")
+			return fmt.Errorf("invalid sources: contains empty source: %s", sources)
 		}
 	}
 	return nil
