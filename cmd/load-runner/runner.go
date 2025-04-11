@@ -59,13 +59,15 @@ func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient helmClient, mim
 }
 
 func (r *LoadTestRunner) Run(ctx context.Context) error {
+	const defaultMonitoringNamespace = "mimir"
+
 	if err := r.createValuesFileCopy(ctx); err != nil {
 		return err
 	}
 
 	monitoringNamespace := r.config.Reporting.Namespace
 	if monitoringNamespace == "" {
-		monitoringNamespace = "mimir"
+		monitoringNamespace = defaultMonitoringNamespace
 	}
 
 	stopPortForward, err := r.startPortForward(ctx, monitoringNamespace)
@@ -88,17 +90,17 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 	defer func() {
 		r.logger.Infon("Uninstalling Helm chart for the load scenario...")
 		if err := r.helmClient.Uninstall(r.config); err != nil {
-			r.logger.Errorn("Failed to uninstall Helm chart: %s", obskit.Error(err))
+			r.logger.Errorn("Failed to uninstall Helm chart", obskit.Error(err))
 		}
 		r.logger.Infon("Done!")
 
 		// Write metrics to file after test completion
 		if err := r.writeMetricsToFile(); err != nil {
-			r.logger.Errorn("Failed to write metrics to file: %s", obskit.Error(err))
+			r.logger.Errorn("Failed to write metrics to file", obskit.Error(err))
 		}
 	}()
 
-	var totalDuration = time.Duration(0)
+	totalDuration := time.Duration(0)
 
 	for i, phase := range r.config.Phases {
 		r.logger.Infon("Running phase", logger.NewIntField("phase", int64(i+1)), logger.NewStringField("duration", phase.Duration))
