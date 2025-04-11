@@ -73,7 +73,7 @@ func TestLoadTestRunner_Run(t *testing.T) {
 	testCases := []struct {
 		name          string
 		config        *parser.LoadTestConfig
-		setupMock     func(*MockHelmClient, *MockMimirClient)
+		setupMock     func(*MockHelmClient, *MockMimirClient, *MockPortForwarder)
 		expectedError string
 	}{
 		{
@@ -85,10 +85,12 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "100ms"},
 				},
 			},
-			setupMock: func(h *MockHelmClient, m *MockMimirClient) {
+			setupMock: func(h *MockHelmClient, m *MockMimirClient, p *MockPortForwarder) {
 				h.On("Install", mock.Anything, mock.Anything).Return(nil)
 				h.On("Uninstall", mock.Anything).Return(nil)
 				m.On("GetMetrics", mock.Anything, mock.Anything).Return([]metrics.MetricsResponse{}, nil)
+				p.On("Start", mock.Anything, "mimir").Return(nil)
+				p.On("Stop").Return(nil)
 			},
 		},
 		{
@@ -100,11 +102,13 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "100ms"},
 				},
 			},
-			setupMock: func(h *MockHelmClient, m *MockMimirClient) {
+			setupMock: func(h *MockHelmClient, m *MockMimirClient, p *MockPortForwarder) {
 				h.On("Install", mock.Anything, mock.Anything).Return(nil)
 				h.On("Upgrade", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 				h.On("Uninstall", mock.Anything).Return(nil)
 				m.On("GetMetrics", mock.Anything, mock.Anything).Return([]metrics.MetricsResponse{}, nil)
+				p.On("Start", mock.Anything, "mimir").Return(nil)
+				p.On("Stop").Return(nil)
 			},
 		},
 		{
@@ -115,8 +119,10 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "100ms"},
 				},
 			},
-			setupMock: func(h *MockHelmClient, m *MockMimirClient) {
+			setupMock: func(h *MockHelmClient, m *MockMimirClient, p *MockPortForwarder) {
 				h.On("Install", mock.Anything, mock.Anything).Return(errors.New("install failed"))
+				p.On("Start", mock.Anything, "mimir").Return(nil)
+				p.On("Stop").Return(nil)
 			},
 			expectedError: "install failed",
 		},
@@ -129,10 +135,12 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "100ms"},
 				},
 			},
-			setupMock: func(h *MockHelmClient, m *MockMimirClient) {
+			setupMock: func(h *MockHelmClient, m *MockMimirClient, p *MockPortForwarder) {
 				h.On("Install", mock.Anything, mock.Anything).Return(nil)
 				h.On("Upgrade", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("upgrade failed"))
 				h.On("Uninstall", mock.Anything).Return(nil)
+				p.On("Start", mock.Anything, "mimir").Return(nil)
+				p.On("Stop").Return(nil)
 			},
 			expectedError: "upgrade failed",
 		},
@@ -144,11 +152,26 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "invalid"},
 				},
 			},
-			setupMock: func(h *MockHelmClient, m *MockMimirClient) {
+			setupMock: func(h *MockHelmClient, m *MockMimirClient, p *MockPortForwarder) {
 				h.On("Install", mock.Anything, mock.Anything).Return(nil)
 				h.On("Uninstall", mock.Anything).Return(nil)
+				p.On("Start", mock.Anything, "mimir").Return(nil)
+				p.On("Stop").Return(nil)
 			},
 			expectedError: `time: invalid duration "invalid"`,
+		},
+		{
+			name: "failed to start port-forwarding",
+			config: &parser.LoadTestConfig{
+				Name: "test-scenario",
+				Phases: []parser.RunPhase{
+					{Duration: "invalid"},
+				},
+			},
+			setupMock: func(h *MockHelmClient, m *MockMimirClient, p *MockPortForwarder) {
+				p.On("Start", mock.Anything, "mimir").Return(errors.New("failed to connect service"))
+			},
+			expectedError: `failed to start port-forward: failed to connect service`,
 		},
 	}
 
@@ -162,8 +185,8 @@ func TestLoadTestRunner_Run(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockHelmClient := new(MockHelmClient)
 			mockMimirClient := new(MockMimirClient)
-			portForwarder := metrics.NewPortForwarder(time.Second*5, logger.NOP)
-			tc.setupMock(mockHelmClient, mockMimirClient)
+			portForwarder := new(MockPortForwarder)
+			tc.setupMock(mockHelmClient, mockMimirClient, portForwarder)
 
 			tc.config.ChartFilePath = tempDir
 			runner := NewLoadTestRunner(tc.config, mockHelmClient, mockMimirClient, portForwarder, logger.NOP)
