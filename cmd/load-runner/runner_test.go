@@ -162,7 +162,7 @@ func TestLoadTestRunner_Run(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockHelmClient := new(MockHelmClient)
 			mockMimirClient := new(MockMimirClient)
-			portForwarder := metrics.NewPortForwarder(time.Second * 5)
+			portForwarder := metrics.NewPortForwarder(time.Second*5, logger.NOP)
 			tc.setupMock(mockHelmClient, mockMimirClient)
 
 			tc.config.ChartFilePath = tempDir
@@ -335,7 +335,7 @@ func TestLoadTestRunner_CreateValuesFileCopy(t *testing.T) {
 			logger := logger.NOP
 			helmClient := new(MockHelmClient)
 			mimirClient := new(MockMimirClient)
-			runner := NewLoadTestRunner(config, helmClient, mimirClient, metrics.NewPortForwarder(time.Second*5), logger)
+			runner := NewLoadTestRunner(config, helmClient, mimirClient, metrics.NewPortForwarder(time.Second*5, logger), logger)
 
 			err = runner.createValuesFileCopy(context.Background())
 

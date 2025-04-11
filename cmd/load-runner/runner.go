@@ -27,7 +27,7 @@ type portForwarder interface {
 	Stop() error
 }
 
-type MetricsRecord struct {
+type metricsRecord struct {
 	Timestamp time.Time                 `json:"timestamp"`
 	Metrics   []metrics.MetricsResponse `json:"metrics"`
 }
@@ -40,7 +40,7 @@ type LoadTestRunner struct {
 	logger        logger.Logger
 	metricsFile   string
 	metricsMutex  sync.Mutex
-	metricsData   []MetricsRecord
+	metricsData   []metricsRecord
 }
 
 func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient helmClient, mimirClient metrics.MimirClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
@@ -54,7 +54,7 @@ func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient helmClient, mim
 		portForwarder: portForwarder,
 		logger:        logger,
 		metricsFile:   metricsFile,
-		metricsData:   make([]MetricsRecord, 0),
+		metricsData:   make([]metricsRecord, 0),
 	}
 }
 
@@ -231,7 +231,7 @@ func (r *LoadTestRunner) recordMetrics(metrics []metrics.MetricsResponse) {
 	r.metricsMutex.Lock()
 	defer r.metricsMutex.Unlock()
 
-	r.metricsData = append(r.metricsData, MetricsRecord{
+	r.metricsData = append(r.metricsData, metricsRecord{
 		Timestamp: time.Now(),
 		Metrics:   metrics,
 	})
