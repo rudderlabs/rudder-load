@@ -69,6 +69,27 @@ func (m *MockPortForwarder) Stop() error {
 	return args.Error(0)
 }
 
+// MockFileSystem is a mock implementation of file system operations
+type MockFileSystem struct {
+	mock.Mock
+}
+
+func (m *MockFileSystem) MkdirAll(path string, perm os.FileMode) error {
+	args := m.Called(path, perm)
+	return args.Error(0)
+}
+
+func (m *MockFileSystem) WriteFile(filename string, data []byte, perm os.FileMode) error {
+	args := m.Called(filename, data, perm)
+	return args.Error(0)
+}
+
+// Variables to store original functions for restoration
+var (
+	osMkdirAll  = os.MkdirAll
+	osWriteFile = os.WriteFile
+)
+
 func TestLoadTestRunner_Run(t *testing.T) {
 	testCases := []struct {
 		name          string
@@ -475,6 +496,77 @@ func TestLoadTestRunner_MonitorMetrics(t *testing.T) {
 			} else {
 				mockMimirClient.AssertNotCalled(t, "GetMetrics", mock.Anything, mock.Anything)
 			}
+		})
+	}
+}
+
+func TestLoadTestRunner_WriteMetricsToFile(t *testing.T) {
+	// Create test metrics data
+	testMetrics := []metricsRecord{
+		{
+			Timestamp: time.Now(),
+			Metrics: []metrics.MetricsResponse{
+				{Key: "test_metric", Value: 100},
+			},
+		},
+	}
+
+	tests := []struct {
+		name          string
+		setupMock     func(*MockFileSystem)
+		metricsData   []metricsRecord
+		expectedError string
+	}{
+		{
+			name: "successful write",
+			setupMock: func(mockFS *MockFileSystem) {
+				mockFS.On("MkdirAll", "metrics_reports", os.FileMode(0755)).Return(nil)
+				mockFS.On("WriteFile", mock.Anything, mock.Anything, os.FileMode(0644)).Return(nil)
+			},
+			metricsData:   testMetrics,
+			expectedError: "",
+		},
+		{
+			name: "empty metrics data",
+			setupMock: func(mockFS *MockFileSystem) {
+				// No mock setup needed as the function should return early
+			},
+			metricsData:   []metricsRecord{},
+			expectedError: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mock file system
+			mockFS := new(MockFileSystem)
+			tt.setupMock(mockFS)
+
+			// Replace the real functions with our mock
+			osMkdirAll = mockFS.MkdirAll
+			osWriteFile = mockFS.WriteFile
+
+			runner := &LoadTestRunner{
+				config: &parser.LoadTestConfig{
+					Name: "test-metrics",
+				},
+				logger:      logger.NOP,
+				metricsData: tt.metricsData,
+				metricsFile: "metrics.json",
+			}
+
+			err := runner.writeMetricsToFile()
+
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
+
+			// Restore the original functions
+			osMkdirAll = os.MkdirAll
+			osWriteFile = os.WriteFile
 		})
 	}
 }
