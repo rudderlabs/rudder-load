@@ -21,6 +21,12 @@ type helmClient interface {
 	Upgrade(ctx context.Context, config *parser.LoadTestConfig, phase parser.RunPhase) error
 	Uninstall(config *parser.LoadTestConfig) error
 }
+
+type portForwarder interface {
+	Start(ctx context.Context, namespace string) error
+	Stop() error
+}
+
 type MetricsRecord struct {
 	Timestamp time.Time                 `json:"timestamp"`
 	Metrics   []metrics.MetricsResponse `json:"metrics"`
@@ -30,14 +36,14 @@ type LoadTestRunner struct {
 	config        *parser.LoadTestConfig
 	helmClient    helmClient
 	mimirClient   metrics.MimirClient
-	portForwarder metrics.PortForward
+	portForwarder portForwarder
 	logger        logger.Logger
 	metricsFile   string
 	metricsMutex  sync.Mutex
 	metricsData   []MetricsRecord
 }
 
-func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient helmClient, mimirClient metrics.MimirClient, portForwarder metrics.PortForward, logger logger.Logger) *LoadTestRunner {
+func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient helmClient, mimirClient metrics.MimirClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
 	// Create a metrics file path based on the load test name and timestamp
 	metricsFile := fmt.Sprintf("%s_metrics_%s.json", config.Name, time.Now().Format("20060102_150405"))
 

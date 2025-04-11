@@ -58,7 +58,7 @@ func run(ctx context.Context, log logger.Logger) error {
 
 	helmClient := NewHelmClient(&CommandExecutor{}, log)
 	mimirClient := metrics.NewMimirClient("http://localhost:9898")
-	portForwarder := metrics.NewPortForward(time.Second * 5)
+	portForwarder := metrics.NewPortForwarder(time.Second * 5)
 	runner := NewLoadTestRunner(cfg, helmClient, mimirClient, portForwarder, log)
 	if err := runner.Run(ctx); err != nil {
 		return fmt.Errorf("failed to run load test: %w", err)

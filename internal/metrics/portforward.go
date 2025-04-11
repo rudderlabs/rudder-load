@@ -7,25 +7,20 @@ import (
 	"time"
 )
 
-type PortForward interface {
-	Start(ctx context.Context, namespace string) error
-	Stop() error
-}
-
-type portForward struct {
+type PortForwarder struct {
 	sleepDuration  time.Duration
 	cmd            *exec.Cmd
 	commandCreator func(ctx context.Context, name string, arg ...string) *exec.Cmd
 }
 
-func NewPortForward(sleepDuration time.Duration) *portForward {
-	return &portForward{
+func NewPortForwarder(sleepDuration time.Duration) *PortForwarder {
+	return &PortForwarder{
 		sleepDuration:  sleepDuration,
 		commandCreator: exec.CommandContext,
 	}
 }
 
-func (p *portForward) Start(ctx context.Context, namespace string) error {
+func (p *PortForwarder) Start(ctx context.Context, namespace string) error {
 	p.cmd = p.commandCreator(ctx, "kubectl", "port-forward", "service/query-frontend", "-n", namespace, "9898:8080")
 	if err := p.cmd.Start(); err != nil {
 		return err
@@ -43,7 +38,7 @@ func (p *portForward) Start(ctx context.Context, namespace string) error {
 	return nil
 }
 
-func (p *portForward) Stop() error {
+func (p *PortForwarder) Stop() error {
 	if p.cmd == nil || p.cmd.Process == nil {
 		return nil
 	}

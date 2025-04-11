@@ -45,7 +45,7 @@ func TestPortForward_Start(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pf := NewPortForward(time.Millisecond * 1)
+			pf := NewPortForwarder(time.Millisecond * 1)
 			pf.commandCreator = tt.commandCreator
 			ctx := context.Background()
 			err := pf.Start(ctx, tt.namespace)
@@ -94,7 +94,7 @@ func TestPortForward_Stop(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pf := NewPortForward(time.Millisecond * 1)
+			pf := NewPortForwarder(time.Millisecond * 1)
 			pf.cmd = tt.setupCmd()
 			pf.Start(context.Background(), "test-namespace")
 			err := pf.Stop()

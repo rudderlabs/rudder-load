@@ -55,16 +55,16 @@ func (m *MockMimirClient) QueryRange(ctx context.Context, query string, start in
 	return args.Get(0).(metrics.QueryResponse), args.Error(1)
 }
 
-type MockPortForward struct {
+type MockPortForwarder struct {
 	mock.Mock
 }
 
-func (m *MockPortForward) Start(ctx context.Context, namespace string) error {
+func (m *MockPortForwarder) Start(ctx context.Context, namespace string) error {
 	args := m.Called(ctx, namespace)
 	return args.Error(0)
 }
 
-func (m *MockPortForward) Stop() error {
+func (m *MockPortForwarder) Stop() error {
 	args := m.Called()
 	return args.Error(0)
 }
@@ -162,7 +162,7 @@ func TestLoadTestRunner_Run(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockHelmClient := new(MockHelmClient)
 			mockMimirClient := new(MockMimirClient)
-			portForwarder := metrics.NewPortForward(time.Second * 5)
+			portForwarder := metrics.NewPortForwarder(time.Second * 5)
 			tc.setupMock(mockHelmClient, mockMimirClient)
 
 			tc.config.ChartFilePath = tempDir
@@ -199,7 +199,7 @@ func TestLoadTestRunner_RunCancellation(t *testing.T) {
 
 	mockHelmClient := new(MockHelmClient)
 	mockMimirClient := new(MockMimirClient)
-	mockPortForwarder := new(MockPortForward)
+	mockPortForwarder := new(MockPortForwarder)
 	mockHelmClient.On("Install", mock.Anything, mock.Anything).Return(nil)
 	mockHelmClient.On("Uninstall", mock.Anything).Return(nil)
 	mockPortForwarder.On("Start", mock.Anything, mock.Anything).Return(nil)
@@ -335,7 +335,7 @@ func TestLoadTestRunner_CreateValuesFileCopy(t *testing.T) {
 			logger := logger.NOP
 			helmClient := new(MockHelmClient)
 			mimirClient := new(MockMimirClient)
-			runner := NewLoadTestRunner(config, helmClient, mimirClient, metrics.NewPortForward(time.Second*5), logger)
+			runner := NewLoadTestRunner(config, helmClient, mimirClient, metrics.NewPortForwarder(time.Second*5), logger)
 
 			err = runner.createValuesFileCopy(context.Background())
 
