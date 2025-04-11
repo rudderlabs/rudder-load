@@ -33,12 +33,27 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::454531037350:role/github-actions-eks
+          role-to-assume: arn:aws:iam::873461680373:role/github-actions-eks
           role-session-name: GitHubActionsEKS
           aws-region: us-east-1
       
       - name: Update Kubeconfig
         run: aws eks update-kubeconfig --name staging --region us-east-1
+      
+      # 🐳 Set up kubectl
+      - uses: azure/setup-kubectl@v4
+        id: install-kubectl
+
+      # 🔨 Set up Helm
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        id: install-helm
+
+      # 🧪 View versions
+      - name: Verify tools
+        run: |
+          kubectl version --client
+          helm version
 
       - name: Run the test
         run: |
