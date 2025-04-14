@@ -3,6 +3,8 @@ artifacts/helm/*_copy.yaml
 load-runner
 !cmd/load-runner/
 .env
-
+# Metrics reports
+metrics_reports/*
+cmd/load-runner/metrics_reports/*
 # Coverage Reports
 coverage.txt
