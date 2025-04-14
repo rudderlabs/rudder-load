@@ -2,34 +2,3 @@ apiVersion: v2
 name: rt-ingestion-producer
 description: A Helm chart for Kubernetes to deploy rudder-tests-ingestion-producer job
 version: 0.1.0
-
----
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  namespace: ruder-load  # Replace with your namespace
-  name: github-actions-role
-rules:
-  - apiGroups: [""]
-    resources: ["pods", "deployments"]
-    verbs: ["get", "list", "watch", "update"]
-  - apiGroups: ["apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list", "watch", "patch", "update"]
-
----
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  namespace: rudder-load  # Replace with your namespace
-  name: github-actions-rolebinding
-subjects:
-  - kind: Group
-    name: github-actions-group  # Must match the group in aws-auth
-    apiGroup: rbac.authorization.k8s.io
-roleRef:
-  kind: Role
-  name: github-actions-role
-  apiGroup: rbac.authorization.k8s.io

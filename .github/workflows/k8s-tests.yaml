@@ -62,6 +62,7 @@ jobs:
         run: |
           kubectl version --client
           helm version
+          kubectl config set-context --current --user=github-actions-eks
 
       - name: Run the test
         run: |
