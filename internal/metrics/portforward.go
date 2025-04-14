@@ -25,6 +25,8 @@ func NewPortForwarder(timeout time.Duration, logger logger.Logger) *PortForwarde
 }
 
 func (p *PortForwarder) Start(ctx context.Context, namespace string) error {
+	// TODO: Make localPort configurable and use free port for remotePort
+	// e.g. https://github.com/rudderlabs/rudder-go-kit/blob/v0.48.2/testhelper/freeport.go#L14
 	const localPort = 9898
 	const remotePort = 8080
 
