@@ -7,14 +7,9 @@ import (
 	"strings"
 	"testing"
 	"time"
-)
 
-// mockCommand is a helper function to create a mock exec.Command
-func mockCommand(name string, arg ...string) *exec.Cmd {
-	cmd := exec.Command("echo", "mock command")
-	cmd.Process = &os.Process{Pid: 12345}
-	return cmd
-}
+	"github.com/rudderlabs/rudder-go-kit/logger"
+)
 
 func TestPortForward_Start(t *testing.T) {
 	tests := []struct {
@@ -41,11 +36,22 @@ func TestPortForward_Start(t *testing.T) {
 			},
 			expectedError: "exec: already started",
 		},
+		{
+			name:      "port-forward process exited prematurely",
+			namespace: "test-namespace",
+			commandCreator: func(ctx context.Context, name string, arg ...string) *exec.Cmd {
+				cmd := exec.Command("echo", "mock command")
+				cmd.Process = &os.Process{Pid: 12345}
+				cmd.ProcessState = &os.ProcessState{}
+				return cmd
+			},
+			expectedError: "port-forward process exited prematurely",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pf := NewPortForward(time.Millisecond * 1)
+			pf := NewPortForwarder(time.Millisecond*1, logger.NOP)
 			pf.commandCreator = tt.commandCreator
 			ctx := context.Background()
 			err := pf.Start(ctx, tt.namespace)
@@ -94,7 +100,7 @@ func TestPortForward_Stop(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pf := NewPortForward(time.Millisecond * 1)
+			pf := NewPortForwarder(time.Millisecond*1, logger.NOP)
 			pf.cmd = tt.setupCmd()
 			pf.Start(context.Background(), "test-namespace")
 			err := pf.Stop()

@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -19,36 +22,61 @@ type helmClient interface {
 	Uninstall(config *parser.LoadTestConfig) error
 }
 
-type LoadTestRunner struct {
-	config      *parser.LoadTestConfig
-	helmClient  helmClient
-	mimirClient metrics.MimirClient
-	portForward *metrics.PortForward
-	logger      logger.Logger
+type portForwarder interface {
+	Start(ctx context.Context, namespace string) error
+	Stop() error
 }
 
-func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient helmClient, mimirClient metrics.MimirClient, logger logger.Logger) *LoadTestRunner {
+type metricsRecord struct {
+	Timestamp time.Time                 `json:"timestamp"`
+	Metrics   []metrics.MetricsResponse `json:"metrics"`
+}
+
+type LoadTestRunner struct {
+	config        *parser.LoadTestConfig
+	helmClient    helmClient
+	mimirClient   metrics.MimirClient
+	portForwarder portForwarder
+	logger        logger.Logger
+	metricsFile   string
+	metricsMutex  sync.Mutex
+	metricsData   []metricsRecord
+}
+
+func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient helmClient, mimirClient metrics.MimirClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
+	// Create a metrics file path based on the load test name and timestamp
+	metricsFile := fmt.Sprintf("%s_metrics_%s.json", config.Name, time.Now().Format("20060102_150405"))
+
 	return &LoadTestRunner{
-		config:      config,
-		helmClient:  helmClient,
-		mimirClient: mimirClient,
-		portForward: metrics.NewPortForward(time.Second * 5),
-		logger:      logger,
+		config:        config,
+		helmClient:    helmClient,
+		mimirClient:   mimirClient,
+		portForwarder: portForwarder,
+		logger:        logger,
+		metricsFile:   metricsFile,
+		metricsData:   make([]metricsRecord, 0),
 	}
 }
 
 func (r *LoadTestRunner) Run(ctx context.Context) error {
+	const defaultMonitoringNamespace = "mimir"
+
 	if err := r.createValuesFileCopy(ctx); err != nil {
 		return err
 	}
 
-	if r.config.Reporting.Metrics != nil {
-		stopPortForward, err := r.startPortForward(ctx, r.config.Reporting.Namespace)
-		if err != nil {
-			return err
-		}
-		defer stopPortForward()
+	monitoringNamespace := r.config.Reporting.Namespace
+	if monitoringNamespace == "" {
+		monitoringNamespace = defaultMonitoringNamespace
+	}
 
+	stopPortForward, err := r.startPortForward(ctx, monitoringNamespace)
+	if err != nil {
+		return err
+	}
+	defer stopPortForward()
+
+	if r.config.Reporting.Metrics != nil {
 		monitoringCtx, cancelMonitoring := context.WithCancel(ctx)
 		defer cancelMonitoring()
 		go r.monitorMetrics(monitoringCtx)
@@ -62,10 +90,17 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 	defer func() {
 		r.logger.Infon("Uninstalling Helm chart for the load scenario...")
 		if err := r.helmClient.Uninstall(r.config); err != nil {
-			r.logger.Errorn("Failed to uninstall Helm chart: %s", obskit.Error(err))
+			r.logger.Errorn("Failed to uninstall Helm chart", obskit.Error(err))
 		}
 		r.logger.Infon("Done!")
+
+		// Write metrics to file after test completion
+		if err := r.writeMetricsToFile(); err != nil {
+			r.logger.Errorn("Failed to write metrics to file", obskit.Error(err))
+		}
 	}()
+
+	totalDuration := time.Duration(0)
 
 	for i, phase := range r.config.Phases {
 		r.logger.Infon("Running phase", logger.NewIntField("phase", int64(i+1)), logger.NewStringField("duration", phase.Duration))
@@ -80,6 +115,7 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		totalDuration += duration
 
 		select {
 		case <-time.After(duration):
@@ -88,6 +124,22 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 			return fmt.Errorf("operation cancelled by user")
 		}
 	}
+
+	summaryMetrics, err := r.mimirClient.GetMetrics(ctx, []parser.Metric{
+		{Name: "average rps", Query: fmt.Sprintf("sum(avg_over_time(rudder_load_publish_rate_per_second{}[%v]))", totalDuration)},
+		{Name: "error rate", Query: fmt.Sprintf("sum(rate(rudder_load_publish_error_rate_total[%v]))", totalDuration)},
+	})
+	if err != nil {
+		r.logger.Errorn("Failed to get current metrics", obskit.Error(err))
+	}
+	fields := make([]logger.Field, len(summaryMetrics))
+	for i, m := range summaryMetrics {
+		fields[i] = logger.NewField(m.Key, m.Value)
+	}
+	r.logger.Infon("Load test summary metrics", fields...)
+
+	// Add summary metrics to the metrics data
+	r.recordMetrics(summaryMetrics)
 
 	return nil
 }
@@ -128,11 +180,11 @@ func (r *LoadTestRunner) createValuesFileCopy(ctx context.Context) error {
 }
 
 func (r *LoadTestRunner) startPortForward(ctx context.Context, namespace string) (func(), error) {
-	if err := r.portForward.Start(ctx, namespace); err != nil {
+	if err := r.portForwarder.Start(ctx, namespace); err != nil {
 		return nil, fmt.Errorf("failed to start port-forward: %w", err)
 	}
 	stopPortForward := func() {
-		if err := r.portForward.Stop(); err != nil {
+		if err := r.portForwarder.Stop(); err != nil {
 			r.logger.Errorn("Failed to stop port-forward", obskit.Error(err))
 		}
 	}
@@ -169,6 +221,49 @@ func (r *LoadTestRunner) monitorMetrics(ctx context.Context) {
 				fields[i] = logger.NewField(m.Key, m.Value)
 			}
 			r.logger.Infon("Load test metrics", fields...)
+
+			// Record metrics for file output
+			r.recordMetrics(metrics)
 		}
 	}
+}
+
+// recordMetrics adds a new metrics record to the runner's metrics data
+func (r *LoadTestRunner) recordMetrics(metrics []metrics.MetricsResponse) {
+	r.metricsMutex.Lock()
+	defer r.metricsMutex.Unlock()
+
+	r.metricsData = append(r.metricsData, metricsRecord{
+		Timestamp: time.Now(),
+		Metrics:   metrics,
+	})
+}
+
+func (r *LoadTestRunner) writeMetricsToFile() error {
+	// TODO: Stop monitoring metrics before writing to file and remove the mutex lock
+	r.metricsMutex.Lock()
+	defer r.metricsMutex.Unlock()
+
+	if len(r.metricsData) == 0 {
+		return nil
+	}
+
+	// Create directory if it doesn't exist
+	dir := "metrics_reports"
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create metrics directory: %w", err)
+	}
+
+	filePath := filepath.Join(dir, r.metricsFile)
+	data, err := json.MarshalIndent(r.metricsData, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal metrics data: %w", err)
+	}
+
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write metrics file: %w", err)
+	}
+
+	r.logger.Infon("Metrics written to file", logger.NewStringField("file", filePath))
+	return nil
 }
