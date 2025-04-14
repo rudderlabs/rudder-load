@@ -240,6 +240,7 @@ func (r *LoadTestRunner) recordMetrics(metrics []metrics.MetricsResponse) {
 }
 
 func (r *LoadTestRunner) writeMetricsToFile() error {
+	// TODO: Stop monitoring metrics before writing to file and remove the mutex lock
 	r.metricsMutex.Lock()
 	defer r.metricsMutex.Unlock()
 
