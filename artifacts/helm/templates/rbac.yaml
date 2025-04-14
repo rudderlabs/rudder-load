@@ -2,7 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   namespace: rudder-load
-  name: github-actions-role
+  name: github-actions-eks
 rules:
   - apiGroups: [""]
     resources: ["pods"]
@@ -24,5 +24,5 @@ subjects:
     apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: Role
-  name: github-actions-role
+  name: github-actions-eks
   apiGroup: rbac.authorization.k8s.io
