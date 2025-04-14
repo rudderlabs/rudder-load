@@ -63,6 +63,7 @@ jobs:
           kubectl version --client
           helm version
           kubectl config set-context --current --user=github-actions-eks
+          kubectl get pods -n ${{ github.event.inputs.k8s_namespace }}
 
       - name: Run the test
         run: |
