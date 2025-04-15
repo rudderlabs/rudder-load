@@ -55,7 +55,16 @@ func run(ctx context.Context, log logger.Logger) error {
 
 	cfg.SetDefaults()
 
-	helmClient := NewHelmClient(&CommandExecutor{}, log)
+	// Create the appropriate client based on the local execution flag
+	var infraClient infraClient
+	if args.LocalExecution {
+		log.Infon("Using Docker Compose for local execution")
+		infraClient = NewDockerComposeClient(&CommandExecutor{}, log)
+	} else {
+		log.Infon("Using Helm for Kubernetes execution")
+		infraClient = NewHelmClient(&CommandExecutor{}, log)
+	}
+
 	mimirClient := metrics.NewMimirClient("http://localhost:9898")
 	portForwardingTimeoutString := parser.GetEnvOrDefault("PORT_FORWARDING_TIMEOUT", "5s")
 	portForwardingTimeout, err := parseDuration(portForwardingTimeoutString)
@@ -63,7 +72,7 @@ func run(ctx context.Context, log logger.Logger) error {
 		return fmt.Errorf("failed to parse port forwarding timeout: %w", err)
 	}
 	portForwarder := metrics.NewPortForwarder(portForwardingTimeout, log)
-	runner := NewLoadTestRunner(cfg, helmClient, mimirClient, portForwarder, log)
+	runner := NewLoadTestRunner(cfg, infraClient, mimirClient, portForwarder, log)
 	if err := runner.Run(ctx); err != nil {
 		return fmt.Errorf("failed to run load test: %w", err)
 	}

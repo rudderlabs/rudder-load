@@ -14,6 +14,7 @@ type CLIArgs struct {
 	ChartFilesPath string
 	TestFile       string
 	EnvVars        map[string]string
+	LocalExecution bool
 }
 
 type LoadTestConfig struct {

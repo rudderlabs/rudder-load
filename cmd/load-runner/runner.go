@@ -16,7 +16,7 @@ import (
 	"rudder-load/internal/parser"
 )
 
-type helmClient interface {
+type infraClient interface {
 	Install(ctx context.Context, config *parser.LoadTestConfig) error
 	Upgrade(ctx context.Context, config *parser.LoadTestConfig, phase parser.RunPhase) error
 	Uninstall(config *parser.LoadTestConfig) error
@@ -34,7 +34,7 @@ type metricsRecord struct {
 
 type LoadTestRunner struct {
 	config        *parser.LoadTestConfig
-	helmClient    helmClient
+	infraClient   infraClient
 	mimirClient   metrics.MimirClient
 	portForwarder portForwarder
 	logger        logger.Logger
@@ -43,13 +43,13 @@ type LoadTestRunner struct {
 	metricsData   []metricsRecord
 }
 
-func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient helmClient, mimirClient metrics.MimirClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
+func NewLoadTestRunner(config *parser.LoadTestConfig, infraClient infraClient, mimirClient metrics.MimirClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
 	// Create a metrics file path based on the load test name and timestamp
 	metricsFile := fmt.Sprintf("%s_metrics_%s.json", config.Name, time.Now().Format("20060102_150405"))
 
 	return &LoadTestRunner{
 		config:        config,
-		helmClient:    helmClient,
+		infraClient:   infraClient,
 		mimirClient:   mimirClient,
 		portForwarder: portForwarder,
 		logger:        logger,
@@ -59,37 +59,45 @@ func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient helmClient, mim
 }
 
 func (r *LoadTestRunner) Run(ctx context.Context) error {
-	const defaultMonitoringNamespace = "mimir"
+	// Skip port forwarding for local execution
+	var stopPortForward func()
+	var err error
 
-	if err := r.createValuesFileCopy(ctx); err != nil {
-		return err
-	}
+	// Check if we're using Docker Compose by checking the type of helmClient
+	if _, ok := r.infraClient.(*DockerComposeClient); ok {
+		r.logger.Infon("Skipping port forwarding for local execution")
+		stopPortForward = func() {} // No-op function
+		r.logger.Infon("Installing Docker compose for load scenario", logger.NewStringField("load_scenario", r.config.Name))
+	} else {
+		if err := r.createValuesFileCopy(ctx); err != nil {
+			return err
+		}
+		const defaultMonitoringNamespace = "mimir"
+		monitoringNamespace := r.config.Reporting.Namespace
+		if monitoringNamespace == "" {
+			monitoringNamespace = defaultMonitoringNamespace
+		}
 
-	monitoringNamespace := r.config.Reporting.Namespace
-	if monitoringNamespace == "" {
-		monitoringNamespace = defaultMonitoringNamespace
-	}
-
-	stopPortForward, err := r.startPortForward(ctx, monitoringNamespace)
-	if err != nil {
-		return err
+		stopPortForward, err = r.startPortForward(ctx, monitoringNamespace)
+		if err != nil {
+			return err
+		}
+		if r.config.Reporting.Metrics != nil {
+			monitoringCtx, cancelMonitoring := context.WithCancel(ctx)
+			defer cancelMonitoring()
+			go r.monitorMetrics(monitoringCtx)
+		}
+		r.logger.Infon("Installing Helm chart for load scenario", logger.NewStringField("load_scenario", r.config.Name))
 	}
 	defer stopPortForward()
 
-	if r.config.Reporting.Metrics != nil {
-		monitoringCtx, cancelMonitoring := context.WithCancel(ctx)
-		defer cancelMonitoring()
-		go r.monitorMetrics(monitoringCtx)
-	}
-
-	r.logger.Infon("Installing Helm chart for load scenario", logger.NewStringField("load_scenario", r.config.Name))
-	if err := r.helmClient.Install(ctx, r.config); err != nil {
+	if err := r.infraClient.Install(ctx, r.config); err != nil {
 		return err
 	}
 
 	defer func() {
 		r.logger.Infon("Uninstalling Helm chart for the load scenario...")
-		if err := r.helmClient.Uninstall(r.config); err != nil {
+		if err := r.infraClient.Uninstall(r.config); err != nil {
 			r.logger.Errorn("Failed to uninstall Helm chart", obskit.Error(err))
 		}
 		r.logger.Infon("Done!")
@@ -106,7 +114,7 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		r.logger.Infon("Running phase", logger.NewIntField("phase", int64(i+1)), logger.NewStringField("duration", phase.Duration))
 
 		if r.config.FromFile {
-			if err := r.helmClient.Upgrade(ctx, r.config, phase); err != nil {
+			if err := r.infraClient.Upgrade(ctx, r.config, phase); err != nil {
 				return err
 			}
 		}
