@@ -64,7 +64,7 @@ jobs:
           helm version
       
       - name: Apply RBAC
-        run: kubectl apply -f artifacts/kubectl/rbac.yaml
+        run: kubectl apply -f artifacts/kubectl/rbac.yaml -n ${{ github.event.inputs.k8s_namespace }}
 
       - name: Run the test
         run: |
@@ -72,4 +72,4 @@ jobs:
           SOURCES=${{ github.event.inputs.sources }} HTTP_ENDPOINT=${{ github.event.inputs.http_endpoint }} ./load-runner -t tests/${{ github.event.inputs.test_file }} -n ${{ github.event.inputs.k8s_namespace }}
       
       - name: Delete RBAC
-        run: kubectl delete -f artifacts/kubectl/rbac.yaml
+        run: kubectl delete -f artifacts/kubectl/rbac.yaml -n ${{ github.event.inputs.k8s_namespace }}
