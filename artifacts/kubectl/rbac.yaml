@@ -3,16 +3,25 @@ kind: Role
 metadata:
   namespace: rudder-load
   name: github-actions-eks
+  annotations:
+    meta.helm.sh/release-name: rudder-load-http
+    meta.helm.sh/release-namespace: rudder-load
+  labels:
+    app.kubernetes.io/managed-by: Helm
 rules:
   - apiGroups: [""]
-    resources: ["pods"]
-    verbs: ["get", "list", "watch", "update"]
+    resources: ["pods","secrets"]
+    verbs: ["get", "list", "watch", "update","create","patch"]
   - apiGroups: ["apps"]
     resources: ["deployments"]
-    verbs: ["get", "list", "watch", "patch", "update"]
+    verbs: ["get", "list", "watch", "patch", "update","create"]
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["roles", "rolebindings"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["podmonitors"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
 
 ---
 
@@ -21,6 +30,11 @@ kind: RoleBinding
 metadata:
   namespace: rudder-load
   name: github-actions-rolebinding
+  annotations:
+    meta.helm.sh/release-name: rudder-load-http
+    meta.helm.sh/release-namespace: rudder-load
+  labels:
+    app.kubernetes.io/managed-by: Helm
 subjects:
   - kind: Group
     name: github-actions-group  # Must match the group in aws-auth
