@@ -95,15 +95,12 @@ func ValidateLoadTestConfig(config *parser.LoadTestConfig) error {
 		return err
 	}
 
-	// Validate SOURCES from environment variables
-	sources := os.Getenv("SOURCES")
-	if err := ValidateSources(sources); err != nil {
-		return err
-	}
-
-	// Validate SOURCES from EnvOverrides
 	if sources, ok := config.EnvOverrides["SOURCES"]; ok {
 		if err := ValidateSources(sources); err != nil {
+			return err
+		}
+	} else {
+		if err := ValidateSources(os.Getenv("SOURCES")); err != nil {
 			return err
 		}
 	}
