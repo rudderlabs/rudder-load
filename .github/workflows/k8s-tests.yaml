@@ -73,3 +73,29 @@ jobs:
       
       # - name: Delete RBAC
       #   run: kubectl delete -f artifacts/kubectl/rbac.yaml -n ${{ github.event.inputs.k8s_namespace }}
+
+      - name: Archive metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: metrics
+          path: metrics_reports/
+      
+      - name: Post a message in a channel
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "*Load test completed!* ✅\n
+            blocks:
+              - type: "section"
+                text: 
+                  type: "mrkdwn"
+                  text: "Scenario: ${{ github.event.inputs.test_file }}\n
+                  Namespace: ${{ github.event.inputs.k8s_namespace }}\n
+                  "
+              - type: "section"
+                text: 
+                  type: "mrkdwn"
+                  text: "Metrics reports are available as artifacts.\n
+                  <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run and download artifacts>"
