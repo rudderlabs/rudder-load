@@ -9,9 +9,6 @@ import (
 )
 
 func TestLoadTestConfig_Validate(t *testing.T) {
-	t.Setenv("SOURCES", "source1,source2")
-	t.Setenv("HTTP_ENDPOINT", "https://example.com")
-
 	tests := []struct {
 		name     string
 		config   *parser.LoadTestConfig
@@ -149,6 +146,10 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					"HOT_SOURCES": "60,40",
 				},
 			},
+			envSetup: func() {
+				t.Setenv("SOURCES", "source1,source2")
+				t.Setenv("HTTP_ENDPOINT", "https://example.com")
+			},
 			wantErr: false,
 		},
 		{
@@ -165,6 +166,7 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 			},
 			envSetup: func() {
 				t.Setenv("SOURCES", "source1")
+				t.Setenv("HTTP_ENDPOINT", "https://example.com")
 			},
 			wantErr: false,
 		},
@@ -326,8 +328,6 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("SOURCES", "source1,source2")
-			t.Setenv("HTTP_ENDPOINT", "https://example.com")
 
 			if tt.envSetup != nil {
 				tt.envSetup()

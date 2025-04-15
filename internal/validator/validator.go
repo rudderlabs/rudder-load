@@ -94,20 +94,51 @@ func ValidateLoadTestConfig(config *parser.LoadTestConfig) error {
 	if err := ValidateLoadName(config.Name); err != nil {
 		return err
 	}
-	if err := ValidateSources(os.Getenv("SOURCES")); err != nil {
+
+	// Validate SOURCES from environment variables
+	sources := os.Getenv("SOURCES")
+	if err := ValidateSources(sources); err != nil {
 		return err
 	}
+
+	// Validate SOURCES from EnvOverrides
+	if sources, ok := config.EnvOverrides["SOURCES"]; ok {
+		if err := ValidateSources(sources); err != nil {
+			return err
+		}
+	}
+
+	// Validate HOT_SOURCES from EnvOverrides
 	if hotSources, ok := config.EnvOverrides["HOT_SOURCES"]; ok {
 		if err := ValidateHotSources(hotSources); err != nil {
 			return err
 		}
-		if err := ValidateHotSourcesDistribution(os.Getenv("SOURCES"), hotSources); err != nil {
+
+		// Get SOURCES from either environment or EnvOverrides
+		sources := os.Getenv("SOURCES")
+		if overrideSources, ok := config.EnvOverrides["SOURCES"]; ok {
+			sources = overrideSources
+		}
+
+		if err := ValidateHotSourcesDistribution(sources, hotSources); err != nil {
 			return err
 		}
 	}
-	if err := ValidateHttpEndpoint(os.Getenv("HTTP_ENDPOINT")); err != nil {
-		return err
+
+	// Validate HTTP_ENDPOINT from environment variables
+	if endpoint := os.Getenv("HTTP_ENDPOINT"); endpoint != "" {
+		if err := ValidateHttpEndpoint(endpoint); err != nil {
+			return err
+		}
 	}
+
+	// Validate HTTP_ENDPOINT from EnvOverrides
+	if endpoint, ok := config.EnvOverrides["HTTP_ENDPOINT"]; ok {
+		if err := ValidateHttpEndpoint(endpoint); err != nil {
+			return err
+		}
+	}
+
 	for _, phase := range config.Phases {
 		if err := ValidateDuration(phase.Duration); err != nil {
 			return err
