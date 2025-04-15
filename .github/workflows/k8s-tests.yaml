@@ -69,7 +69,7 @@ jobs:
       - name: Run the test
         run: |
           go build -o load-runner ./cmd/load-runner
-          SOURCES=${{ github.event.inputs.sources }} HTTP_ENDPOINT=${{ github.event.inputs.http_endpoint }} ./load-runner -t tests/${{ github.event.inputs.test_file }} -n ${{ github.event.inputs.k8s_namespace }}
+          ./load-runner -t tests/${{ github.event.inputs.test_file }} -n ${{ github.event.inputs.k8s_namespace }} -e SOURCES=${{ github.event.inputs.sources }} -e HTTP_ENDPOINT=${{ github.event.inputs.http_endpoint }}
       
       # - name: Delete RBAC
       #   run: kubectl delete -f artifacts/kubectl/rbac.yaml -n ${{ github.event.inputs.k8s_namespace }}
