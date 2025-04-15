@@ -96,9 +96,9 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 	}
 
 	defer func() {
-		r.logger.Infon("Uninstalling Helm chart for the load scenario...")
+		r.logger.Infon("Uninstalling resources for the load scenario...")
 		if err := r.infraClient.Uninstall(r.config); err != nil {
-			r.logger.Errorn("Failed to uninstall Helm chart", obskit.Error(err))
+			r.logger.Errorn("Failed to uninstall resources", obskit.Error(err))
 		}
 		r.logger.Infon("Done!")
 
