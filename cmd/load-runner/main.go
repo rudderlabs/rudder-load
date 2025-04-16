@@ -44,16 +44,16 @@ func run(ctx context.Context, log logger.Logger) error {
 		return fmt.Errorf("failed to load test config: %w", err)
 	}
 
-	if err := validator.ValidateLoadTestConfig(cfg); err != nil {
-		return fmt.Errorf("invalid inputs: %w", err)
-	}
-
 	err = cfg.SetEnvOverrides()
 	if err != nil {
 		return fmt.Errorf("failed to set env overrides: %w", err)
 	}
 
 	cfg.SetDefaults()
+
+	if err := validator.ValidateLoadTestConfig(cfg); err != nil {
+		return fmt.Errorf("invalid inputs: %w", err)
+	}
 
 	helmClient := NewHelmClient(&CommandExecutor{}, log)
 	mimirClient := metrics.NewMimirClient("http://localhost:9898")
