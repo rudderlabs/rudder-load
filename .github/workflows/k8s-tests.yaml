@@ -21,6 +21,10 @@ on:
         required: true
         type: string
 
+env:
+  SOURCES: ${{ inputs.sources || secrets.SOURCES }}
+  HTTP_ENDPOINT: ${{ inputs.http_endpoint || secrets.HTTP_ENDPOINT }}
+
 jobs:
   run-k8s-test:
     name: Run Kubernetes Test
@@ -69,7 +73,7 @@ jobs:
       - name: Run the test
         run: |
           go build -o load-runner ./cmd/load-runner
-          ./load-runner -t tests/${{ github.event.inputs.test_file }} -n ${{ github.event.inputs.k8s_namespace }} -e SOURCES=${{ github.event.inputs.sources }} -e HTTP_ENDPOINT=${{ github.event.inputs.http_endpoint }}
+          ./load-runner -t tests/${{ github.event.inputs.test_file }} -n ${{ github.event.inputs.k8s_namespace }}
       
       - name: Delete RBAC
         run: kubectl delete -f artifacts/kubectl/rbac.yaml -n ${{ github.event.inputs.k8s_namespace }}
