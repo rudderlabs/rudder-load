@@ -1,7 +1,6 @@
 # This test reports metrics from mimir
 
 name: http
-namespace: rudder-load
 env:
   MAX_EVENTS_PER_SECOND: 100
   CONCURRENCY: 100
