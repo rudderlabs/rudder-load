@@ -25,8 +25,9 @@ type LoadTestConfig struct {
 	EnvOverrides  map[string]string `yaml:"env"`
 	Reporting     Reporting         `yaml:"reporting"`
 
-	ReleaseName string
-	FromFile    bool
+	ReleaseName    string
+	FromFile       bool
+	LocalExecution bool
 }
 
 type RunPhase struct {
@@ -48,6 +49,9 @@ type Metric struct {
 
 func ParseLoadTestConfig(args *CLIArgs) (*LoadTestConfig, error) {
 	var cfg LoadTestConfig
+	if args.LocalExecution {
+		cfg.LocalExecution = args.LocalExecution
+	}
 	if args.TestFile == "" {
 		cfg.Name = args.LoadName
 		cfg.Namespace = args.Namespace

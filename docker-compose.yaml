@@ -1,0 +1,41 @@
+version: '3.8'
+services:
+  rudder-load:
+    image: rudder-load:local
+    container_name: rudder-load
+    command: ["/rudder-load-producer"]
+    ports:
+      - "9102:9102"
+    deploy:
+      resources:
+        limits:
+          cpus: '5.0'
+          memory: 5G
+    environment:
+      MODE:                      http
+      HOSTNAME:                  rudder-load-test-0
+      LOAD_RUN_ID:               "loadRunID1" # if empty, a random UUID will be generated
+      REPLICAS:                  1
+      CONCURRENCY:               2000
+      MESSAGE_GENERATORS:        500
+      MAX_EVENTS_PER_SECOND:     100
+      SOURCES:                   source1
+      HTTP_ENDPOINT:             https://example.com
+      USE_ONE_CLIENT_PER_SLOT:   "true"
+      ENABLE_SOFT_MEMORY_LIMIT:  true
+      SOFT_MEMORY_LIMIT:         5Gi
+      GOMEMLIMIT:                5000000000 # 5GB in bytes
+      GOMAXPROCS:                5
+      TOTAL_USERS:               10000
+      HOT_USER_GROUPS:           100
+      BATCH_SIZES:               "1,2,3"
+      HOT_BATCH_SIZES:           "33,33,34"
+      EVENT_TYPES:               "track,page,identify"
+      HOT_EVENT_TYPES:           "33,33,34"
+      HTTP_COMPRESSION:          "true"
+      HTTP_CONCURRENCY:          200000
+      HTTP_CONTENT_TYPE:         application/json
+      HTTP_MAX_CONNS_PER_HOST:   200000
+      HTTP_MAX_IDLE_CONN:        1h
+      HTTP_READ_TIMEOUT:         30s
+      HTTP_WRITE_TIMEOUT:        30s

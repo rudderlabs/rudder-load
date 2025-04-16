@@ -14,8 +14,9 @@ import (
 )
 
 type DockerComposeClient struct {
-	executor commandExecutor
-	logger   logger.Logger
+	executor        commandExecutor
+	logger          logger.Logger
+	composeFilePath string
 }
 
 func NewDockerComposeClient(executor commandExecutor, logger logger.Logger) *DockerComposeClient {
@@ -29,7 +30,6 @@ func (d *DockerComposeClient) Install(ctx context.Context, config *parser.LoadTe
 	if err != nil {
 		return fmt.Errorf("failed to create compose file: %w", err)
 	}
-	defer os.Remove(composeFile)
 
 	// Start the Docker Compose services
 	d.logger.Infon("Starting Docker Compose services", logger.NewStringField("compose_file", composeFile))
@@ -44,7 +44,6 @@ func (d *DockerComposeClient) Upgrade(ctx context.Context, config *parser.LoadTe
 	if err != nil {
 		return fmt.Errorf("failed to create compose file: %w", err)
 	}
-	defer os.Remove(composeFile)
 
 	// Restart the Docker Compose services with the new configuration
 	d.logger.Infon("Upgrading Docker Compose services", logger.NewStringField("compose_file", composeFile))
@@ -59,8 +58,13 @@ func (d *DockerComposeClient) Upgrade(ctx context.Context, config *parser.LoadTe
 
 // Uninstall stops and removes the Docker Compose services
 func (d *DockerComposeClient) Uninstall(config *parser.LoadTestConfig) error {
-	// Find the compose file
-	composeFile := filepath.Join(".", "docker-compose.yaml")
+	// Use the saved compose file path
+	composeFile := d.composeFilePath
+	if composeFile == "" {
+		// Fallback to the default path if the saved path is empty
+		composeFile = filepath.Join(".", "docker-compose.yaml")
+	}
+
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
 		return fmt.Errorf("compose file not found: %s", composeFile)
 	}
@@ -68,7 +72,16 @@ func (d *DockerComposeClient) Uninstall(config *parser.LoadTestConfig) error {
 	// Stop and remove the Docker Compose services
 	d.logger.Infon("Stopping Docker Compose services", logger.NewStringField("compose_file", composeFile))
 	args := []string{"-f", composeFile, "down"}
-	return d.executor.run(context.Background(), "docker-compose", args...)
+	err := d.executor.run(context.Background(), "docker-compose", args...)
+
+	// Clean up the temporary file after stopping the services
+	if composeFile != filepath.Join(".", "docker-compose.yaml") {
+		if err := os.Remove(composeFile); err != nil {
+			d.logger.Warn("Failed to remove temporary compose file", logger.NewErrorField(err))
+		}
+	}
+
+	return err
 }
 
 // createComposeFile creates a temporary docker-compose file with the environment variables
@@ -94,7 +107,12 @@ func (d *DockerComposeClient) createComposeFile(config *parser.LoadTestConfig) (
 
 	// Update the environment variables in the temporary file
 	composeContent := string(content)
-	d.logger.Infon("Docker compose vars", logger.NewStringField("content", composeContent))
+
+	// Add the replicas from the first phase to the environment variables
+	if len(config.Phases) > 0 {
+		config.EnvOverrides["REPLICAS"] = fmt.Sprintf("%d", config.Phases[0].Replicas)
+	}
+
 	// Replace environment variables with values from the config
 	for key, value := range config.EnvOverrides {
 		// Escape special characters in the value
@@ -106,11 +124,14 @@ func (d *DockerComposeClient) createComposeFile(config *parser.LoadTestConfig) (
 		re := regexp.MustCompile(pattern)
 		composeContent = re.ReplaceAllString(composeContent, fmt.Sprintf("      %s: %s", key, escapedValue))
 	}
-	d.logger.Infon("Docker compose vars after replacing", logger.NewStringField("content", composeContent))
+
 	// Write the updated content to the temporary file
 	if err := os.WriteFile(tmpFile.Name(), []byte(composeContent), 0644); err != nil {
 		return "", fmt.Errorf("failed to write updated compose file: %w", err)
 	}
+
+	// Save the path to the struct
+	d.composeFilePath = tmpFile.Name()
 
 	return tmpFile.Name(), nil
 }

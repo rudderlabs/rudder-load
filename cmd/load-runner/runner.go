@@ -102,9 +102,11 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		}
 		r.logger.Infon("Done!")
 
-		// Write metrics to file after test completion
-		if err := r.writeMetricsToFile(); err != nil {
-			r.logger.Errorn("Failed to write metrics to file", obskit.Error(err))
+		if !r.config.LocalExecution {
+			// Write metrics to file after test completion
+			if err := r.writeMetricsToFile(); err != nil {
+				r.logger.Errorn("Failed to write metrics to file", obskit.Error(err))
+			}
 		}
 	}()
 
@@ -132,22 +134,23 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 			return fmt.Errorf("operation cancelled by user")
 		}
 	}
+	if !r.config.LocalExecution {
+		summaryMetrics, err := r.mimirClient.GetMetrics(ctx, []parser.Metric{
+			{Name: "average rps", Query: fmt.Sprintf("sum(avg_over_time(rudder_load_publish_rate_per_second{}[%v]))", totalDuration)},
+			{Name: "error rate", Query: fmt.Sprintf("sum(rate(rudder_load_publish_error_rate_total[%v]))", totalDuration)},
+		})
+		if err != nil {
+			r.logger.Errorn("Failed to get current metrics", obskit.Error(err))
+		}
+		fields := make([]logger.Field, len(summaryMetrics))
+		for i, m := range summaryMetrics {
+			fields[i] = logger.NewField(m.Key, m.Value)
+		}
+		r.logger.Infon("Load test summary metrics", fields...)
 
-	summaryMetrics, err := r.mimirClient.GetMetrics(ctx, []parser.Metric{
-		{Name: "average rps", Query: fmt.Sprintf("sum(avg_over_time(rudder_load_publish_rate_per_second{}[%v]))", totalDuration)},
-		{Name: "error rate", Query: fmt.Sprintf("sum(rate(rudder_load_publish_error_rate_total[%v]))", totalDuration)},
-	})
-	if err != nil {
-		r.logger.Errorn("Failed to get current metrics", obskit.Error(err))
+		// Add summary metrics to the metrics data
+		r.recordMetrics(summaryMetrics)
 	}
-	fields := make([]logger.Field, len(summaryMetrics))
-	for i, m := range summaryMetrics {
-		fields[i] = logger.NewField(m.Key, m.Value)
-	}
-	r.logger.Infon("Load test summary metrics", fields...)
-
-	// Add summary metrics to the metrics data
-	r.recordMetrics(summaryMetrics)
 
 	return nil
 }
