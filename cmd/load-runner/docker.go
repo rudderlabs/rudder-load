@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -100,8 +101,10 @@ func (d *DockerComposeClient) createComposeFile(config *parser.LoadTestConfig) (
 		escapedValue := strings.ReplaceAll(value, "\"", "\\\"")
 		escapedValue = strings.ReplaceAll(escapedValue, "$", "\\$")
 
-		// Replace the environment variable in the compose file
-		composeContent = strings.ReplaceAll(composeContent, key+":", fmt.Sprintf("%s: %s", key, escapedValue))
+		// Create a regex pattern that matches the entire line for the environment variable
+		pattern := fmt.Sprintf(`(?m)^\s*%s:\s*.*$`, regexp.QuoteMeta(key))
+		re := regexp.MustCompile(pattern)
+		composeContent = re.ReplaceAllString(composeContent, fmt.Sprintf("      %s: %s", key, escapedValue))
 	}
 	d.logger.Infon("Docker compose vars after replacing", logger.NewStringField("content", composeContent))
 	// Write the updated content to the temporary file
