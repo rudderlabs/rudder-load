@@ -49,6 +49,9 @@ func ValidateSources(sources string) error {
 
 func ValidateHotSources(hotSources string) error {
 	totalPercentage := 0
+	if hotSources == "" {
+		return nil
+	}
 	values := strings.Split(hotSources, ",")
 	for _, value := range values {
 		if strings.TrimSpace(value) == "" {
@@ -70,6 +73,9 @@ func ValidateHotSources(hotSources string) error {
 }
 
 func ValidateHotSourcesDistribution(source string, hotSources string) error {
+	if hotSources == "" {
+		return nil
+	}
 	sourceValues := strings.Split(source, ",")
 	hotSourceValues := strings.Split(hotSources, ",")
 	if len(sourceValues) != len(hotSourceValues) {

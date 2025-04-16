@@ -25,7 +25,6 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				},
 				EnvOverrides: map[string]string{
 					"SOURCES":       "source1,source2",
-					"HOT_SOURCES":   "60,40",
 					"HTTP_ENDPOINT": "https://example.com",
 				},
 			},
@@ -65,7 +64,6 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				},
 				EnvOverrides: map[string]string{
 					"SOURCES":       "source1",
-					"HOT_SOURCES":   "100",
 					"HTTP_ENDPOINT": "https://example.com",
 				},
 			},
@@ -82,7 +80,6 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				},
 				EnvOverrides: map[string]string{
 					"SOURCES":       "source1",
-					"HOT_SOURCES":   "100",
 					"HTTP_ENDPOINT": "https://example.com",
 				},
 			},
@@ -99,7 +96,6 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				},
 				EnvOverrides: map[string]string{
 					"SOURCES":       "source1",
-					"HOT_SOURCES":   "100",
 					"HTTP_ENDPOINT": "https://example.com",
 				},
 			},
@@ -116,7 +112,6 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				},
 				EnvOverrides: map[string]string{
 					"SOURCES":       "source1",
-					"HOT_SOURCES":   "100",
 					"HTTP_ENDPOINT": "https://example.com",
 				},
 			},
@@ -163,7 +158,6 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				},
 				EnvOverrides: map[string]string{
 					"SOURCES":       "source1,source2",
-					"HOT_SOURCES":   "50,50",
 					"HTTP_ENDPOINT": "not-a-url",
 				},
 			},
@@ -291,12 +285,12 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 				EnvOverrides: map[string]string{
-					"SOURCES":     "source1",
-					"HOT_SOURCES": "",
+					"SOURCES":       "source1",
+					"HOT_SOURCES":   "",
+					"HTTP_ENDPOINT": "https://example.com",
 				},
 			},
-			wantErr:        true,
-			expectedErrMsg: "invalid hot sources: ",
+			wantErr: false,
 		},
 		{
 			name: "invalid hot sources - only comma",
