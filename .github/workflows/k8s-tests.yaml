@@ -66,10 +66,13 @@ jobs:
       # - name: Apply RBAC
       #   run: kubectl apply -f artifacts/kubectl/rbac.yaml -n ${{ github.event.inputs.k8s_namespace }}
 
-      - name: Run the test
+      - name: Create Environment File
+        run: sh scripts/create-env.sh
         env:
-          SOURCES: ${{ inputs.sources || secrets.SOURCES }}
-          HTTP_ENDPOINT: ${{ inputs.http_endpoint || secrets.HTTP_ENDPOINT }}
+          SOURCES: ${{ github.event.inputs.sources || secrets.SOURCES }}
+          HTTP_ENDPOINT: ${{ github.event.inputs.http_endpoint || secrets.HTTP_ENDPOINT }}
+
+      - name: Run the test
         run: |
           go build -o load-runner ./cmd/load-runner
           ./load-runner -t tests/${{ github.event.inputs.test_file }} -n ${{ github.event.inputs.k8s_namespace }}
