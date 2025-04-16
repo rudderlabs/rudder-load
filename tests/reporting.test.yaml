@@ -9,7 +9,7 @@ env:
   EVENT_TYPES: "track,page,identify"
   HOT_EVENT_TYPES: "33,33,34"
 phases:
-  - duration: 15m
+  - duration: 5m
     replicas: 2
 reporting:
   namespace: mimir
