@@ -21,10 +21,6 @@ on:
         required: true
         type: string
 
-env:
-  SOURCES: ${{ inputs.sources || secrets.SOURCES }}
-  HTTP_ENDPOINT: ${{ inputs.http_endpoint || secrets.HTTP_ENDPOINT }}
-
 jobs:
   run-k8s-test:
     name: Run Kubernetes Test
@@ -71,6 +67,9 @@ jobs:
       #   run: kubectl apply -f artifacts/kubectl/rbac.yaml -n ${{ github.event.inputs.k8s_namespace }}
 
       - name: Run the test
+        env:
+          SOURCES: ${{ inputs.sources || secrets.SOURCES }}
+          HTTP_ENDPOINT: ${{ inputs.http_endpoint || secrets.HTTP_ENDPOINT }}
         run: |
           go build -o load-runner ./cmd/load-runner
           ./load-runner -t tests/${{ github.event.inputs.test_file }} -n ${{ github.event.inputs.k8s_namespace }}
