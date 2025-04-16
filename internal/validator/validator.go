@@ -18,21 +18,21 @@ var (
 
 func ValidateNamespace(namespace string) error {
 	if !namespaceValidator.MatchString(namespace) {
-		return fmt.Errorf("namespace must contain only lowercase alphanumeric characters and '-'")
+		return fmt.Errorf("namespace must contain only lowercase alphanumeric characters and '-': %s", namespace)
 	}
 	return nil
 }
 
 func ValidateLoadName(name string) error {
 	if !loadNameValidator.MatchString(name) {
-		return fmt.Errorf("load name must contain only alphanumeric characters and '-'")
+		return fmt.Errorf("load name must contain only alphanumeric characters and '-': %s", name)
 	}
 	return nil
 }
 
 func ValidateDuration(duration string) error {
 	if !durationValidator.MatchString(duration) {
-		return fmt.Errorf("duration must include 'h', 'm', or 's' (e.g., '1h30m')")
+		return fmt.Errorf("duration must include 'h', 'm', or 's' (e.g., '1h30m'): %s", duration)
 	}
 	return nil
 }
