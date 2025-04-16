@@ -63,16 +63,16 @@ jobs:
           kubectl version --client
           helm version
       
-      # - name: Apply RBAC
-      #   run: kubectl apply -f artifacts/kubectl/rbac.yaml -n ${{ github.event.inputs.k8s_namespace }}
+      - name: Apply RBAC
+        run: kubectl apply -f artifacts/kubectl/rbac.yaml -n ${{ github.event.inputs.k8s_namespace }}
 
       - name: Run the test
         run: |
           go build -o load-runner ./cmd/load-runner
           ./load-runner -t tests/${{ github.event.inputs.test_file }} -n ${{ github.event.inputs.k8s_namespace }} -e SOURCES=${{ github.event.inputs.sources }} -e HTTP_ENDPOINT=${{ github.event.inputs.http_endpoint }}
       
-      # - name: Delete RBAC
-      #   run: kubectl delete -f artifacts/kubectl/rbac.yaml -n ${{ github.event.inputs.k8s_namespace }}
+      - name: Delete RBAC
+        run: kubectl delete -f artifacts/kubectl/rbac.yaml -n ${{ github.event.inputs.k8s_namespace }}
 
       - name: Archive metrics
         uses: actions/upload-artifact@v4
