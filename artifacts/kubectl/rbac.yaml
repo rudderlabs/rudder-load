@@ -10,21 +10,19 @@ metadata:
     app.kubernetes.io/managed-by: Helm
 rules:
   - apiGroups: [""]
-    resources: ["pods","secrets"]
-    verbs: ["get", "list", "watch", "update","create","patch"]
+    resources: ["pods", "secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["apps"]
     resources: ["deployments"]
-    verbs: ["get", "list", "watch", "patch", "update","create"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["roles", "rolebindings"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["monitoring.coreos.com"]
     resources: ["podmonitors"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  
 
 ---
-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -37,7 +35,7 @@ metadata:
     app.kubernetes.io/managed-by: Helm
 subjects:
   - kind: Group
-    name: github-actions-group  # Must match the group in aws-auth
+    name: github-actions-group # Must match the group in aws-auth
     apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: Role
