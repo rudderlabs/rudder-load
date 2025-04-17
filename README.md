@@ -61,6 +61,10 @@ To add more event types simply do:
 There are two primary approaches to run load tests with this tool:
 1. Using the Makefile (traditional approach)
 2. Using the load-runner (more flexible approach with configuration options)
+  
+    a. From the developer machine by creating the load deployment in a namespace of a specific cluster
+    
+    b. From GitHub Actions self hosted runner by creating the load deployment in a namespace of a specific cluster
 
 ### Method 1: Using the Makefile
 
@@ -409,3 +413,58 @@ Metrics files are stored in a `metrics_reports` directory in the current working
 ```
 
 For example: `http_metrics_20240321_103000.json`
+
+### Using GitHub Actions
+
+For automated testing in CI/CD pipelines, you can use the GitHub Actions workflow to run load tests on a Kubernetes cluster.
+
+#### Prerequisites
+
+- Access to a Kubernetes cluster (the workflow is configured to use AWS EKS)
+- GitHub repository with the necessary secrets configured:
+  - `AWS_ROLE_TO_ASSUME`: AWS IAM role ARN for EKS access
+  - `SOURCES`: Default source write keys (optional, can be provided as input)
+  - `HTTP_ENDPOINT`: Default HTTP endpoint (optional, can be provided as input)
+  - `SLACK_WEBHOOK_URL`: Slack webhook URL for notifications
+- The AWS role to be used for accessing the cluster needs to be preinstalled in the namespace using: `kubectl apply -f artifacts/kubectl/rbac.yaml`
+
+#### Running a Load Test via GitHub Actions
+
+1. Navigate to the "Actions" tab in your GitHub repository
+2. Select the "Execute tests on kubernetes" workflow
+3. Click "Run workflow"
+4. Fill in the required inputs:
+   - `test_file`: The test configuration file to run located under `tests` directory (e.g., `constant_load.test.yaml`)
+   - `k8s_namespace`: The Kubernetes namespace to run the test in
+   - `sources`: Source write keys to be used for the test (comma-separated)
+   - `http_endpoint`: HTTP endpoint to be used for the test
+5. Click "Run workflow"
+
+The workflow will:
+1. Set up the necessary tools (kubectl, Helm)
+2. Configure AWS credentials and update the kubeconfig
+3. Create an environment file with the provided inputs
+4. Build and run the load-runner with the specified test configuration
+5. Archive the metrics reports as artifacts  *(Access to metrics is still WIP)*
+6. Send a notification to Slack when the test completes
+
+#### Accessing Test Results *(This functionality is still WIP)*
+
+After the workflow completes:
+1. The metrics reports will be available as artifacts in the GitHub Actions run
+2. A Slack notification will be sent with a link to the run and artifacts
+3. You can download the metrics reports from the artifacts section of the run
+
+#### Example: Running a Load Test via GitHub Actions
+
+1. Navigate to the "Actions" tab in your GitHub repository
+2. Select the "Execute tests on kubernetes" workflow
+3. Click "Run workflow"
+4. Fill in the inputs:
+   - `test_file`: `reporting.test.yaml`
+   - `k8s_namespace`: `rudder-load`
+   - `sources`: `source1,source2`
+   - `http_endpoint`: `https://dataplane.rudderstack.com/v1/batch`
+5. Click "Run workflow"
+
+This will run the load test in the specified Kubernetes namespace and provide the results as artifacts.
