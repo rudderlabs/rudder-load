@@ -55,7 +55,7 @@ func run(ctx context.Context, log logger.Logger) error {
 		return fmt.Errorf("invalid inputs: %w", err)
 	}
 
-	// Create the appropriate client based on the local execution flag
+	// Create the appropriate infra client based on the local execution flag
 	var infraClient infraClient
 	if args.LocalExecution {
 		log.Infon("Using Docker Compose for local execution")

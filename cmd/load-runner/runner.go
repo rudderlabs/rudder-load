@@ -59,11 +59,10 @@ func NewLoadTestRunner(config *parser.LoadTestConfig, infraClient infraClient, m
 }
 
 func (r *LoadTestRunner) Run(ctx context.Context) error {
-	// Skip port forwarding for local execution
 	var stopPortForward func()
 	var err error
 
-	// Check if we're using Docker Compose by checking the type of helmClient
+	// Decide on the run mechanism based on the infraClient type
 	if _, ok := r.infraClient.(*DockerComposeClient); ok {
 		r.logger.Infon("Skipping port forwarding for local execution")
 		stopPortForward = func() {} // No-op function
@@ -102,8 +101,8 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		}
 		r.logger.Infon("Done!")
 
+		// Write metrics to file after test completion for remote execution
 		if !r.config.LocalExecution {
-			// Write metrics to file after test completion
 			if err := r.writeMetricsToFile(); err != nil {
 				r.logger.Errorn("Failed to write metrics to file", obskit.Error(err))
 			}
@@ -134,6 +133,8 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 			return fmt.Errorf("operation cancelled by user")
 		}
 	}
+
+	// Get summary metrics if not running locally
 	if !r.config.LocalExecution {
 		summaryMetrics, err := r.mimirClient.GetMetrics(ctx, []parser.Metric{
 			{Name: "average rps", Query: fmt.Sprintf("sum(avg_over_time(rudder_load_publish_rate_per_second{}[%v]))", totalDuration)},
