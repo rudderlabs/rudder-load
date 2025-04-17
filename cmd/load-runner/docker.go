@@ -39,8 +39,23 @@ func (d *DockerComposeClient) Install(ctx context.Context, config *parser.LoadTe
 
 // Upgrade updates the Docker Compose services with new configuration
 func (d *DockerComposeClient) Upgrade(ctx context.Context, config *parser.LoadTestConfig, phase parser.RunPhase) error {
+	// Create a copy of the config to avoid modifying the original
+	configCopy := *config
+
+	// Merge phase-specific environment overrides with the main config's environment overrides
+	if phase.EnvOverrides != nil {
+		if configCopy.EnvOverrides == nil {
+			configCopy.EnvOverrides = make(map[string]string)
+		}
+
+		// Apply phase-specific environment overrides
+		for key, value := range phase.EnvOverrides {
+			configCopy.EnvOverrides[key] = value
+		}
+	}
+
 	// Create a temporary docker-compose file with the updated environment variables
-	composeFile, err := d.createComposeFile(config)
+	composeFile, err := d.createComposeFile(&configCopy)
 	if err != nil {
 		return fmt.Errorf("failed to create compose file: %w", err)
 	}
