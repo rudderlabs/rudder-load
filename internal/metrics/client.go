@@ -9,18 +9,24 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"rudder-load/internal/parser"
 )
 
-type MimirClient interface {
+type MetricsClient interface {
 	Query(ctx context.Context, query string, time int64) (QueryResponse, error)
 	QueryRange(ctx context.Context, query string, start int64, end int64, step string) (QueryResponse, error)
 	GetMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error)
 }
 
 type mimirClient struct {
+	baseURL string
+	client  *http.Client
+}
+
+type localMetricsClient struct {
 	baseURL string
 	client  *http.Client
 }
@@ -42,13 +48,97 @@ type MetricsResponse struct {
 	Value float64
 }
 
-func NewMimirClient(baseURL string) MimirClient {
+func NewMimirClient(baseURL string) MetricsClient {
 	return &mimirClient{
 		baseURL: baseURL,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 	}
+}
+
+func NewLocalMetricsClient(baseURL string) MetricsClient {
+	return &localMetricsClient{
+		baseURL: baseURL,
+		client: &http.Client{
+			Timeout: 10 * time.Second,
+		},
+	}
+}
+
+func (m *localMetricsClient) Query(ctx context.Context, query string, time int64) (QueryResponse, error) {
+	return QueryResponse{}, fmt.Errorf("query not supported for local metrics client")
+}
+
+func (m *localMetricsClient) QueryRange(ctx context.Context, query string, start int64, end int64, step string) (QueryResponse, error) {
+	return QueryResponse{}, fmt.Errorf("query_range not supported for local metrics client")
+}
+
+func (m *localMetricsClient) GetMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
+	var metricsResponses []MetricsResponse
+
+	req, err := http.NewRequestWithContext(ctx, "GET", m.baseURL, nil)
+	if err != nil {
+		return metricsResponses, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := m.client.Do(req)
+	if err != nil {
+		return metricsResponses, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return metricsResponses, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return metricsResponses, fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
+	}
+
+	metricsText := string(body)
+	metricsLines := strings.Split(metricsText, "\n")
+
+	// Create a map of metric names to their values
+	metricMap := make(map[string]float64)
+	for _, line := range metricsLines {
+		// Skip comments and empty lines
+		if strings.HasPrefix(line, "#") || line == "" {
+			continue
+		}
+
+		// Parse the metric line
+		parts := strings.Split(line, " ")
+		if len(parts) < 2 {
+			continue
+		}
+
+		// Extract metric name and labels
+		metricWithLabels := parts[0]
+		metricName := strings.Split(metricWithLabels, "{")[0]
+
+		// Extract metric value
+		metricValue, err := strconv.ParseFloat(parts[len(parts)-1], 64)
+		if err != nil {
+			return metricsResponses, fmt.Errorf("failed to parse metric value: %w", err)
+		}
+
+		// Store the metric with its full name (including labels)
+		metricMap[metricName] = metricValue
+	}
+
+	// Process the requested metrics
+	for _, metric := range mts {
+		if value, ok := metricMap[metric.Name]; ok {
+			metricsResponses = append(metricsResponses, MetricsResponse{
+				Key:   metric.Name,
+				Value: value,
+			})
+		}
+	}
+
+	return metricsResponses, nil
 }
 
 func (m *mimirClient) Query(ctx context.Context, query string, time int64) (QueryResponse, error) {

@@ -61,6 +61,10 @@ To add more event types simply do:
 There are two primary approaches to run load tests with this tool:
 1. Using the Makefile (traditional approach)
 2. Using the load-runner (more flexible approach with configuration options)
+  
+    a. Running the load locally with Docker Compose (for development and testing)
+    
+    b. Running the load remotely on Kubernetes with helm
 
 ### Method 1: Using the Makefile
 
@@ -98,6 +102,7 @@ K8S_NAMESPACE=my-ns make logs
 The load-runner is a more flexible tool that allows for dynamic configuration and running various load test scenarios. It can be run in two main ways:
 1. With command-line flags
 2. With a test configuration file
+3. Using a combination of a test configuration file with values overriden by command-line flags
 
 #### Building the load-runner
 
@@ -160,6 +165,7 @@ The load-runner supports the following command-line flags:
 - `-f`: path to the chart files (default: artifacts/helm)
 - `-t`: path to the test config file
 - `-e`: environment variables in KEY=VALUE format (can be used multiple times)
+- `-local`: boolean variable that is set to execute the test locally using Docker Compose
 
 #### Configuration Options
 
@@ -409,3 +415,67 @@ Metrics files are stored in a `metrics_reports` directory in the current working
 ```
 
 For example: `http_metrics_20240321_103000.json`
+
+### Running Locally with Docker Compose
+
+For development and testing purposes, you can run load tests locally using Docker Compose. This approach is useful for quick iterations and debugging without deploying to Kubernetes.
+
+#### Prerequisites
+
+- Docker and Docker Compose installed on your machine
+- A `docker-compose.yaml` file in the root directory of the project
+
+#### Running a Local Load Test
+
+1. Build the Docker image locally:
+
+```shell
+docker build -t rudder-load:local .
+```
+
+2. Run the load-runner with the `-local` flag:
+
+```shell
+./load-runner -t tests/your-test.yaml -local
+```
+
+The load-runner will:
+- Create a temporary Docker Compose file with the environment variables from your test configuration
+- Start the Docker Compose services
+- Run the load test according to the phases defined in your test configuration
+- Stop and remove the Docker Compose services when the test completes
+
+#### Environment Variable Overrides
+
+When running locally, the load-runner will override environment variables in the Docker Compose file based on:
+
+1. The `env` section in your test configuration file
+2. The `env` section in each phase of your test configuration
+3. Any environment variables passed with the `-e` flag
+
+For example, if your test configuration has:
+
+```yaml
+name: http
+namespace: rudder-load
+env:
+  MAX_EVENTS_PER_SECOND: 100
+  CONCURRENCY: 100
+phases:
+  - duration: 2m
+    replicas: 2
+    env:
+      MAX_EVENTS_PER_SECOND: 200
+```
+
+The load-runner will:
+1. Start with `MAX_EVENTS_PER_SECOND=100` and `CONCURRENCY=100`
+2. After 2 minutes, update to `MAX_EVENTS_PER_SECOND=200` and `CONCURRENCY=100`
+
+#### Limitations of Local Mode
+
+When running in local mode:
+- The `namespace` setting in your test configuration is ignored
+- The `reporting` section is not supported
+- Resource limits are enforced by Docker rather than Kubernetes
+- The test will always use one replica for the load

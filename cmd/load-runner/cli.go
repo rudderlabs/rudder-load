@@ -31,6 +31,7 @@ func (c *CLI) ParseFlags() (*parser.CLIArgs, error) {
 	flag.StringVar(&cli.ChartFilesPath, "f", "", "Path to the chart files (e.g., artifacts/helm)")
 	flag.StringVar(&cli.TestFile, "t", "", "Path to the test file (e.g., tests/spike.test.yaml)")
 	flag.Var(envVars, "e", "Environment variables in KEY=VALUE format (can be used multiple times)")
+	flag.BoolVar(&cli.LocalExecution, "local", false, "Run locally using Docker Compose instead of Kubernetes")
 
 	flag.Usage = func() {
 		c.log.Infon(fmt.Sprintf("Usage: %s [options]", os.Args[0]))
@@ -39,6 +40,7 @@ func (c *CLI) ParseFlags() (*parser.CLIArgs, error) {
 		c.log.Infon("Examples:")
 		c.log.Infon(fmt.Sprintf("  %s -t tests/spike.test.yaml    # Runs spike test", os.Args[0]))
 		c.log.Infon(fmt.Sprintf("  %s -d 1m -n default -l http -e MESSAGE_GENERATORS=200 -e CONCURRENCY=500    # Runs with env overrides", os.Args[0]))
+		c.log.Infon(fmt.Sprintf("  %s -t tests/spike.test.yaml -local    # Runs spike test locally using Docker Compose", os.Args[0]))
 	}
 
 	flag.Parse()

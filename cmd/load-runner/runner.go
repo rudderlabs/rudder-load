@@ -16,7 +16,7 @@ import (
 	"rudder-load/internal/parser"
 )
 
-type helmClient interface {
+type infraClient interface {
 	Install(ctx context.Context, config *parser.LoadTestConfig) error
 	Upgrade(ctx context.Context, config *parser.LoadTestConfig, phase parser.RunPhase) error
 	Uninstall(config *parser.LoadTestConfig) error
@@ -34,8 +34,8 @@ type metricsRecord struct {
 
 type LoadTestRunner struct {
 	config        *parser.LoadTestConfig
-	helmClient    helmClient
-	mimirClient   metrics.MimirClient
+	infraClient   infraClient
+	metricsClient metrics.MetricsClient
 	portForwarder portForwarder
 	logger        logger.Logger
 	metricsFile   string
@@ -43,14 +43,14 @@ type LoadTestRunner struct {
 	metricsData   []metricsRecord
 }
 
-func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient helmClient, mimirClient metrics.MimirClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
+func NewLoadTestRunner(config *parser.LoadTestConfig, infraClient infraClient, metricsClient metrics.MetricsClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
 	// Create a metrics file path based on the load test name and timestamp
 	metricsFile := fmt.Sprintf("%s_metrics_%s.json", config.Name, time.Now().Format("20060102_150405"))
 
 	return &LoadTestRunner{
 		config:        config,
-		helmClient:    helmClient,
-		mimirClient:   mimirClient,
+		infraClient:   infraClient,
+		metricsClient: metricsClient,
 		portForwarder: portForwarder,
 		logger:        logger,
 		metricsFile:   metricsFile,
@@ -59,42 +59,56 @@ func NewLoadTestRunner(config *parser.LoadTestConfig, helmClient helmClient, mim
 }
 
 func (r *LoadTestRunner) Run(ctx context.Context) error {
-	const defaultMonitoringNamespace = "mimir"
+	var stopPortForward func()
+	var err error
 
-	if err := r.createValuesFileCopy(ctx); err != nil {
-		return err
-	}
+	// Decide on the run mechanism based on the infraClient type
+	if _, ok := r.infraClient.(*DockerComposeClient); ok {
+		r.logger.Infon("Skipping port forwarding for local execution")
+		stopPortForward = func() {} // No-op function
+		r.logger.Infon("Installing Docker compose for load scenario", logger.NewStringField("load_scenario", r.config.Name))
 
-	monitoringNamespace := r.config.Reporting.Namespace
-	if monitoringNamespace == "" {
-		monitoringNamespace = defaultMonitoringNamespace
-	}
+		// Start monitoring metrics for local execution
+		if r.config.Reporting.Metrics != nil {
+			monitoringCtx, cancelMonitoring := context.WithCancel(ctx)
+			defer cancelMonitoring()
+			go r.monitorMetrics(monitoringCtx)
+		}
+	} else {
+		if err := r.createValuesFileCopy(ctx); err != nil {
+			return err
+		}
+		const defaultMonitoringNamespace = "mimir"
+		monitoringNamespace := r.config.Reporting.Namespace
+		if monitoringNamespace == "" {
+			monitoringNamespace = defaultMonitoringNamespace
+		}
 
-	stopPortForward, err := r.startPortForward(ctx, monitoringNamespace)
-	if err != nil {
-		return err
+		stopPortForward, err = r.startPortForward(ctx, monitoringNamespace)
+		if err != nil {
+			return err
+		}
+		if r.config.Reporting.Metrics != nil {
+			monitoringCtx, cancelMonitoring := context.WithCancel(ctx)
+			defer cancelMonitoring()
+			go r.monitorMetrics(monitoringCtx)
+		}
+		r.logger.Infon("Installing Helm chart for load scenario", logger.NewStringField("load_scenario", r.config.Name))
 	}
 	defer stopPortForward()
 
-	if r.config.Reporting.Metrics != nil {
-		monitoringCtx, cancelMonitoring := context.WithCancel(ctx)
-		defer cancelMonitoring()
-		go r.monitorMetrics(monitoringCtx)
-	}
-
-	r.logger.Infon("Installing Helm chart for load scenario", logger.NewStringField("load_scenario", r.config.Name))
-	if err := r.helmClient.Install(ctx, r.config); err != nil {
+	if err := r.infraClient.Install(ctx, r.config); err != nil {
 		return err
 	}
 
 	defer func() {
-		r.logger.Infon("Uninstalling Helm chart for the load scenario...")
-		if err := r.helmClient.Uninstall(r.config); err != nil {
-			r.logger.Errorn("Failed to uninstall Helm chart", obskit.Error(err))
+		r.logger.Infon("Uninstalling resources for the load scenario...")
+		if err := r.infraClient.Uninstall(r.config); err != nil {
+			r.logger.Errorn("Failed to uninstall resources", obskit.Error(err))
 		}
 		r.logger.Infon("Done!")
 
-		// Write metrics to file after test completion
+		// Write metrics to file after test completion for both local and remote execution
 		if err := r.writeMetricsToFile(); err != nil {
 			r.logger.Errorn("Failed to write metrics to file", obskit.Error(err))
 		}
@@ -106,7 +120,7 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		r.logger.Infon("Running phase", logger.NewIntField("phase", int64(i+1)), logger.NewStringField("duration", phase.Duration))
 
 		if r.config.FromFile {
-			if err := r.helmClient.Upgrade(ctx, r.config, phase); err != nil {
+			if err := r.infraClient.Upgrade(ctx, r.config, phase); err != nil {
 				return err
 			}
 		}
@@ -125,21 +139,24 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		}
 	}
 
-	summaryMetrics, err := r.mimirClient.GetMetrics(ctx, []parser.Metric{
-		{Name: "average rps", Query: fmt.Sprintf("sum(avg_over_time(rudder_load_publish_rate_per_second{}[%v]))", totalDuration)},
-		{Name: "error rate", Query: fmt.Sprintf("sum(rate(rudder_load_publish_error_rate_total[%v]))", totalDuration)},
-	})
-	if err != nil {
-		r.logger.Errorn("Failed to get current metrics", obskit.Error(err))
-	}
-	fields := make([]logger.Field, len(summaryMetrics))
-	for i, m := range summaryMetrics {
-		fields[i] = logger.NewField(m.Key, m.Value)
-	}
-	r.logger.Infon("Load test summary metrics", fields...)
+	// Get summary metrics if not running locally
+	if !r.config.LocalExecution {
+		summaryMetrics, err := r.metricsClient.GetMetrics(ctx, []parser.Metric{
+			{Name: "average rps", Query: fmt.Sprintf("sum(avg_over_time(rudder_load_publish_rate_per_second{}[%v]))", totalDuration)},
+			{Name: "error rate", Query: fmt.Sprintf("sum(rate(rudder_load_publish_error_rate_total[%v]))", totalDuration)},
+		})
+		if err != nil {
+			r.logger.Errorn("Failed to get current metrics", obskit.Error(err))
+		}
+		fields := make([]logger.Field, len(summaryMetrics))
+		for i, m := range summaryMetrics {
+			fields[i] = logger.NewField(m.Key, m.Value)
+		}
+		r.logger.Infon("Load test summary metrics", fields...)
 
-	// Add summary metrics to the metrics data
-	r.recordMetrics(summaryMetrics)
+		// Add summary metrics to the metrics data
+		r.recordMetrics(summaryMetrics)
+	}
 
 	return nil
 }
@@ -211,7 +228,21 @@ func (r *LoadTestRunner) monitorMetrics(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			metrics, err := r.mimirClient.GetMetrics(ctx, r.config.Reporting.Metrics)
+			// For local execution, we need to handle the specific metric format
+			var metricsToFetch []parser.Metric
+
+			// If we're running locally, we need to fetch the specific metric format
+			if _, ok := r.infraClient.(*DockerComposeClient); ok {
+				// For local execution, we need to fetch the specific metric format
+				metricsToFetch = []parser.Metric{
+					{Name: "rudder_load_publish_rate_per_second", Query: ""},
+				}
+			} else {
+				// For remote execution, use the configured metrics
+				metricsToFetch = r.config.Reporting.Metrics
+			}
+
+			metrics, err := r.metricsClient.GetMetrics(ctx, metricsToFetch)
 			if err != nil {
 				r.logger.Errorn("Failed to get current metrics", obskit.Error(err))
 				continue
