@@ -79,7 +79,9 @@ func ParseLoadTestConfig(args *CLIArgs) (*LoadTestConfig, error) {
 		return nil, fmt.Errorf("failed to decode test file: %w", err)
 	}
 	cfg.FromFile = true
-
+	if args.Namespace != "" {
+		cfg.Namespace = args.Namespace
+	}
 	if len(args.EnvVars) > 0 {
 		if cfg.EnvOverrides == nil {
 			cfg.EnvOverrides = make(map[string]string)

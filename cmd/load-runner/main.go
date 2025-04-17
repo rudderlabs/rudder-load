@@ -44,10 +44,6 @@ func run(ctx context.Context, log logger.Logger) error {
 		return fmt.Errorf("failed to load test config: %w", err)
 	}
 
-	if err := validator.ValidateLoadTestConfig(cfg); err != nil {
-		return fmt.Errorf("invalid inputs: %w", err)
-	}
-
 	err = cfg.SetEnvOverrides()
 	if err != nil {
 		return fmt.Errorf("failed to set env overrides: %w", err)
@@ -55,6 +51,11 @@ func run(ctx context.Context, log logger.Logger) error {
 
 	cfg.SetDefaults()
 
+	if err := validator.ValidateLoadTestConfig(cfg); err != nil {
+		return fmt.Errorf("invalid inputs: %w", err)
+	}
+
+	helmClient := NewHelmClient(&CommandExecutor{}, log)
 	// Create the appropriate client based on the local execution flag
 	var infraClient infraClient
 	if args.LocalExecution {
