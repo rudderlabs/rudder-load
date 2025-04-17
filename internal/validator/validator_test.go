@@ -9,14 +9,11 @@ import (
 )
 
 func TestLoadTestConfig_Validate(t *testing.T) {
-	t.Setenv("SOURCES", "source1,source2")
-	t.Setenv("HTTP_ENDPOINT", "https://example.com")
-
 	tests := []struct {
-		name     string
-		config   *parser.LoadTestConfig
-		envSetup func()
-		wantErr  bool
+		name           string
+		config         *parser.LoadTestConfig
+		wantErr        bool
+		expectedErrMsg string
 	}{
 		{
 			name: "valid config",
@@ -25,6 +22,10 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				Namespace: "test-ns",
 				Phases: []parser.RunPhase{
 					{Duration: "1h30m", Replicas: 2},
+				},
+				EnvOverrides: map[string]string{
+					"SOURCES":       "source1,source2",
+					"HTTP_ENDPOINT": "https://example.com",
 				},
 			},
 			wantErr: false,
@@ -38,7 +39,8 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "namespace must contain only lowercase alphanumeric characters and '-'",
 		},
 		{
 			name: "invalid name",
@@ -49,7 +51,8 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "load name must contain only alphanumeric characters and '-'",
 		},
 		{
 			name: "invalid duration",
@@ -59,8 +62,13 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				Phases: []parser.RunPhase{
 					{Duration: "90", Replicas: 2},
 				},
+				EnvOverrides: map[string]string{
+					"SOURCES":       "source1",
+					"HTTP_ENDPOINT": "https://example.com",
+				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "duration must include 'h', 'm', or 's' (e.g., '1h30m')",
 		},
 		{
 			name: "negative duration",
@@ -70,8 +78,13 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				Phases: []parser.RunPhase{
 					{Duration: "-90", Replicas: 2},
 				},
+				EnvOverrides: map[string]string{
+					"SOURCES":       "source1",
+					"HTTP_ENDPOINT": "https://example.com",
+				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "duration must include 'h', 'm', or 's' (e.g., '1h30m')",
 		},
 		{
 			name: "invalid replicas",
@@ -81,8 +94,13 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				Phases: []parser.RunPhase{
 					{Duration: "1h30m", Replicas: 0},
 				},
+				EnvOverrides: map[string]string{
+					"SOURCES":       "source1",
+					"HTTP_ENDPOINT": "https://example.com",
+				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "replicas must be greater than 0",
 		},
 		{
 			name: "negative replicas",
@@ -92,8 +110,13 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				Phases: []parser.RunPhase{
 					{Duration: "1h30m", Replicas: -1},
 				},
+				EnvOverrides: map[string]string{
+					"SOURCES":       "source1",
+					"HTTP_ENDPOINT": "https://example.com",
+				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "replicas must be greater than 0",
 		},
 		{
 			name: "empty sources",
@@ -103,11 +126,12 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				Phases: []parser.RunPhase{
 					{Duration: "1h30m", Replicas: 2},
 				},
+				EnvOverrides: map[string]string{
+					"SOURCES": "",
+				},
 			},
-			envSetup: func() {
-				t.Setenv("SOURCES", "")
-			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "invalid sources: contains empty source: ",
 		},
 		{
 			name: "multiple empty sources",
@@ -117,11 +141,12 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				Phases: []parser.RunPhase{
 					{Duration: "1h30m", Replicas: 2},
 				},
+				EnvOverrides: map[string]string{
+					"SOURCES": ",",
+				},
 			},
-			envSetup: func() {
-				t.Setenv("SOURCES", ",")
-			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "invalid sources: contains empty source: ,",
 		},
 		{
 			name: "invalid http endpoint",
@@ -131,11 +156,13 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 				Phases: []parser.RunPhase{
 					{Duration: "1h30m", Replicas: 2},
 				},
+				EnvOverrides: map[string]string{
+					"SOURCES":       "source1,source2",
+					"HTTP_ENDPOINT": "not-a-url",
+				},
 			},
-			envSetup: func() {
-				t.Setenv("HTTP_ENDPOINT", "not-a-url")
-			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "invalid http endpoint: not-a-url",
 		},
 		{
 			name: "valid hot sources config",
@@ -146,7 +173,9 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 				EnvOverrides: map[string]string{
-					"HOT_SOURCES": "60,40",
+					"SOURCES":       "source1,source2",
+					"HOT_SOURCES":   "60,40",
+					"HTTP_ENDPOINT": "https://example.com",
 				},
 			},
 			wantErr: false,
@@ -160,11 +189,10 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 				EnvOverrides: map[string]string{
-					"HOT_SOURCES": "100",
+					"SOURCES":       "source1",
+					"HOT_SOURCES":   "100",
+					"HTTP_ENDPOINT": "https://example.com",
 				},
-			},
-			envSetup: func() {
-				t.Setenv("SOURCES", "source1")
 			},
 			wantErr: false,
 		},
@@ -177,10 +205,12 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 				EnvOverrides: map[string]string{
+					"SOURCES":     "source1,source2",
 					"HOT_SOURCES": "-60,40",
 				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "hot sources percentage must be between 0 and 100: -60,40",
 		},
 		{
 			name: "invalid hot sources - percentage over 100",
@@ -191,10 +221,12 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 				EnvOverrides: map[string]string{
+					"SOURCES":     "source1,source2",
 					"HOT_SOURCES": "120,40",
 				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "hot sources percentage must be between 0 and 100: 120,40",
 		},
 		{
 			name: "invalid hot sources - sum not 100",
@@ -205,10 +237,12 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 				EnvOverrides: map[string]string{
+					"SOURCES":     "source1,source2",
 					"HOT_SOURCES": "60,20",
 				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "hot sources percentages must sum up to 100: 60,20",
 		},
 		{
 			name: "invalid hot sources - length mismatch with sources",
@@ -219,10 +253,12 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 				EnvOverrides: map[string]string{
+					"SOURCES":     "source1,source2",
 					"HOT_SOURCES": "60,20,20",
 				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "sources and hot sources must have the same length: source1,source2, 60,20,20",
 		},
 		{
 			name: "invalid hot sources - non-numeric value",
@@ -233,10 +269,12 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 				EnvOverrides: map[string]string{
+					"SOURCES":     "source1,source2",
 					"HOT_SOURCES": "60,abc",
 				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "hot sources percentage must be an integer: 60,abc",
 		},
 		{
 			name: "invalid hot sources - empty string",
@@ -247,10 +285,12 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 				EnvOverrides: map[string]string{
-					"HOT_SOURCES": "",
+					"SOURCES":       "source1",
+					"HOT_SOURCES":   "",
+					"HTTP_ENDPOINT": "https://example.com",
 				},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "invalid hot sources - only comma",
@@ -261,10 +301,12 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 				EnvOverrides: map[string]string{
+					"SOURCES":     "source1,source2",
 					"HOT_SOURCES": ",",
 				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "invalid hot sources: ,",
 		},
 		{
 			name: "invalid hot sources - contains whitespace",
@@ -275,10 +317,12 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 				EnvOverrides: map[string]string{
+					"SOURCES":     "source1,source2",
 					"HOT_SOURCES": "60, 40",
 				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "hot sources percentage must be an integer: 60, 40",
 		},
 		{
 			name: "invalid hot sources - empty value between commas",
@@ -289,10 +333,12 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 				EnvOverrides: map[string]string{
+					"SOURCES":     "source1,source2,source3",
 					"HOT_SOURCES": "60,,40",
 				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "invalid hot sources: 60,,40",
 		},
 		{
 			name: "invalid hot sources - trailing comma",
@@ -303,10 +349,12 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 				EnvOverrides: map[string]string{
+					"SOURCES":     "source1,source2,source3",
 					"HOT_SOURCES": "60,40,",
 				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "invalid hot sources: 60,40,",
 		},
 		{
 			name: "invalid hot sources - decimal number",
@@ -317,25 +365,20 @@ func TestLoadTestConfig_Validate(t *testing.T) {
 					{Duration: "1h30m", Replicas: 2},
 				},
 				EnvOverrides: map[string]string{
+					"SOURCES":     "source1,source2",
 					"HOT_SOURCES": "60.5,39.5",
 				},
 			},
-			wantErr: true,
+			wantErr:        true,
+			expectedErrMsg: "hot sources percentage must be an integer: 60.5,39.5",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("SOURCES", "source1,source2")
-			t.Setenv("HTTP_ENDPOINT", "https://example.com")
-
-			if tt.envSetup != nil {
-				tt.envSetup()
-			}
-
 			err := ValidateLoadTestConfig(tt.config)
 			if tt.wantErr {
-				require.Error(t, err)
+				require.ErrorContains(t, err, tt.expectedErrMsg)
 			} else {
 				require.NoError(t, err)
 			}

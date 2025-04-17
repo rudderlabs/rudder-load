@@ -2,7 +2,6 @@ package validator
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -19,21 +18,21 @@ var (
 
 func ValidateNamespace(namespace string) error {
 	if !namespaceValidator.MatchString(namespace) {
-		return fmt.Errorf("namespace must contain only lowercase alphanumeric characters and '-'")
+		return fmt.Errorf("namespace must contain only lowercase alphanumeric characters and '-': %s", namespace)
 	}
 	return nil
 }
 
 func ValidateLoadName(name string) error {
 	if !loadNameValidator.MatchString(name) {
-		return fmt.Errorf("load name must contain only alphanumeric characters and '-'")
+		return fmt.Errorf("load name must contain only alphanumeric characters and '-': %s", name)
 	}
 	return nil
 }
 
 func ValidateDuration(duration string) error {
 	if !durationValidator.MatchString(duration) {
-		return fmt.Errorf("duration must include 'h', 'm', or 's' (e.g., '1h30m')")
+		return fmt.Errorf("duration must include 'h', 'm', or 's' (e.g., '1h30m'): %s", duration)
 	}
 	return nil
 }
@@ -42,7 +41,7 @@ func ValidateSources(sources string) error {
 	v := strings.Split(sources, ",")
 	for _, source := range v {
 		if strings.TrimSpace(source) == "" {
-			return fmt.Errorf("invalid sources: contains empty source")
+			return fmt.Errorf("invalid sources: contains empty source: %s", sources)
 		}
 	}
 	return nil
@@ -50,6 +49,9 @@ func ValidateSources(sources string) error {
 
 func ValidateHotSources(hotSources string) error {
 	totalPercentage := 0
+	if hotSources == "" {
+		return nil
+	}
 	values := strings.Split(hotSources, ",")
 	for _, value := range values {
 		if strings.TrimSpace(value) == "" {
@@ -71,6 +73,9 @@ func ValidateHotSources(hotSources string) error {
 }
 
 func ValidateHotSourcesDistribution(source string, hotSources string) error {
+	if hotSources == "" {
+		return nil
+	}
 	sourceValues := strings.Split(source, ",")
 	hotSourceValues := strings.Split(hotSources, ",")
 	if len(sourceValues) != len(hotSourceValues) {
@@ -94,20 +99,22 @@ func ValidateLoadTestConfig(config *parser.LoadTestConfig) error {
 	if err := ValidateLoadName(config.Name); err != nil {
 		return err
 	}
-	if err := ValidateSources(os.Getenv("SOURCES")); err != nil {
+
+	if err := ValidateSources(config.EnvOverrides["SOURCES"]); err != nil {
 		return err
 	}
-	if hotSources, ok := config.EnvOverrides["HOT_SOURCES"]; ok {
-		if err := ValidateHotSources(hotSources); err != nil {
-			return err
-		}
-		if err := ValidateHotSourcesDistribution(os.Getenv("SOURCES"), hotSources); err != nil {
-			return err
-		}
-	}
-	if err := ValidateHttpEndpoint(os.Getenv("HTTP_ENDPOINT")); err != nil {
+
+	if err := ValidateHotSources(config.EnvOverrides["HOT_SOURCES"]); err != nil {
 		return err
 	}
+	if err := ValidateHotSourcesDistribution(config.EnvOverrides["SOURCES"], config.EnvOverrides["HOT_SOURCES"]); err != nil {
+		return err
+	}
+
+	if err := ValidateHttpEndpoint(config.EnvOverrides["HTTP_ENDPOINT"]); err != nil {
+		return err
+	}
+
 	for _, phase := range config.Phases {
 		if err := ValidateDuration(phase.Duration); err != nil {
 			return err
