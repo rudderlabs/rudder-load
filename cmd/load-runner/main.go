@@ -55,7 +55,6 @@ func run(ctx context.Context, log logger.Logger) error {
 		return fmt.Errorf("invalid inputs: %w", err)
 	}
 
-	helmClient := NewHelmClient(&CommandExecutor{}, log)
 	// Create the appropriate client based on the local execution flag
 	var infraClient infraClient
 	if args.LocalExecution {
