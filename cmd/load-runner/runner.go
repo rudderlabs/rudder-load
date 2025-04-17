@@ -67,6 +67,13 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		r.logger.Infon("Skipping port forwarding for local execution")
 		stopPortForward = func() {} // No-op function
 		r.logger.Infon("Installing Docker compose for load scenario", logger.NewStringField("load_scenario", r.config.Name))
+
+		// Start monitoring metrics for local execution
+		if r.config.Reporting.Metrics != nil {
+			monitoringCtx, cancelMonitoring := context.WithCancel(ctx)
+			defer cancelMonitoring()
+			go r.monitorMetrics(monitoringCtx)
+		}
 	} else {
 		if err := r.createValuesFileCopy(ctx); err != nil {
 			return err
@@ -101,11 +108,9 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		}
 		r.logger.Infon("Done!")
 
-		// Write metrics to file after test completion for remote execution
-		if !r.config.LocalExecution {
-			if err := r.writeMetricsToFile(); err != nil {
-				r.logger.Errorn("Failed to write metrics to file", obskit.Error(err))
-			}
+		// Write metrics to file after test completion for both local and remote execution
+		if err := r.writeMetricsToFile(); err != nil {
+			r.logger.Errorn("Failed to write metrics to file", obskit.Error(err))
 		}
 	}()
 
@@ -223,7 +228,21 @@ func (r *LoadTestRunner) monitorMetrics(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			metrics, err := r.mimirClient.GetMetrics(ctx, r.config.Reporting.Metrics)
+			// For local execution, we need to handle the specific metric format
+			var metricsToFetch []parser.Metric
+
+			// If we're running locally, we need to fetch the specific metric format
+			if _, ok := r.infraClient.(*DockerComposeClient); ok {
+				// For local execution, we need to fetch the specific metric format
+				metricsToFetch = []parser.Metric{
+					{Name: "rudder_load_publish_rate_per_second", Query: ""},
+				}
+			} else {
+				// For remote execution, use the configured metrics
+				metricsToFetch = r.config.Reporting.Metrics
+			}
+
+			metrics, err := r.mimirClient.GetMetrics(ctx, metricsToFetch)
 			if err != nil {
 				r.logger.Errorn("Failed to get current metrics", obskit.Error(err))
 				continue
