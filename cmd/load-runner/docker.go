@@ -123,11 +123,6 @@ func (d *DockerComposeClient) createComposeFile(config *parser.LoadTestConfig) (
 	// Update the environment variables in the temporary file
 	composeContent := string(content)
 
-	// Add the replicas from the first phase to the environment variables
-	if len(config.Phases) > 0 {
-		config.EnvOverrides["REPLICAS"] = fmt.Sprintf("%d", config.Phases[0].Replicas)
-	}
-
 	// Replace environment variables with values from the config
 	for key, value := range config.EnvOverrides {
 		// Escape special characters in the value
