@@ -57,7 +57,7 @@ func run(ctx context.Context, log logger.Logger) error {
 
 	// Create the appropriate infra client based on the local execution flag
 	var infraClient infraClient
-	var metricsClient metrics.MimirClient
+	var metricsClient metrics.MetricsClient
 
 	if args.LocalExecution {
 		log.Infon("Using Docker Compose for local execution")

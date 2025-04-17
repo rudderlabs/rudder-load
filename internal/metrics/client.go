@@ -15,7 +15,7 @@ import (
 	"rudder-load/internal/parser"
 )
 
-type MimirClient interface {
+type MetricsClient interface {
 	Query(ctx context.Context, query string, time int64) (QueryResponse, error)
 	QueryRange(ctx context.Context, query string, start int64, end int64, step string) (QueryResponse, error)
 	GetMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error)
@@ -48,7 +48,7 @@ type MetricsResponse struct {
 	Value float64
 }
 
-func NewMimirClient(baseURL string) MimirClient {
+func NewMimirClient(baseURL string) MetricsClient {
 	return &mimirClient{
 		baseURL: baseURL,
 		client: &http.Client{
@@ -57,7 +57,7 @@ func NewMimirClient(baseURL string) MimirClient {
 	}
 }
 
-func NewLocalMetricsClient(baseURL string) MimirClient {
+func NewLocalMetricsClient(baseURL string) MetricsClient {
 	return &localMetricsClient{
 		baseURL: baseURL,
 		client: &http.Client{
@@ -97,7 +97,6 @@ func (m *localMetricsClient) GetMetrics(ctx context.Context, mts []parser.Metric
 		return metricsResponses, fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
 	}
 
-	// Parse the Prometheus format metrics
 	metricsText := string(body)
 	metricsLines := strings.Split(metricsText, "\n")
 
@@ -122,7 +121,7 @@ func (m *localMetricsClient) GetMetrics(ctx context.Context, mts []parser.Metric
 		// Extract metric value
 		metricValue, err := strconv.ParseFloat(parts[len(parts)-1], 64)
 		if err != nil {
-			continue
+			return metricsResponses, fmt.Errorf("failed to parse metric value: %w", err)
 		}
 
 		// Store the metric with its full name (including labels)
@@ -131,32 +130,10 @@ func (m *localMetricsClient) GetMetrics(ctx context.Context, mts []parser.Metric
 
 	// Process the requested metrics
 	for _, metric := range mts {
-		// For local metrics, we directly look up the metric name
-		metricName := metric.Name
-
-		// Try to find an exact match first
-		var found bool
-		var value float64
-
-		// First try to find an exact match
-		if val, ok := metricMap[metricName]; ok {
-			value = val
-			found = true
-		} else {
-			// If no exact match, try to find a partial match
-			for key, val := range metricMap {
-				if strings.HasPrefix(key, metricName) {
-					value = val
-					found = true
-					break
-				}
-			}
-		}
-
-		if found {
+		if value, ok := metricMap[metric.Name]; ok {
 			metricsResponses = append(metricsResponses, MetricsResponse{
 				Key:   metric.Name,
-				Value: math.Round(value),
+				Value: value,
 			})
 		}
 	}

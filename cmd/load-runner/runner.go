@@ -35,7 +35,7 @@ type metricsRecord struct {
 type LoadTestRunner struct {
 	config        *parser.LoadTestConfig
 	infraClient   infraClient
-	mimirClient   metrics.MimirClient
+	metricsClient metrics.MetricsClient
 	portForwarder portForwarder
 	logger        logger.Logger
 	metricsFile   string
@@ -43,14 +43,14 @@ type LoadTestRunner struct {
 	metricsData   []metricsRecord
 }
 
-func NewLoadTestRunner(config *parser.LoadTestConfig, infraClient infraClient, mimirClient metrics.MimirClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
+func NewLoadTestRunner(config *parser.LoadTestConfig, infraClient infraClient, metricsClient metrics.MetricsClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
 	// Create a metrics file path based on the load test name and timestamp
 	metricsFile := fmt.Sprintf("%s_metrics_%s.json", config.Name, time.Now().Format("20060102_150405"))
 
 	return &LoadTestRunner{
 		config:        config,
 		infraClient:   infraClient,
-		mimirClient:   mimirClient,
+		metricsClient: metricsClient,
 		portForwarder: portForwarder,
 		logger:        logger,
 		metricsFile:   metricsFile,
@@ -141,7 +141,7 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 
 	// Get summary metrics if not running locally
 	if !r.config.LocalExecution {
-		summaryMetrics, err := r.mimirClient.GetMetrics(ctx, []parser.Metric{
+		summaryMetrics, err := r.metricsClient.GetMetrics(ctx, []parser.Metric{
 			{Name: "average rps", Query: fmt.Sprintf("sum(avg_over_time(rudder_load_publish_rate_per_second{}[%v]))", totalDuration)},
 			{Name: "error rate", Query: fmt.Sprintf("sum(rate(rudder_load_publish_error_rate_total[%v]))", totalDuration)},
 		})
@@ -242,7 +242,7 @@ func (r *LoadTestRunner) monitorMetrics(ctx context.Context) {
 				metricsToFetch = r.config.Reporting.Metrics
 			}
 
-			metrics, err := r.mimirClient.GetMetrics(ctx, metricsToFetch)
+			metrics, err := r.metricsClient.GetMetrics(ctx, metricsToFetch)
 			if err != nil {
 				r.logger.Errorn("Failed to get current metrics", obskit.Error(err))
 				continue
