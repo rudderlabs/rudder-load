@@ -27,6 +27,12 @@ type portForwarder interface {
 	Stop() error
 }
 
+type metricsClient interface {
+	GetMetrics(ctx context.Context, mts []parser.Metric) ([]metrics.MetricsResponse, error)
+	Query(ctx context.Context, query string, time int64) (metrics.QueryResponse, error)
+	QueryRange(ctx context.Context, query string, start int64, end int64, step string) (metrics.QueryResponse, error)
+}
+
 type metricsRecord struct {
 	Timestamp time.Time                 `json:"timestamp"`
 	Metrics   []metrics.MetricsResponse `json:"metrics"`
@@ -35,7 +41,7 @@ type metricsRecord struct {
 type LoadTestRunner struct {
 	config        *parser.LoadTestConfig
 	infraClient   infraClient
-	metricsClient metrics.MetricsClient
+	metricsClient metricsClient
 	portForwarder portForwarder
 	logger        logger.Logger
 	metricsFile   string
@@ -43,7 +49,7 @@ type LoadTestRunner struct {
 	metricsData   []metricsRecord
 }
 
-func NewLoadTestRunner(config *parser.LoadTestConfig, infraClient infraClient, metricsClient metrics.MetricsClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
+func NewLoadTestRunner(config *parser.LoadTestConfig, infraClient infraClient, metricsClient metricsClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
 	// Create a metrics file path based on the load test name and timestamp
 	metricsFile := fmt.Sprintf("%s_metrics_%s.json", config.Name, time.Now().Format("20060102_150405"))
 

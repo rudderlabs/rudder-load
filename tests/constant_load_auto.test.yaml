@@ -1,4 +1,4 @@
-# This test maintains a constant load throughout the test duration
+# This test maintains two levels of constant load
 # with equal distribution of users, events, and sources
 # The test automatically calculates the resources based on the target event rate
 

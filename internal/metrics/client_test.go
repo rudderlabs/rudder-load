@@ -87,7 +87,7 @@ func TestMetricsClient_Query(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewMimirClient(server.URL)
+			client := NewMetricsClient(server.URL)
 			resp, err := client.Query(context.Background(), tt.query, tt.time)
 
 			if tt.expectedError != "" {
@@ -175,7 +175,7 @@ func TestMetricsClient_QueryRange(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewMimirClient(server.URL)
+			client := NewMetricsClient(server.URL)
 			resp, err := client.QueryRange(context.Background(), tt.query, tt.start, tt.end, tt.step)
 
 			if tt.expectedError != "" {
@@ -279,7 +279,7 @@ func TestMetricsClient_GetMetrics(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewMimirClient(server.URL)
+			client := NewMetricsClient(server.URL)
 			responses, err := client.GetMetrics(context.Background(), tt.metrics)
 
 			if tt.expectedError != "" {
@@ -319,7 +319,7 @@ func TestMetricsClient_GetMetrics(t *testing.T) {
 	}
 }
 
-func TestMimirClient_Query_ErrorCases(t *testing.T) {
+func TestMetricsClient_Query_ErrorCases(t *testing.T) {
 	tests := []struct {
 		name          string
 		mockResponse  interface{}
@@ -362,9 +362,9 @@ func TestMimirClient_Query_ErrorCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var client *mimirClient
+			var client *MetricsClient
 			if tt.baseURL != "" {
-				client = NewMimirClient(tt.baseURL).(*mimirClient)
+				client = NewMetricsClient(tt.baseURL)
 			} else {
 				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(tt.mockStatus)
@@ -378,7 +378,7 @@ func TestMimirClient_Query_ErrorCases(t *testing.T) {
 					}
 				}))
 				defer server.Close()
-				client = NewMimirClient(server.URL).(*mimirClient)
+				client = NewMetricsClient(server.URL)
 			}
 
 			_, err := client.Query(context.Background(), tt.query, tt.time)
@@ -390,7 +390,7 @@ func TestMimirClient_Query_ErrorCases(t *testing.T) {
 	}
 }
 
-func TestMimirClient_GetMetrics_Extended(t *testing.T) {
+func TestMetricsClient_GetMetrics_Extended(t *testing.T) {
 	tests := []struct {
 		name              string
 		metrics           []parser.Metric
@@ -493,7 +493,7 @@ func TestMimirClient_GetMetrics_Extended(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewMimirClient(server.URL)
+			client := NewMetricsClient(server.URL)
 			responses, err := client.GetMetrics(context.Background(), tt.metrics)
 
 			if tt.expectedError != "" {

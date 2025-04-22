@@ -57,7 +57,7 @@ func run(ctx context.Context, log logger.Logger) error {
 
 	// Create the appropriate infra client based on the local execution flag
 	var infraClient infraClient
-	var metricsClient metrics.MetricsClient
+	var metricsClient *metrics.MetricsClient
 
 	if args.LocalExecution {
 		log.Infon("Using Docker Compose for local execution")
@@ -68,7 +68,7 @@ func run(ctx context.Context, log logger.Logger) error {
 		log.Infon("Using Helm for Kubernetes execution")
 		infraClient = NewHelmClient(&CommandExecutor{}, log)
 		// Use Mimir client for remote execution
-		metricsClient = metrics.NewMimirClient("http://localhost:9898")
+		metricsClient = metrics.NewMetricsClient("http://localhost:9898")
 	}
 
 	portForwardingTimeoutString := parser.GetEnvOrDefault("PORT_FORWARDING_TIMEOUT", "5s")
