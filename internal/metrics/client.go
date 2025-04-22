@@ -185,7 +185,6 @@ func (m *MetricsClient) GetMetrics(ctx context.Context, mts []parser.Metric) ([]
 	return metricsResponses, nil
 }
 
-// getLocalMetrics handles fetching metrics from a local metrics endpoint
 func (m *MetricsClient) getLocalMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
 	var metricsResponses []MetricsResponse
 
@@ -212,15 +211,12 @@ func (m *MetricsClient) getLocalMetrics(ctx context.Context, mts []parser.Metric
 	metricsText := string(body)
 	metricsLines := strings.Split(metricsText, "\n")
 
-	// Create a map of metric names to their values
 	metricMap := make(map[string]float64)
 	for _, line := range metricsLines {
-		// Skip comments and empty lines
 		if strings.HasPrefix(line, "#") || line == "" {
 			continue
 		}
 
-		// Parse the metric line
 		parts := strings.Split(line, " ")
 		if len(parts) < 2 {
 			continue
@@ -236,11 +232,9 @@ func (m *MetricsClient) getLocalMetrics(ctx context.Context, mts []parser.Metric
 			return metricsResponses, fmt.Errorf("failed to parse metric value: %w", err)
 		}
 
-		// Store the metric with its full name (including labels)
 		metricMap[metricName] = metricValue
 	}
 
-	// Process the requested metrics
 	for _, metric := range mts {
 		if value, ok := metricMap[metric.Name]; ok {
 			metricsResponses = append(metricsResponses, MetricsResponse{

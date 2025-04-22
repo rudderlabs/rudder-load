@@ -50,7 +50,6 @@ type LoadTestRunner struct {
 }
 
 func NewLoadTestRunner(config *parser.LoadTestConfig, infraClient infraClient, metricsClient metricsClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
-	// Create a metrics file path based on the load test name and timestamp
 	metricsFile := fmt.Sprintf("%s_metrics_%s.json", config.Name, time.Now().Format("20060102_150405"))
 
 	return &LoadTestRunner{
@@ -74,7 +73,6 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		stopPortForward = func() {} // No-op function
 		r.logger.Infon("Installing Docker compose for load scenario", logger.NewStringField("load_scenario", r.config.Name))
 
-		// Start monitoring metrics for local execution
 		if r.config.Reporting.Metrics != nil {
 			monitoringCtx, cancelMonitoring := context.WithCancel(ctx)
 			defer cancelMonitoring()
@@ -114,7 +112,6 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		}
 		r.logger.Infon("Done!")
 
-		// Write metrics to file after test completion for both local and remote execution
 		if err := r.writeMetricsToFile(); err != nil {
 			r.logger.Errorn("Failed to write metrics to file", obskit.Error(err))
 		}
@@ -145,7 +142,6 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		}
 	}
 
-	// Get summary metrics if not running locally
 	if !r.config.LocalExecution {
 		summaryMetrics, err := r.metricsClient.GetMetrics(ctx, []parser.Metric{
 			{Name: "average rps", Query: fmt.Sprintf("sum(avg_over_time(rudder_load_publish_rate_per_second{}[%v]))", totalDuration)},
@@ -160,7 +156,6 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		}
 		r.logger.Infon("Load test summary metrics", fields...)
 
-		// Add summary metrics to the metrics data
 		r.recordMetrics(summaryMetrics)
 	}
 
@@ -234,10 +229,8 @@ func (r *LoadTestRunner) monitorMetrics(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// For local execution, we need to handle the specific metric format
 			var metricsToFetch []parser.Metric
 
-			// If we're running locally, we need to fetch the specific metric format
 			if _, ok := r.infraClient.(*DockerComposeClient); ok {
 				// For local execution, we need to fetch the specific metric format
 				metricsToFetch = []parser.Metric{
@@ -259,13 +252,11 @@ func (r *LoadTestRunner) monitorMetrics(ctx context.Context) {
 			}
 			r.logger.Infon("Load test metrics", fields...)
 
-			// Record metrics for file output
 			r.recordMetrics(metrics)
 		}
 	}
 }
 
-// recordMetrics adds a new metrics record to the runner's metrics data
 func (r *LoadTestRunner) recordMetrics(metrics []metrics.MetricsResponse) {
 	r.metricsMutex.Lock()
 	defer r.metricsMutex.Unlock()
@@ -285,7 +276,6 @@ func (r *LoadTestRunner) writeMetricsToFile() error {
 		return nil
 	}
 
-	// Create directory if it doesn't exist
 	dir := "metrics_reports"
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create metrics directory: %w", err)
