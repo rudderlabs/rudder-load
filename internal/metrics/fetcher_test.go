@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"rudder-load/internal/parser"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestMetricsFetcher_Query(t *testing.T) {
@@ -72,18 +74,13 @@ func TestMetricsFetcher_Query(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != "POST" {
-					t.Errorf("expected POST request, got %s", r.Method)
-				}
-				if r.URL.Path != "/prometheus/api/v1/query" {
-					t.Errorf("expected path /prometheus/api/v1/query, got %s", r.URL.Path)
-				}
-				if r.Header.Get("X-Scope-OrgID") != "allTenants" {
-					t.Errorf("expected X-Scope-OrgID header 'allTenants', got %s", r.Header.Get("X-Scope-OrgID"))
-				}
+				require.Equal(t, "POST", r.Method, "expected POST request")
+				require.Equal(t, "/prometheus/api/v1/query", r.URL.Path, "expected correct path")
+				require.Equal(t, "allTenants", r.Header.Get("X-Scope-OrgID"), "expected correct header")
 
 				w.WriteHeader(tt.mockStatus)
-				json.NewEncoder(w).Encode(tt.mockResponse)
+				err := json.NewEncoder(w).Encode(tt.mockResponse)
+				require.NoError(t, err)
 			}))
 			defer server.Close()
 
@@ -91,24 +88,12 @@ func TestMetricsFetcher_Query(t *testing.T) {
 			resp, err := metricsFetcher.Query(context.Background(), tt.query, tt.time)
 
 			if tt.expectedError != "" {
-				if err == nil {
-					t.Errorf("expected error, got nil")
-					return
-				}
-				if !strings.Contains(err.Error(), tt.expectedError) {
-					t.Errorf("expected error to contain %q, got %v", tt.expectedError, err)
-				}
+				require.ErrorContains(t, err, tt.expectedError)
 				return
 			}
 
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-				return
-			}
-
-			if resp.Status != tt.mockResponse.Status {
-				t.Errorf("expected status %q, got %q", tt.mockResponse.Status, resp.Status)
-			}
+			require.NoError(t, err)
+			require.Equal(t, tt.mockResponse.Status, resp.Status, "response status mismatch")
 		})
 	}
 }
@@ -163,15 +148,12 @@ func TestMetricsFetcher_QueryRange(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != "POST" {
-					t.Errorf("expected POST request, got %s", r.Method)
-				}
-				if r.URL.Path != "/prometheus/api/v1/query_range" {
-					t.Errorf("expected path /prometheus/api/v1/query_range, got %s", r.URL.Path)
-				}
+				require.Equal(t, "POST", r.Method, "expected POST request")
+				require.Equal(t, "/prometheus/api/v1/query_range", r.URL.Path, "expected correct path")
 
 				w.WriteHeader(tt.mockStatus)
-				json.NewEncoder(w).Encode(tt.mockResponse)
+				err := json.NewEncoder(w).Encode(tt.mockResponse)
+				require.NoError(t, err)
 			}))
 			defer server.Close()
 
@@ -179,16 +161,12 @@ func TestMetricsFetcher_QueryRange(t *testing.T) {
 			resp, err := metricsFetcher.QueryRange(context.Background(), tt.query, tt.start, tt.end, tt.step)
 
 			if tt.expectedError != "" {
-				if err == nil || err.Error() != tt.expectedError {
-					t.Errorf("expected error %q, got %v", tt.expectedError, err)
-				}
+				require.Error(t, err)
+				require.Equal(t, tt.expectedError, err.Error())
 				return
 			}
 
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-				return
-			}
+			require.NoError(t, err)
 
 			if resp.Status != tt.mockResponse.Status {
 				t.Errorf("expected status %q, got %q", tt.mockResponse.Status, resp.Status)
@@ -275,7 +253,8 @@ func TestMetricsFetcher_GetMetrics(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.mockStatus)
-				json.NewEncoder(w).Encode(tt.mockResponse)
+				err := json.NewEncoder(w).Encode(tt.mockResponse)
+				require.NoError(t, err)
 			}))
 			defer server.Close()
 
@@ -283,21 +262,13 @@ func TestMetricsFetcher_GetMetrics(t *testing.T) {
 			responses, err := metricsFetcher.GetMetrics(context.Background(), tt.metrics)
 
 			if tt.expectedError != "" {
-				if err == nil || err.Error() != tt.expectedError {
-					t.Errorf("expected error %q, got %v", tt.expectedError, err)
-				}
+				require.Error(t, err)
+				require.Equal(t, tt.expectedError, err.Error())
 				return
 			}
 
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-				return
-			}
-
-			if len(responses) == 0 {
-				t.Error("expected at least one response")
-				return
-			}
+			require.NoError(t, err)
+			require.NotEmpty(t, responses, "expected at least one response")
 
 			var metricResp *MetricsResponse
 			for _, resp := range responses {
@@ -307,14 +278,8 @@ func TestMetricsFetcher_GetMetrics(t *testing.T) {
 				}
 			}
 
-			if metricResp == nil {
-				t.Error("RPS metric not found in response")
-				return
-			}
-
-			if metricResp.Value != tt.expectedMetricValue {
-				t.Errorf("expected RPS %f, got %f", tt.expectedMetricValue, metricResp.Value)
-			}
+			require.NotNil(t, metricResp, "RPS metric not found in response")
+			require.Equal(t, tt.expectedMetricValue, metricResp.Value, "RPS value mismatch")
 		})
 	}
 }
@@ -362,7 +327,7 @@ func TestMetricsFetcher_Query_ErrorCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var metricsFetcher *MetricsFetcher
+			var metricsFetcher *Fetcher
 			if tt.baseURL != "" {
 				metricsFetcher = NewMetricsFetcher(tt.baseURL)
 			} else {
@@ -373,7 +338,8 @@ func TestMetricsFetcher_Query_ErrorCases(t *testing.T) {
 						case string:
 							w.Write([]byte(v))
 						default:
-							json.NewEncoder(w).Encode(v)
+							err := json.NewEncoder(w).Encode(v)
+							require.NoError(t, err)
 						}
 					}
 				}))
@@ -382,10 +348,7 @@ func TestMetricsFetcher_Query_ErrorCases(t *testing.T) {
 			}
 
 			_, err := metricsFetcher.Query(context.Background(), tt.query, tt.time)
-
-			if err == nil || !strings.Contains(err.Error(), tt.expectedError) {
-				t.Errorf("expected error containing %q, got %v", tt.expectedError, err)
-			}
+			require.ErrorContains(t, err, tt.expectedError)
 		})
 	}
 }
@@ -489,7 +452,8 @@ func TestMetricsFetcher_GetMetrics_Extended(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.mockStatus)
-				json.NewEncoder(w).Encode(tt.mockResponse)
+				err := json.NewEncoder(w).Encode(tt.mockResponse)
+				require.NoError(t, err)
 			}))
 			defer server.Close()
 
@@ -497,32 +461,19 @@ func TestMetricsFetcher_GetMetrics_Extended(t *testing.T) {
 			responses, err := metricsFetcher.GetMetrics(context.Background(), tt.metrics)
 
 			if tt.expectedError != "" {
-				if err == nil || !strings.Contains(err.Error(), tt.expectedError) {
-					t.Errorf("expected error containing %q, got %v", tt.expectedError, err)
-				}
+				require.ErrorContains(t, err, tt.expectedError)
 				return
 			}
 
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-				return
-			}
-
-			if len(responses) != len(tt.expectedResponses) {
-				t.Errorf("expected %d responses, got %d", len(tt.expectedResponses), len(responses))
-				return
-			}
+			require.NoError(t, err)
+			require.Equal(t, len(tt.expectedResponses), len(responses), "number of responses mismatch")
 
 			for i, expected := range tt.expectedResponses {
-				if responses[i].Key != expected.Key {
-					t.Errorf("response[%d]: expected key %q, got %q", i, expected.Key, responses[i].Key)
-				}
+				require.Equal(t, expected.Key, responses[i].Key, "response key mismatch")
 				if math.IsNaN(expected.Value) {
-					if !math.IsNaN(responses[i].Value) {
-						t.Errorf("response[%d]: expected NaN value, got %f", i, responses[i].Value)
-					}
-				} else if responses[i].Value != expected.Value {
-					t.Errorf("response[%d]: expected value %f, got %f", i, expected.Value, responses[i].Value)
+					require.True(t, math.IsNaN(responses[i].Value), "expected NaN value")
+				} else {
+					require.Equal(t, expected.Value, responses[i].Value, "response value mismatch")
 				}
 			}
 		})
@@ -620,10 +571,7 @@ func TestLocalMetricsFetcher_GetMetrics(t *testing.T) {
 				return
 			}
 
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-				return
-			}
+			require.NoError(t, err)
 
 			if len(responses) != len(tt.expectedResponses) {
 				t.Errorf("expected %d responses, got %d", len(tt.expectedResponses), len(responses))
@@ -652,14 +600,10 @@ func TestLocalMetricsFetcher_UnsupportedMethods(t *testing.T) {
 
 	t.Run("Query method", func(t *testing.T) {
 		_, err := metricsFetcher.Query(ctx, "test_query", time.Now().Unix())
-		if err == nil || !strings.Contains(err.Error(), "not supported") {
-			t.Errorf("expected error about unsupported method, got %v", err)
-		}
+		require.ErrorContains(t, err, "not supported")
 	})
 	t.Run("QueryRange method", func(t *testing.T) {
 		_, err := metricsFetcher.QueryRange(ctx, "test_query", time.Now().Add(-1*time.Hour).Unix(), time.Now().Unix(), "1m")
-		if err == nil || !strings.Contains(err.Error(), "not supported") {
-			t.Errorf("expected error about unsupported method, got %v", err)
-		}
+		require.ErrorContains(t, err, "not supported")
 	})
 }

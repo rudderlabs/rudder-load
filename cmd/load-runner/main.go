@@ -57,7 +57,7 @@ func run(ctx context.Context, log logger.Logger) error {
 
 	// Create the appropriate loadTestManager based on the local execution flag
 	var loadTestManager loadTestManager
-	var metricsFetcher *metrics.MetricsFetcher
+	var metricsFetcher *metrics.Fetcher
 
 	if args.LocalExecution {
 		log.Infon("Using Docker Compose for local execution")

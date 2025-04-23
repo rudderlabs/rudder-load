@@ -15,7 +15,7 @@ import (
 	"rudder-load/internal/parser"
 )
 
-type MetricsFetcher struct {
+type Fetcher struct {
 	baseURL string
 	client  *http.Client
 	isLocal bool
@@ -38,8 +38,8 @@ type MetricsResponse struct {
 	Value float64
 }
 
-func NewMetricsFetcher(baseURL string) *MetricsFetcher {
-	return &MetricsFetcher{
+func NewMetricsFetcher(baseURL string) *Fetcher {
+	return &Fetcher{
 		baseURL: baseURL,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
@@ -48,8 +48,8 @@ func NewMetricsFetcher(baseURL string) *MetricsFetcher {
 	}
 }
 
-func NewLocalMetricsFetcher(baseURL string) *MetricsFetcher {
-	return &MetricsFetcher{
+func NewLocalMetricsFetcher(baseURL string) *Fetcher {
+	return &Fetcher{
 		baseURL: baseURL,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
@@ -58,7 +58,7 @@ func NewLocalMetricsFetcher(baseURL string) *MetricsFetcher {
 	}
 }
 
-func (m *MetricsFetcher) Query(ctx context.Context, query string, time int64) (QueryResponse, error) {
+func (m *Fetcher) Query(ctx context.Context, query string, time int64) (QueryResponse, error) {
 	if m.isLocal {
 		return QueryResponse{}, fmt.Errorf("Query method not supported for local metrics fetcher")
 	}
@@ -102,7 +102,7 @@ func (m *MetricsFetcher) Query(ctx context.Context, query string, time int64) (Q
 	return queryResp, nil
 }
 
-func (m *MetricsFetcher) QueryRange(ctx context.Context, query string, start int64, end int64, step string) (QueryResponse, error) {
+func (m *Fetcher) QueryRange(ctx context.Context, query string, start int64, end int64, step string) (QueryResponse, error) {
 	if m.isLocal {
 		return QueryResponse{}, fmt.Errorf("QueryRange method not supported for local metrics fetcher")
 	}
@@ -151,7 +151,7 @@ func (m *MetricsFetcher) QueryRange(ctx context.Context, query string, start int
 	return queryResp, nil
 }
 
-func (m *MetricsFetcher) GetMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
+func (m *Fetcher) GetMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
 	if m.isLocal {
 		return m.getLocalMetrics(ctx, mts)
 	}
@@ -185,7 +185,7 @@ func (m *MetricsFetcher) GetMetrics(ctx context.Context, mts []parser.Metric) ([
 	return metricsResponses, nil
 }
 
-func (m *MetricsFetcher) getLocalMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
+func (m *Fetcher) getLocalMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
 	var metricsResponses []MetricsResponse
 
 	req, err := http.NewRequestWithContext(ctx, "GET", m.baseURL, nil)
