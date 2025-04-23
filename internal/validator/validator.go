@@ -2,9 +2,12 @@ package validator
 
 import (
 	"fmt"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+
+	json "github.com/sugawarayuuta/sonnet"
 
 	"rudder-load/internal/parser"
 )
@@ -14,7 +17,7 @@ var (
 	loadNameValidator     = regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
 	durationValidator     = regexp.MustCompile(`^(\d+[hms])+$`)
 	httpEndpointValidator = regexp.MustCompile(`^https?://[a-zA-Z0-9.-]+(:\d+)?(/.*)?$`)
-	sha256Validator    = regexp.MustCompile(`^[a-fA-F0-9]{64}$`)
+	sha256Validator       = regexp.MustCompile(`^[a-fA-F0-9]{64}$`)
 )
 
 func ValidateNamespace(namespace string) error {
@@ -73,7 +76,7 @@ func ValidateHotSources(hotSources string) error {
 	return nil
 }
 
-func ValidateHotSourcesDistribution(source string, hotSources string) error {
+func ValidateHotSourcesDistribution(source, hotSources string) error {
 	if hotSources == "" {
 		return nil
 	}
