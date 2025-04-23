@@ -19,6 +19,8 @@ type DockerComposeClient struct {
 	composeFilePath string
 }
 
+var defaultComposeFile = filepath.Join(".", "docker-compose.yaml")
+
 func NewDockerComposeClient(executor commandExecutor, logger logger.Logger) *DockerComposeClient {
 	return &DockerComposeClient{executor: executor, logger: logger}
 }
@@ -77,7 +79,7 @@ func (d *DockerComposeClient) Uninstall(config *parser.LoadTestConfig) error {
 	composeFile := d.composeFilePath
 	if composeFile == "" {
 		// Fallback to the default path if the saved path is empty
-		composeFile = filepath.Join(".", "docker-compose.yaml")
+		composeFile = defaultComposeFile
 	}
 
 	if _, err := os.Stat(composeFile); os.IsNotExist(err) {
@@ -90,7 +92,7 @@ func (d *DockerComposeClient) Uninstall(config *parser.LoadTestConfig) error {
 	err := d.executor.run(context.Background(), "docker-compose", args...)
 
 	// Clean up the temporary file after stopping the services
-	if composeFile != filepath.Join(".", "docker-compose.yaml") {
+	if composeFile != defaultComposeFile {
 		if err := os.Remove(composeFile); err != nil {
 			d.logger.Warn("Failed to remove temporary compose file", logger.NewErrorField(err))
 		}
@@ -102,7 +104,7 @@ func (d *DockerComposeClient) Uninstall(config *parser.LoadTestConfig) error {
 // createComposeFile creates a temporary docker-compose file with the environment variables
 func (d *DockerComposeClient) createComposeFile(config *parser.LoadTestConfig) (string, error) {
 	// Read the original docker-compose.yaml file
-	originalComposeFile := filepath.Join(".", "docker-compose.yaml")
+	originalComposeFile := defaultComposeFile
 	content, err := os.ReadFile(originalComposeFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to read compose file: %w", err)
