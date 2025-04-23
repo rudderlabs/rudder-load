@@ -36,6 +36,7 @@ const (
 	modeStdout = "stdout"
 	modeHTTP   = "http"
 	modeHTTP2  = "http2"
+	modePulsar = "pulsar"
 
 	hostnameSep = "rudder-load-"
 
@@ -244,6 +245,8 @@ func run(ctx context.Context) int {
 			return producer.NewHTTP2Producer(os.Environ())
 		case modeStdout:
 			return producer.NewStdoutPublisher(), nil
+		case modePulsar:
+			return producer.NewPulsarProducer(os.Environ())
 		default:
 			return nil, fmt.Errorf("unknown mode: %s", mode)
 		}

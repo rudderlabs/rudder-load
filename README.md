@@ -173,7 +173,7 @@ The load-runner uses the values from your `<prefix>_values_copy.yaml` file (e.g.
 
 ```yaml
 env:
-  # The mode of operation: "http", "http2", or "stdout"
+  # The mode of operation: "http", "http2", "pulsar", or "stdout"
   MODE: "http"
 
   # Unique identifier for the load test (if empty, a random UUID will be generated)
@@ -249,6 +249,50 @@ env:
 
   # Target endpoint URL where events will be sent
   HTTP_ENDPOINT: "https://dataplane.rudderstack.com/v1/batch"
+
+  # Pulsar Settings
+
+  # Required Settings
+
+  # Pulsar service URL (e.g., "pulsar://localhost:6650")
+  PULSAR_SERVICE_URL: "pulsar://localhost:6650"
+
+  # Topic to produce messages to
+  PULSAR_TOPIC: "rudder-events"
+
+  # Optional Client Settings
+
+  # Timeout for operations (default: 30s)
+  PULSAR_OPERATION_TIMEOUT: "30s"
+
+  # Timeout for connections (default: 30s)
+  PULSAR_CONNECTION_TIMEOUT: "30s"
+
+  # Enable TLS (default: false)
+  PULSAR_ENABLE_TLS: "false"
+
+  # Allow insecure TLS connections (default: false)
+  PULSAR_TLS_ALLOW_INSECURE: "false"
+
+  # Path to the TLS trust certificates file
+  PULSAR_TLS_TRUST_CERTS_FILE_PATH: ""
+
+  # Optional Producer Settings
+
+  # Enable message batching (default: true)
+  PULSAR_BATCHING_ENABLED: "true"
+
+  # Maximum number of messages in a batch (default: 1000)
+  PULSAR_BATCHING_MAX_MESSAGES: "1000"
+
+  # Maximum size of a batch in bytes (default: 128KB)
+  PULSAR_BATCHING_MAX_SIZE: "131072"
+
+  # Maximum delay for publishing a batch (default: 10ms)
+  PULSAR_BATCHING_MAX_PUBLISH_DELAY: "10ms"
+
+  # Compression type (none, zlib, lz4, zstd) (default: none)
+  PULSAR_COMPRESSION_TYPE: "none"
 
   # Other Settings
 
