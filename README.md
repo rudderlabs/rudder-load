@@ -20,11 +20,11 @@ owning a set of keys. This way we can guarantee in-order delivery of events per 
 5. Total users: 100000 (number of unique users that will be used to generate the messages for each replica)
 6. Hot user groups: 70,30 (creates equal number of groups of users and defines their distribution for the events sent)
     - Rules:
-      
+
       a. the sum of all the comma separated values must be equal to 100 (percentage)
 
       b. the percentage of user IDs concentration that will be used to generate the messages.
-        
+
         - Example:  In this case we have 100,000 total users (see point 5) and we are defining 2 hot user groups so we just divide
       100,000 by 2 which gives us 2 groups of 50k users each. The probability of a message being generated for a user
       in the first group is 70% and 30% for the second group.
@@ -167,7 +167,7 @@ The load-runner uses the values from your `<prefix>_values_copy.yaml` file (e.g.
 
 ```yaml
 env:
-  # The mode of operation, typically "http"
+  # The mode of operation: "http", "http2", or "stdout"
   MODE: "http"
 
   # Unique identifier for the load test (if empty, a random UUID will be generated)
@@ -203,7 +203,8 @@ env:
   # Event Configuration
 
   # Comma-separated list of event types to generate
-  # Options include: track, page, identify, and custom types
+  # Options include: track, page, identify, ut-email, and custom types
+  # ut-email: generates events with email fields for testing user transformers that hash emails
   EVENT_TYPES: "track,page,identify"
 
   # Percentage distribution of event types (must sum to 100)
@@ -255,14 +256,18 @@ env:
   SOFT_MEMORY_LIMIT: "256mb"
 
   # Automatically define CPU, memory, message generators and concurrency based on the target event rate set in `MAX_EVENTS_PER_SECOND`
+  # Options:
+  # - "auto": Automatically calculate resources
+  # - "overprovision,X": Overprovision resources by X percent (e.g., "overprovision,20" means overprovision by 20%)
   RESOURCE_CALCULATION: "auto"
-
-  # Automatically define CPU, memory, message generators and concurrency based on the target event rate set in `MAX_EVENTS_PER_SECOND`
-  # overprovisioning each resource by the percentage mentioned after the comma e.g. "overprovision,20" means overprovision by 20%
-  RESOURCE_CALCULATION: "overprovision,20"
 
   # Timeout when attempting to port forward 
   PORT_FORWARDING_TIMEOUT: "10s"
+
+  # Response validation type (if specified, validates responses from the server)
+  # Options:
+  # - "user-transformer-hash-email": Validates that email fields are properly hashed with SHA256
+  VALIDATOR_TYPE: ""
 ```
 
 #### Overriding Configuration

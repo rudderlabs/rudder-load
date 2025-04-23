@@ -15,7 +15,7 @@ const (
 )
 
 type publisher interface {
-	PublishTo(ctx context.Context, key string, message []byte, extra map[string]string) (int, error)
+	PublishTo(ctx context.Context, key string, message []byte, extra map[string]string) ([]byte, error)
 	Close() error
 }
 
@@ -61,8 +61,8 @@ func NewFactory(reg *prometheus.Registry, data Data) (*Factory, error) {
 	publishDurationSeconds := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name: data.Prefix + "publish_duration_seconds",
 		Help: "Publish duration in seconds",
-		// Buckets: []float64{0.5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s}
-		Buckets:     []float64{0.0005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
+		// Buckets: 0.5ms, 10ms, 25ms, 50ms, 75ms, 100ms, 150ms, 200ms, 250ms, 375ms, 500ms, 1s, 2.5s, 5s
+		Buckets:     []float64{0.5, 10, 25, 50, 75, 100, 150, 200, 250, 375, 500, 1000, 2500, 5000},
 		ConstLabels: constLabels,
 	}, publishDurationSecondsLabels)
 	reg.MustRegister(publishDurationSeconds)
@@ -105,13 +105,13 @@ func (f *Factory) New(p publisher) *Stats {
 	}
 }
 
-func (s *Stats) PublishTo(ctx context.Context, key string, message []byte, extra map[string]string) (int, error) {
+func (s *Stats) PublishTo(ctx context.Context, key string, message []byte, extra map[string]string) ([]byte, error) {
 	start := time.Now()
-	n, err := s.p.PublishTo(ctx, key, message, extra)
+	rb, err := s.p.PublishTo(ctx, key, message, extra)
 	elapsed := time.Since(start).Seconds()
 
 	if errors.Is(err, context.Canceled) {
-		return 0, err
+		return nil, err
 	}
 
 	labels := prometheus.Labels{
@@ -126,7 +126,7 @@ func (s *Stats) PublishTo(ctx context.Context, key string, message []byte, extra
 	}
 	s.f.publishDurationSeconds.With(labels).Observe(elapsed)
 
-	return n, err
+	return rb, err
 }
 
 func (s *Stats) Close() error {
