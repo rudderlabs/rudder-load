@@ -157,7 +157,7 @@ func TestHTTPProducer_PublishTo(t *testing.T) {
 			}()
 
 			// Publish message
-			n, err := producer.PublishTo(context.Background(), tt.key, tt.message, tt.extra)
+			response, err := producer.PublishTo(context.Background(), tt.key, tt.message, tt.extra)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -166,7 +166,7 @@ func TestHTTPProducer_PublishTo(t *testing.T) {
 
 			require.NoError(t, err)
 			if !tt.compression {
-				require.Equal(t, len(tt.message), n)
+				require.NotNil(t, response)
 			}
 		})
 	}
