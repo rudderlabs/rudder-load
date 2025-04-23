@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/require"
@@ -272,6 +274,72 @@ func TestPulsarProducer(t *testing.T) {
 		require.Equal(t, message, msg.Payload())
 		require.Equal(t, key, msg.Key())
 		require.Equal(t, slotName, msg.Properties()["slotName"])
+
+		// Acknowledge the message
+		require.NoError(t, consumer.Ack(msg))
+	})
+
+	// Test with UUID as slot name and as topic
+	t.Run("UUID as slot name and topic", func(t *testing.T) {
+		// Generate a UUID for the slot name, same as in main.go
+		uuidSlotName := uuid.New().String()
+
+		// Create a fallback topic (should not be used)
+		fallbackTopic := "fallback-topic-uuid"
+
+		// Create a consumer client
+		consumerClient, err := pulsar.NewClient(pulsar.ClientOptions{
+			URL: pulsarURL,
+		})
+		require.NoError(t, err)
+		defer consumerClient.Close()
+
+		// Create a consumer that subscribes to the UUID as topic
+		consumer, err := consumerClient.Subscribe(pulsar.ConsumerOptions{
+			Topic:            uuidSlotName, // Using UUID as topic
+			SubscriptionName: "test-subscription",
+			Type:             pulsar.Exclusive,
+		})
+		require.NoError(t, err)
+		defer consumer.Close()
+
+		// Create a producer using our PulsarProducer implementation with UUID as slot name and topic
+		producer, err := NewPulsarProducer(uuidSlotName, []string{
+			"PULSAR_URL=" + pulsarURL,
+			"PULSAR_TOPIC=" + fallbackTopic,
+			"PULSAR_BATCHING_ENABLED=false",
+			"PULSAR_USE_SLOT_NAME_AS_TOPIC=true", // Use UUID as topic
+		})
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, producer.Close())
+		}()
+
+		// Verify producer options
+		require.Equal(t, uuidSlotName, producer.producerOptions.Topic)
+		require.NotEqual(t, fallbackTopic, producer.producerOptions.Topic)
+		require.Equal(t, uuidSlotName, producer.slotName)
+
+		// Send a message
+		ctx := context.Background()
+		message := []byte(`{"test":"data with UUID as slot name and topic"}`)
+		key := "test-key-uuid-slot-topic"
+		extra := map[string]string{"property1": "value1"}
+
+		_, err = producer.PublishTo(ctx, key, message, extra)
+		require.NoError(t, err)
+
+		// Receive the message
+		ctx, cancel := context.WithTimeout(context.Background(), receiveMsgTimeout)
+		msg, err := consumer.Receive(ctx)
+		cancel()
+		require.NoError(t, err)
+
+		// Verify the message
+		require.Equal(t, message, msg.Payload())
+		require.Equal(t, key, msg.Key())
+		require.Equal(t, "value1", msg.Properties()["property1"])
+		require.Equal(t, uuidSlotName, msg.Properties()["slotName"])
 
 		// Acknowledge the message
 		require.NoError(t, consumer.Ack(msg))
