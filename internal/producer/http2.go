@@ -25,9 +25,10 @@ type HTTP2Producer struct {
 	keyHeader   string
 	clientType  string
 	compression bool
+	slotName    string
 }
 
-func NewHTTP2Producer(environ []string) (*HTTP2Producer, error) {
+func NewHTTP2Producer(slotName string, environ []string) (*HTTP2Producer, error) {
 	conf, err := readConfiguration("HTTP2_", environ)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read http configuration: %v", err)
@@ -75,6 +76,7 @@ func NewHTTP2Producer(environ []string) (*HTTP2Producer, error) {
 		contentType: contentType,
 		keyHeader:   keyHeader,
 		compression: compression,
+		slotName:    slotName,
 	}, nil
 }
 
@@ -106,6 +108,11 @@ func (p *HTTP2Producer) PublishTo(ctx context.Context, key string, message []byt
 	}
 	if anonymousID, ok := extra["anonymous_id"]; ok {
 		req.Header.Set("AnonymousId", anonymousID)
+	}
+
+	// Set X-SlotName header
+	if p.slotName != "" {
+		req.Header.Set("X-SlotName", p.slotName)
 	}
 
 	res, err := p.c.Do(req)

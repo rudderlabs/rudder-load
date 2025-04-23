@@ -69,7 +69,7 @@ func TestNewHTTPProducer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			producer, err := NewHTTPProducer(tt.env)
+			producer, err := NewHTTPProducer("test-slot", tt.env)
 			if tt.wantErr {
 				require.Error(t, err)
 				require.Nil(t, producer)
@@ -109,6 +109,7 @@ func TestHTTPProducer_PublishTo(t *testing.T) {
 				require.Equal(t, "test-key", r.Header.Get("X-Write-Key"))
 				require.Equal(t, "Basic "+base64.StdEncoding.EncodeToString([]byte("write-key:")), r.Header.Get("Authorization"))
 				require.Equal(t, "user123", r.Header.Get("AnonymousId"))
+				require.Equal(t, "test-slot", r.Header.Get("X-SlotName"))
 				w.WriteHeader(http.StatusOK)
 			},
 			wantErr: false,
@@ -118,6 +119,7 @@ func TestHTTPProducer_PublishTo(t *testing.T) {
 			compression: false,
 			message:     []byte(`{"test":"data"}`),
 			serverHandler: func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, "test-slot", r.Header.Get("X-SlotName"))
 				w.WriteHeader(http.StatusInternalServerError)
 				_, _ = w.Write([]byte("internal error"))
 			},
@@ -129,6 +131,7 @@ func TestHTTPProducer_PublishTo(t *testing.T) {
 			message:     []byte(`{"test":"data"}`),
 			serverHandler: func(w http.ResponseWriter, r *http.Request) {
 				require.Equal(t, "gzip", r.Header.Get("Content-Encoding"))
+				require.Equal(t, "test-slot", r.Header.Get("X-SlotName"))
 				w.WriteHeader(http.StatusOK)
 			},
 			wantErr: false,
@@ -150,7 +153,7 @@ func TestHTTPProducer_PublishTo(t *testing.T) {
 				env = append(env, "HTTP_KEY_HEADER="+tt.keyHeader)
 			}
 
-			producer, err := NewHTTPProducer(env)
+			producer, err := NewHTTPProducer("test-slot", env)
 			require.NoError(t, err)
 			defer func() {
 				require.NoError(t, producer.Close())
@@ -173,7 +176,7 @@ func TestHTTPProducer_PublishTo(t *testing.T) {
 }
 
 func TestHTTPProducer_Close(t *testing.T) {
-	producer, err := NewHTTPProducer([]string{"HTTP_ENDPOINT=http://localhost:8080"})
+	producer, err := NewHTTPProducer("test-slot", []string{"HTTP_ENDPOINT=http://localhost:8080"})
 	require.NoError(t, err)
 
 	err = producer.Close()
@@ -181,7 +184,7 @@ func TestHTTPProducer_Close(t *testing.T) {
 }
 
 func TestHTTPProducer_ConnectionFailure(t *testing.T) {
-	producer, err := NewHTTPProducer([]string{"HTTP_ENDPOINT=http://localhost:12345"}) // Unlikely to be running
+	producer, err := NewHTTPProducer("test-slot", []string{"HTTP_ENDPOINT=http://localhost:12345"}) // Unlikely to be running
 	require.NoError(t, err)
 
 	_, err = producer.PublishTo(context.Background(), "key", []byte("test"), nil)

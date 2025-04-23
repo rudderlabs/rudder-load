@@ -10,6 +10,8 @@ import (
 	"text/template"
 	"time"
 
+	"rudder-load/internal/producer"
+
 	"github.com/google/uuid"
 )
 
@@ -335,4 +337,38 @@ func optionalMap(s string, items []string) []int {
 
 	// Parse provided percentages
 	return mustMap(s)
+}
+
+func mustProducerMode(s string) producerMode {
+	v := strings.ToLower(strings.Trim(os.Getenv(s), " "))
+	switch v {
+	case "stdout":
+		return modeStdout
+	case "http":
+		return modeHTTP
+	case "http2":
+		return modeHTTP2
+	case "pulsar":
+		return modePulsar
+	default:
+		panic(fmt.Errorf("producer mode out of the known domain: %s", s))
+	}
+}
+
+func newProducer(slotName string, mode producerMode, useOneClientPerSlot bool) (publisherCloser, error) {
+	switch mode {
+	case modeHTTP:
+		return producer.NewHTTPProducer(slotName, os.Environ())
+	case modeHTTP2:
+		return producer.NewHTTP2Producer(slotName, os.Environ())
+	case modeStdout:
+		return producer.NewStdoutPublisher(slotName), nil
+	case modePulsar:
+		if !useOneClientPerSlot {
+			return nil, fmt.Errorf("pulsar mode requires useOneClientPerSlot to be true")
+		}
+		return producer.NewPulsarProducer(slotName, os.Environ())
+	default:
+		return nil, fmt.Errorf("unknown mode: %s", mode)
+	}
 }

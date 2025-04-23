@@ -46,7 +46,7 @@ func TestPulsarProducer(t *testing.T) {
 		defer consumer.Close()
 
 		// Create a producer using our PulsarProducer implementation
-		producer, err := NewPulsarProducer([]string{
+		producer, err := NewPulsarProducer("test-slot", []string{
 			"PULSAR_URL=" + pulsarURL,
 			"PULSAR_TOPIC=" + topic,
 			"PULSAR_BATCHING_ENABLED=false",
@@ -80,6 +80,7 @@ func TestPulsarProducer(t *testing.T) {
 		require.Equal(t, message, msg.Payload())
 		require.Equal(t, key, msg.Key())
 		require.Equal(t, "value1", msg.Properties()["property1"])
+		require.Equal(t, "test-slot", msg.Properties()["slotName"])
 
 		// Acknowledge the message
 		require.NoError(t, consumer.Ack(msg))
@@ -107,7 +108,7 @@ func TestPulsarProducer(t *testing.T) {
 		defer consumer.Close()
 
 		// Create a producer using our PulsarProducer implementation with compression
-		producer, err := NewPulsarProducer([]string{
+		producer, err := NewPulsarProducer("compression-slot", []string{
 			"PULSAR_URL=" + pulsarURL,
 			"PULSAR_TOPIC=" + topic,
 			"PULSAR_COMPRESSION_TYPE=zstd",
@@ -140,6 +141,7 @@ func TestPulsarProducer(t *testing.T) {
 		// Verify the message
 		require.Equal(t, message, msg.Payload())
 		require.Equal(t, key, msg.Key())
+		require.Equal(t, "compression-slot", msg.Properties()["slotName"])
 
 		// Acknowledge the message
 		require.NoError(t, consumer.Ack(msg))
@@ -167,7 +169,7 @@ func TestPulsarProducer(t *testing.T) {
 		defer consumer.Close()
 
 		// Create a producer using our PulsarProducer implementation with batching
-		producer, err := NewPulsarProducer([]string{
+		producer, err := NewPulsarProducer("batching-slot", []string{
 			"PULSAR_URL=" + pulsarURL,
 			"PULSAR_TOPIC=" + topic,
 			"PULSAR_BATCHING_ENABLED=true",
@@ -204,6 +206,9 @@ func TestPulsarProducer(t *testing.T) {
 			msg, err := consumer.Receive(ctx)
 			cancel()
 			require.NoError(t, err)
+
+			// Verify slotName is set in message properties
+			require.Equal(t, "batching-slot", msg.Properties()["slotName"])
 
 			// Acknowledge the message
 			require.NoError(t, consumer.Ack(msg))

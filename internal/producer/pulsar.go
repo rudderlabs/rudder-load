@@ -35,11 +35,12 @@ type PulsarProducer struct {
 	client          pulsar.Client
 	producer        pulsar.Producer
 	producerOptions pulsar.ProducerOptions
+	slotName        string
 }
 
 // NewPulsarProducer creates a new Pulsar producer with the given environment variables.
 // It reads configuration from environment variables with the PULSAR_ prefix.
-func NewPulsarProducer(environ []string) (*PulsarProducer, error) {
+func NewPulsarProducer(slotName string, environ []string) (*PulsarProducer, error) {
 	conf, err := readConfiguration("PULSAR_", environ)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read pulsar configuration: %v", err)
@@ -170,6 +171,7 @@ func NewPulsarProducer(environ []string) (*PulsarProducer, error) {
 		producer:        producer,
 		topic:           topic,
 		producerOptions: producerOptions,
+		slotName:        slotName,
 	}, nil
 }
 
@@ -185,11 +187,19 @@ func (p *PulsarProducer) PublishTo(ctx context.Context, key string, message []by
 	}
 
 	// Add properties from extra map
+	properties := make(map[string]string)
 	if len(extra) > 0 {
-		properties := make(map[string]string)
 		for k, v := range extra {
 			properties[k] = v
 		}
+	}
+
+	// Add slotName as a message property
+	if p.slotName != "" {
+		properties["slotName"] = p.slotName
+	}
+
+	if len(properties) > 0 {
 		msg.Properties = properties
 	}
 

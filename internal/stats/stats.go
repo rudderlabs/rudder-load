@@ -20,8 +20,9 @@ type publisher interface {
 }
 
 type Stats struct {
-	p publisher
-	f *Factory
+	p        publisher
+	f        *Factory
+	slotName string
 }
 
 type Data struct {
@@ -57,7 +58,7 @@ func NewFactory(reg *prometheus.Registry, data Data) (*Factory, error) {
 		"total_users": strconv.Itoa(data.TotalUsers),
 	}
 
-	publishDurationSecondsLabels := []string{errorLabel}
+	publishDurationSecondsLabels := []string{errorLabel, "slot_name"}
 	publishDurationSeconds := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name: data.Prefix + "publish_duration_seconds",
 		Help: "Publish duration in seconds",
@@ -98,10 +99,11 @@ func NewFactory(reg *prometheus.Registry, data Data) (*Factory, error) {
 	}, nil
 }
 
-func (f *Factory) New(p publisher) *Stats {
+func (f *Factory) New(p publisher, slotName string) *Stats {
 	return &Stats{
-		p: p,
-		f: f,
+		p:        p,
+		f:        f,
+		slotName: slotName,
 	}
 }
 
@@ -115,7 +117,8 @@ func (s *Stats) PublishTo(ctx context.Context, key string, message []byte, extra
 	}
 
 	labels := prometheus.Labels{
-		errorLabel: "false",
+		errorLabel:  "false",
+		"slot_name": s.slotName,
 	}
 	if err != nil {
 		s.f.errorRateTotal.Inc()

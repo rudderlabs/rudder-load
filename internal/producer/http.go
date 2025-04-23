@@ -23,9 +23,10 @@ type HTTPProducer struct {
 	keyHeader   string
 	clientType  string
 	compression bool
+	slotName    string
 }
 
-func NewHTTPProducer(environ []string) (*HTTPProducer, error) {
+func NewHTTPProducer(slotName string, environ []string) (*HTTPProducer, error) {
 	conf, err := readConfiguration("HTTP_", environ)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read http configuration: %v", err)
@@ -101,6 +102,7 @@ func NewHTTPProducer(environ []string) (*HTTPProducer, error) {
 		keyHeader:   keyHeader,
 		clientType:  clientType,
 		compression: compression,
+		slotName:    slotName,
 	}, nil
 }
 
@@ -128,6 +130,11 @@ func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, 
 	}
 	if anonymousID, ok := extra["anonymous_id"]; ok {
 		req.Header.Set("AnonymousId", anonymousID)
+	}
+
+	// Set X-SlotName header
+	if p.slotName != "" {
+		req.Header.Set("X-SlotName", p.slotName)
 	}
 
 	res := fasthttp.AcquireResponse()
