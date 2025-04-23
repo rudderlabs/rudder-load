@@ -31,9 +31,10 @@ import (
 // - PULSAR_BATCHING_MAX_PUBLISH_DELAY: Maximum delay for publishing a batch (default: 10ms)
 // - PULSAR_COMPRESSION_TYPE: Compression type (none, zlib, lz4, zstd) (default: none)
 type PulsarProducer struct {
-	client   pulsar.Client
-	producer pulsar.Producer
-	topic    string
+	topic           string
+	client          pulsar.Client
+	producer        pulsar.Producer
+	producerOptions pulsar.ProducerOptions
 }
 
 // NewPulsarProducer creates a new Pulsar producer with the given environment variables.
@@ -165,9 +166,10 @@ func NewPulsarProducer(environ []string) (*PulsarProducer, error) {
 	}
 
 	return &PulsarProducer{
-		client:   client,
-		producer: producer,
-		topic:    topic,
+		client:          client,
+		producer:        producer,
+		topic:           topic,
+		producerOptions: producerOptions,
 	}, nil
 }
 

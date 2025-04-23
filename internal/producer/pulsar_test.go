@@ -17,6 +17,7 @@ func TestPulsarProducer(t *testing.T) {
 
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
+	pool.MaxWait = time.Minute
 
 	pulsarResource, err := dockerPulsar.Setup(pool, t, dockerPulsar.WithTag("3.3.6"))
 	require.NoError(t, err)
@@ -48,11 +49,17 @@ func TestPulsarProducer(t *testing.T) {
 		producer, err := NewPulsarProducer([]string{
 			"PULSAR_URL=" + pulsarURL,
 			"PULSAR_TOPIC=" + topic,
+			"PULSAR_BATCHING_ENABLED=false",
 		})
 		require.NoError(t, err)
 		defer func() {
 			require.NoError(t, producer.Close())
 		}()
+
+		// Verify producer options
+		require.Equal(t, topic, producer.producerOptions.Topic)
+		require.True(t, producer.producerOptions.DisableBatching)
+		require.Equal(t, pulsar.NoCompression, producer.producerOptions.CompressionType)
 
 		// Send a message
 		ctx := context.Background()
@@ -110,6 +117,11 @@ func TestPulsarProducer(t *testing.T) {
 			require.NoError(t, producer.Close())
 		}()
 
+		// Verify producer options
+		require.Equal(t, topic, producer.producerOptions.Topic)
+		require.False(t, producer.producerOptions.DisableBatching)
+		require.Equal(t, pulsar.ZSTD, producer.producerOptions.CompressionType)
+
 		// Send a message
 		ctx := context.Background()
 		message := []byte(`{"test":"data with compression"}`)
@@ -166,6 +178,13 @@ func TestPulsarProducer(t *testing.T) {
 		defer func() {
 			require.NoError(t, producer.Close())
 		}()
+
+		// Verify producer options
+		require.Equal(t, topic, producer.producerOptions.Topic)
+		require.False(t, false, producer.producerOptions.DisableBatching)
+		require.Equal(t, uint(10), producer.producerOptions.BatchingMaxMessages)
+		require.Equal(t, 100*time.Millisecond, producer.producerOptions.BatchingMaxPublishDelay)
+		require.Equal(t, pulsar.NoCompression, producer.producerOptions.CompressionType)
 
 		// Send multiple messages
 		ctx := context.Background()
