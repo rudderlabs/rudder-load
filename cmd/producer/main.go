@@ -15,7 +15,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,7 +58,7 @@ type publisherCloser interface {
 }
 
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 	os.Exit(run(ctx))
 }
@@ -246,6 +245,9 @@ func run(ctx context.Context) int {
 		case modeStdout:
 			return producer.NewStdoutPublisher(), nil
 		case modePulsar:
+			if !useOneClientPerSlot {
+				return nil, fmt.Errorf("pulsar mode requires useOneClientPerSlot to be true")
+			}
 			return producer.NewPulsarProducer(os.Environ())
 		default:
 			return nil, fmt.Errorf("unknown mode: %s", mode)
