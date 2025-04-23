@@ -13,6 +13,7 @@ import (
 	"rudder-load/internal/parser"
 )
 
+// TODO: Replace mock with real docker/docker compose setup
 func TestNewDockerComposeClient(t *testing.T) {
 	mockExecutor := new(MockExecutor)
 	mockLogger := logger.NOP
