@@ -16,7 +16,7 @@ import (
 	"rudder-load/internal/parser"
 )
 
-type infraClient interface {
+type loadTestManager interface {
 	Install(ctx context.Context, config *parser.LoadTestConfig) error
 	Upgrade(ctx context.Context, config *parser.LoadTestConfig, phase parser.RunPhase) error
 	Uninstall(config *parser.LoadTestConfig) error
@@ -39,27 +39,27 @@ type metricsRecord struct {
 }
 
 type LoadTestRunner struct {
-	config        *parser.LoadTestConfig
-	infraClient   infraClient
-	metricsClient metricsClient
-	portForwarder portForwarder
-	logger        logger.Logger
-	metricsFile   string
-	metricsMutex  sync.Mutex
-	metricsData   []metricsRecord
+	config          *parser.LoadTestConfig
+	loadTestManager loadTestManager
+	metricsClient   metricsClient
+	portForwarder   portForwarder
+	logger          logger.Logger
+	metricsFile     string
+	metricsMutex    sync.Mutex
+	metricsData     []metricsRecord
 }
 
-func NewLoadTestRunner(config *parser.LoadTestConfig, infraClient infraClient, metricsClient metricsClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
+func NewLoadTestRunner(config *parser.LoadTestConfig, loadTestManager loadTestManager, metricsClient metricsClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
 	metricsFile := fmt.Sprintf("%s_metrics_%s.json", config.Name, time.Now().Format("20060102_150405"))
 
 	return &LoadTestRunner{
-		config:        config,
-		infraClient:   infraClient,
-		metricsClient: metricsClient,
-		portForwarder: portForwarder,
-		logger:        logger,
-		metricsFile:   metricsFile,
-		metricsData:   make([]metricsRecord, 0),
+		config:          config,
+		loadTestManager: loadTestManager,
+		metricsClient:   metricsClient,
+		portForwarder:   portForwarder,
+		logger:          logger,
+		metricsFile:     metricsFile,
+		metricsData:     make([]metricsRecord, 0),
 	}
 }
 
@@ -67,8 +67,8 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 	var stopPortForward func()
 	var err error
 
-	// Decide on the run mechanism based on the infraClient type
-	if _, ok := r.infraClient.(*DockerComposeClient); ok {
+	// Decide on the run mechanism based on the loadTestManager type
+	if _, ok := r.loadTestManager.(*DockerComposeClient); ok {
 		r.logger.Infon("Skipping port forwarding for local execution")
 		stopPortForward = func() {} // No-op function
 		r.logger.Infon("Installing Docker compose for load scenario", logger.NewStringField("load_scenario", r.config.Name))
@@ -101,13 +101,13 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 	}
 	defer stopPortForward()
 
-	if err := r.infraClient.Install(ctx, r.config); err != nil {
+	if err := r.loadTestManager.Install(ctx, r.config); err != nil {
 		return err
 	}
 
 	defer func() {
 		r.logger.Infon("Uninstalling resources for the load scenario...")
-		if err := r.infraClient.Uninstall(r.config); err != nil {
+		if err := r.loadTestManager.Uninstall(r.config); err != nil {
 			r.logger.Errorn("Failed to uninstall resources", obskit.Error(err))
 		}
 		r.logger.Infon("Done!")
@@ -123,7 +123,7 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		r.logger.Infon("Running phase", logger.NewIntField("phase", int64(i+1)), logger.NewStringField("duration", phase.Duration))
 
 		if r.config.FromFile {
-			if err := r.infraClient.Upgrade(ctx, r.config, phase); err != nil {
+			if err := r.loadTestManager.Upgrade(ctx, r.config, phase); err != nil {
 				return err
 			}
 		}
@@ -231,7 +231,7 @@ func (r *LoadTestRunner) monitorMetrics(ctx context.Context) {
 		case <-ticker.C:
 			var metricsToFetch []parser.Metric
 
-			if _, ok := r.infraClient.(*DockerComposeClient); ok {
+			if _, ok := r.loadTestManager.(*DockerComposeClient); ok {
 				// For local execution, we need to fetch the specific metric format
 				metricsToFetch = []parser.Metric{
 					{Name: "rudder_load_publish_rate_per_second", Query: ""},

@@ -55,18 +55,18 @@ func run(ctx context.Context, log logger.Logger) error {
 		return fmt.Errorf("invalid inputs: %w", err)
 	}
 
-	// Create the appropriate infra client based on the local execution flag
-	var infraClient infraClient
+	// Create the appropriate loadTestManager based on the local execution flag
+	var loadTestManager loadTestManager
 	var metricsClient *metrics.MetricsClient
 
 	if args.LocalExecution {
 		log.Infon("Using Docker Compose for local execution")
-		infraClient = NewDockerComposeClient(&CommandExecutor{}, log)
+		loadTestManager = NewDockerComposeClient(&CommandExecutor{}, log)
 		// Use local metrics client for local execution
 		metricsClient = metrics.NewLocalMetricsClient("http://localhost:9102/metrics")
 	} else {
 		log.Infon("Using Helm for Kubernetes execution")
-		infraClient = NewHelmClient(&CommandExecutor{}, log)
+		loadTestManager = NewHelmClient(&CommandExecutor{}, log)
 		// Use Mimir client for remote execution
 		metricsClient = metrics.NewMetricsClient("http://localhost:9898")
 	}
@@ -77,7 +77,7 @@ func run(ctx context.Context, log logger.Logger) error {
 		return fmt.Errorf("failed to parse port forwarding timeout: %w", err)
 	}
 	portForwarder := metrics.NewPortForwarder(portForwardingTimeout, log)
-	runner := NewLoadTestRunner(cfg, infraClient, metricsClient, portForwarder, log)
+	runner := NewLoadTestRunner(cfg, loadTestManager, metricsClient, portForwarder, log)
 	if err := runner.Run(ctx); err != nil {
 		return fmt.Errorf("failed to run load test: %w", err)
 	}
