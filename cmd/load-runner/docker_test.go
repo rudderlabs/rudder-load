@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"rudder-load/internal/parser"
 )
@@ -19,10 +19,10 @@ func TestNewDockerComposeClient(t *testing.T) {
 
 	client := NewDockerComposeClient(mockExecutor, mockLogger)
 
-	assert.NotNil(t, client)
-	assert.Equal(t, mockExecutor, client.executor)
-	assert.Equal(t, mockLogger, client.logger)
-	assert.Empty(t, client.composeFilePath)
+	require.NotNil(t, client)
+	require.Equal(t, mockExecutor, client.executor)
+	require.Equal(t, mockLogger, client.logger)
+	require.Empty(t, client.composeFilePath)
 }
 
 func TestDockerComposeClient_Install(t *testing.T) {
@@ -33,7 +33,7 @@ func TestDockerComposeClient_Install(t *testing.T) {
 
 	// Create a temporary docker-compose.yaml file for testing
 	tmpDir, err := os.MkdirTemp("", "docker-test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	originalComposeFile := filepath.Join(tmpDir, "docker-compose.yaml")
@@ -50,14 +50,14 @@ services:
       HOT_EVENT_TYPES: "33,33,34"
 `
 	err = os.WriteFile(originalComposeFile, []byte(composeContent), 0644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Change to the temporary directory
 	originalDir, err := os.Getwd()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.Chdir(originalDir)
 	err = os.Chdir(tmpDir)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	config := &parser.LoadTestConfig{
 		Name: "test-load",
@@ -72,9 +72,9 @@ services:
 	err = dockerClient.Install(ctx, config)
 
 	// Assert
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mockExecutor.AssertExpectations(t)
-	assert.NotEmpty(t, dockerClient.composeFilePath)
+	require.NotEmpty(t, dockerClient.composeFilePath)
 }
 
 func TestDockerComposeClient_Install_WithEnvOverrides(t *testing.T) {
@@ -85,7 +85,7 @@ func TestDockerComposeClient_Install_WithEnvOverrides(t *testing.T) {
 
 	// Create a temporary docker-compose.yaml file for testing
 	tmpDir, err := os.MkdirTemp("", "docker-test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	originalComposeFile := filepath.Join(tmpDir, "docker-compose.yaml")
@@ -102,14 +102,14 @@ services:
       HOT_EVENT_TYPES: "33,33,34"
 `
 	err = os.WriteFile(originalComposeFile, []byte(composeContent), 0644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Change to the temporary directory
 	originalDir, err := os.Getwd()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.Chdir(originalDir)
 	err = os.Chdir(tmpDir)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	config := &parser.LoadTestConfig{
 		Name: "test-load",
@@ -128,16 +128,16 @@ services:
 	err = dockerClient.Install(ctx, config)
 
 	// Assert
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mockExecutor.AssertExpectations(t)
-	assert.NotEmpty(t, dockerClient.composeFilePath)
+	require.NotEmpty(t, dockerClient.composeFilePath)
 
 	// Verify the compose file was updated with the environment overrides
 	updatedContent, err := os.ReadFile(dockerClient.composeFilePath)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	updatedContentStr := string(updatedContent)
-	assert.Contains(t, updatedContentStr, "MAX_EVENTS_PER_SECOND: 2000")
-	assert.Contains(t, updatedContentStr, "CONCURRENCY: 20")
+	require.Contains(t, updatedContentStr, "MAX_EVENTS_PER_SECOND: 2000")
+	require.Contains(t, updatedContentStr, "CONCURRENCY: 20")
 }
 
 func TestDockerComposeClient_Upgrade(t *testing.T) {
@@ -148,7 +148,7 @@ func TestDockerComposeClient_Upgrade(t *testing.T) {
 
 	// Create a temporary docker-compose.yaml file for testing
 	tmpDir, err := os.MkdirTemp("", "docker-test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	originalComposeFile := filepath.Join(tmpDir, "docker-compose.yaml")
@@ -165,14 +165,14 @@ services:
       HOT_EVENT_TYPES: "33,33,34"
 `
 	err = os.WriteFile(originalComposeFile, []byte(composeContent), 0644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Change to the temporary directory
 	originalDir, err := os.Getwd()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.Chdir(originalDir)
 	err = os.Chdir(tmpDir)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	config := &parser.LoadTestConfig{
 		Name: "test-load",
@@ -196,9 +196,9 @@ services:
 	err = dockerClient.Upgrade(ctx, config, phase)
 
 	// Assert
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mockExecutor.AssertExpectations(t)
-	assert.NotEmpty(t, dockerClient.composeFilePath)
+	require.NotEmpty(t, dockerClient.composeFilePath)
 }
 
 func TestDockerComposeClient_Upgrade_WithPhaseEnvOverrides(t *testing.T) {
@@ -209,7 +209,7 @@ func TestDockerComposeClient_Upgrade_WithPhaseEnvOverrides(t *testing.T) {
 
 	// Create a temporary docker-compose.yaml file for testing
 	tmpDir, err := os.MkdirTemp("", "docker-test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	originalComposeFile := filepath.Join(tmpDir, "docker-compose.yaml")
@@ -226,14 +226,14 @@ services:
       HOT_EVENT_TYPES: "33,33,34"
 `
 	err = os.WriteFile(originalComposeFile, []byte(composeContent), 0644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Change to the temporary directory
 	originalDir, err := os.Getwd()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.Chdir(originalDir)
 	err = os.Chdir(tmpDir)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	config := &parser.LoadTestConfig{
 		Name: "test-load",
@@ -263,16 +263,16 @@ services:
 	err = dockerClient.Upgrade(ctx, config, phase)
 
 	// Assert
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mockExecutor.AssertExpectations(t)
-	assert.NotEmpty(t, dockerClient.composeFilePath)
+	require.NotEmpty(t, dockerClient.composeFilePath)
 
 	// Verify the compose file was updated with both global and phase-specific environment overrides
 	updatedContent, err := os.ReadFile(dockerClient.composeFilePath)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	updatedContentStr := string(updatedContent)
-	assert.Contains(t, updatedContentStr, "MAX_EVENTS_PER_SECOND: 2000")
-	assert.Contains(t, updatedContentStr, "CONCURRENCY: 30")
+	require.Contains(t, updatedContentStr, "MAX_EVENTS_PER_SECOND: 2000")
+	require.Contains(t, updatedContentStr, "CONCURRENCY: 30")
 }
 
 func TestDockerComposeClient_Uninstall(t *testing.T) {
@@ -282,7 +282,7 @@ func TestDockerComposeClient_Uninstall(t *testing.T) {
 
 	// Create a temporary docker-compose.yaml file for testing
 	tmpDir, err := os.MkdirTemp("", "docker-test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	composeFile := filepath.Join(tmpDir, "docker-compose.yaml")
@@ -295,7 +295,7 @@ services:
       MAX_EVENTS_PER_SECOND: 1000
 `
 	err = os.WriteFile(composeFile, []byte(composeContent), 0644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Set the compose file path in the client
 	dockerClient.composeFilePath = composeFile
@@ -313,7 +313,7 @@ services:
 	err = dockerClient.Uninstall(config)
 
 	// Assert
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mockExecutor.AssertExpectations(t)
 }
 
@@ -324,7 +324,7 @@ func TestDockerComposeClient_Uninstall_WithCustomComposeFile(t *testing.T) {
 
 	// Create a temporary docker-compose.yaml file for testing
 	tmpDir, err := os.MkdirTemp("", "docker-test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	composeFile := filepath.Join(tmpDir, "docker-compose.yaml")
@@ -337,14 +337,14 @@ services:
       MAX_EVENTS_PER_SECOND: 1000
 `
 	err = os.WriteFile(composeFile, []byte(composeContent), 0644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Change to the temporary directory
 	originalDir, err := os.Getwd()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.Chdir(originalDir)
 	err = os.Chdir(tmpDir)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	config := &parser.LoadTestConfig{
 		Name: "test-load",
@@ -359,7 +359,7 @@ services:
 	err = dockerClient.Uninstall(config)
 
 	// Assert
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mockExecutor.AssertExpectations(t)
 }
 
@@ -370,7 +370,7 @@ func TestDockerComposeClient_createComposeFile(t *testing.T) {
 
 	// Create a temporary docker-compose.yaml file for testing
 	tmpDir, err := os.MkdirTemp("", "docker-test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	originalComposeFile := filepath.Join(tmpDir, "docker-compose.yaml")
@@ -384,14 +384,14 @@ services:
       CONCURRENCY: 10
 `
 	err = os.WriteFile(originalComposeFile, []byte(composeContent), 0644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Change to the temporary directory
 	originalDir, err := os.Getwd()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.Chdir(originalDir)
 	err = os.Chdir(tmpDir)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	config := &parser.LoadTestConfig{
 		Name: "test-load",
@@ -401,15 +401,15 @@ services:
 	composeFile, err := dockerClient.createComposeFile(config)
 
 	// Assert
-	assert.NoError(t, err)
-	assert.NotEmpty(t, composeFile)
-	assert.Equal(t, composeFile, dockerClient.composeFilePath)
+	require.NoError(t, err)
+	require.NotEmpty(t, composeFile)
+	require.Equal(t, composeFile, dockerClient.composeFilePath)
 
 	// Verify the file exists and has the expected content
 	content, err := os.ReadFile(composeFile)
-	assert.NoError(t, err)
-	assert.Contains(t, string(content), "MAX_EVENTS_PER_SECOND: 1000")
-	assert.Contains(t, string(content), "CONCURRENCY: 10")
+	require.NoError(t, err)
+	require.Contains(t, string(content), "MAX_EVENTS_PER_SECOND: 1000")
+	require.Contains(t, string(content), "CONCURRENCY: 10")
 }
 
 func TestDockerComposeClient_createComposeFile_WithEnvOverrides(t *testing.T) {
@@ -419,7 +419,7 @@ func TestDockerComposeClient_createComposeFile_WithEnvOverrides(t *testing.T) {
 
 	// Create a temporary docker-compose.yaml file for testing
 	tmpDir, err := os.MkdirTemp("", "docker-test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	originalComposeFile := filepath.Join(tmpDir, "docker-compose.yaml")
@@ -433,14 +433,14 @@ services:
       CONCURRENCY: 10
 `
 	err = os.WriteFile(originalComposeFile, []byte(composeContent), 0644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Change to the temporary directory
 	originalDir, err := os.Getwd()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.Chdir(originalDir)
 	err = os.Chdir(tmpDir)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	config := &parser.LoadTestConfig{
 		Name: "test-load",
@@ -454,15 +454,15 @@ services:
 	composeFile, err := dockerClient.createComposeFile(config)
 
 	// Assert
-	assert.NoError(t, err)
-	assert.NotEmpty(t, composeFile)
-	assert.Equal(t, composeFile, dockerClient.composeFilePath)
+	require.NoError(t, err)
+	require.NotEmpty(t, composeFile)
+	require.Equal(t, composeFile, dockerClient.composeFilePath)
 
 	// Verify the file exists and has the expected content with overrides
 	content, err := os.ReadFile(composeFile)
-	assert.NoError(t, err)
-	assert.Contains(t, string(content), "MAX_EVENTS_PER_SECOND: 2000")
-	assert.Contains(t, string(content), "CONCURRENCY: 20")
+	require.NoError(t, err)
+	require.Contains(t, string(content), "MAX_EVENTS_PER_SECOND: 2000")
+	require.Contains(t, string(content), "CONCURRENCY: 20")
 }
 
 func TestDockerComposeClient_createComposeFile_WithSpecialCharacters(t *testing.T) {
@@ -472,7 +472,7 @@ func TestDockerComposeClient_createComposeFile_WithSpecialCharacters(t *testing.
 
 	// Create a temporary docker-compose.yaml file for testing
 	tmpDir, err := os.MkdirTemp("", "docker-test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	originalComposeFile := filepath.Join(tmpDir, "docker-compose.yaml")
@@ -485,14 +485,14 @@ services:
       EVENT_TYPES: "track,page,identify"
 `
 	err = os.WriteFile(originalComposeFile, []byte(composeContent), 0644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Change to the temporary directory
 	originalDir, err := os.Getwd()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.Chdir(originalDir)
 	err = os.Chdir(tmpDir)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	config := &parser.LoadTestConfig{
 		Name: "test-load",
@@ -505,12 +505,12 @@ services:
 	composeFile, err := dockerClient.createComposeFile(config)
 
 	// Assert
-	assert.NoError(t, err)
-	assert.NotEmpty(t, composeFile)
-	assert.Equal(t, composeFile, dockerClient.composeFilePath)
+	require.NoError(t, err)
+	require.NotEmpty(t, composeFile)
+	require.Equal(t, composeFile, dockerClient.composeFilePath)
 
 	// Verify the file exists and has the expected content with escaped special characters
 	content, err := os.ReadFile(composeFile)
-	assert.NoError(t, err)
-	assert.Contains(t, string(content), "EVENT_TYPES: track,page,identify,\\\"custom\\\"")
+	require.NoError(t, err)
+	require.Contains(t, string(content), "EVENT_TYPES: track,page,identify,\\\"custom\\\"")
 }
