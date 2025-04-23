@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -72,12 +71,12 @@ func TestNewHTTPProducer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			producer, err := NewHTTPProducer(tt.env)
 			if tt.wantErr {
-				assert.Error(t, err)
-				assert.Nil(t, producer)
+				require.Error(t, err)
+				require.Nil(t, producer)
 				return
 			}
-			assert.NoError(t, err)
-			assert.NotNil(t, producer)
+			require.NoError(t, err)
+			require.NotNil(t, producer)
 		})
 	}
 }
@@ -106,10 +105,10 @@ func TestHTTPProducer_PublishTo(t *testing.T) {
 			},
 			serverHandler: func(w http.ResponseWriter, r *http.Request) {
 				// Verify headers
-				assert.Equal(t, "text/plain; charset=utf-8", r.Header.Get("Content-Type"))
-				assert.Equal(t, "test-key", r.Header.Get("X-Write-Key"))
-				assert.Equal(t, "Basic "+base64.StdEncoding.EncodeToString([]byte("write-key:")), r.Header.Get("Authorization"))
-				assert.Equal(t, "user123", r.Header.Get("AnonymousId"))
+				require.Equal(t, "text/plain; charset=utf-8", r.Header.Get("Content-Type"))
+				require.Equal(t, "test-key", r.Header.Get("X-Write-Key"))
+				require.Equal(t, "Basic "+base64.StdEncoding.EncodeToString([]byte("write-key:")), r.Header.Get("Authorization"))
+				require.Equal(t, "user123", r.Header.Get("AnonymousId"))
 				w.WriteHeader(http.StatusOK)
 			},
 			wantErr: false,
@@ -120,7 +119,7 @@ func TestHTTPProducer_PublishTo(t *testing.T) {
 			message:     []byte(`{"test":"data"}`),
 			serverHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprint(w, "internal error")
+				_, _ = w.Write([]byte("internal error"))
 			},
 			wantErr: true,
 		},
@@ -129,7 +128,7 @@ func TestHTTPProducer_PublishTo(t *testing.T) {
 			compression: true,
 			message:     []byte(`{"test":"data"}`),
 			serverHandler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, "gzip", r.Header.Get("Content-Encoding"))
+				require.Equal(t, "gzip", r.Header.Get("Content-Encoding"))
 				w.WriteHeader(http.StatusOK)
 			},
 			wantErr: false,
@@ -138,7 +137,7 @@ func TestHTTPProducer_PublishTo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create test server
+			// Create a test server
 			server := httptest.NewServer(http.HandlerFunc(tt.serverHandler))
 			defer server.Close()
 
@@ -153,19 +152,21 @@ func TestHTTPProducer_PublishTo(t *testing.T) {
 
 			producer, err := NewHTTPProducer(env)
 			require.NoError(t, err)
-			defer producer.Close()
+			defer func() {
+				require.NoError(t, producer.Close())
+			}()
 
 			// Publish message
-			n, err := producer.PublishTo(context.Background(), tt.key, tt.message, tt.extra)
+			response, err := producer.PublishTo(context.Background(), tt.key, tt.message, tt.extra)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			if !tt.compression {
-				assert.Equal(t, len(tt.message), n)
+				require.NotNil(t, response)
 			}
 		})
 	}
@@ -176,7 +177,7 @@ func TestHTTPProducer_Close(t *testing.T) {
 	require.NoError(t, err)
 
 	err = producer.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestHTTPProducer_ConnectionFailure(t *testing.T) {
@@ -184,5 +185,5 @@ func TestHTTPProducer_ConnectionFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = producer.PublishTo(context.Background(), "key", []byte("test"), nil)
-	assert.Error(t, err)
+	require.Error(t, err)
 }

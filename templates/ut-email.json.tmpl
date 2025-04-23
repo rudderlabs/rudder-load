@@ -1,0 +1,117 @@
+[
+    {{range $i := loop $.NoOfEvents }}
+    {
+        "message": {
+            "type": "track",
+            "event": "Sell Order Completed",
+            "sentAt": "{{$.Timestamp}}",
+            "userId": "{{uuid}}",
+            "context": {
+                "load_run_id": "{{$.LoadRunID}}",
+                "traits": {
+                    "name": "john doe",
+                    "email": "{{$.Email}}"
+                },
+                "library": {
+                    "name": "rudder-sdk-ruby-sync",
+                    "version": "1.0.7"
+                }
+            },
+            "rudderId": "{{uuid}}",
+            "messageId": "{{uuid}}",
+            "timestamp": "{{$.Timestamp}}",
+            "properties": {
+                "os": "Windows",
+                "build": "2.9.5.7313",
+                "scope": "online_counter",
+                "client": "cnhs",
+                "revenue": "79.14",
+                "currency": "eur",
+                "order_id": "3525eeea",
+                "platform": "ios_mobile",
+                "error_code": null,
+                "base_amount": "230.0",
+                "revenueType": "Sell",
+                "quote_amount": "79.14",
+                "base_currency": "ada",
+                "error_message": "",
+                "mobile_app_id": null,
+                "operator_name": "Site web",
+                "payment_method": "customer_funds",
+                "fixed_commission": "1.0",
+                "quote_eur_ticker": 1,
+                "total_commission": "2.05",
+                "base_quote_ticker": "0.356502",
+                "spread_percentage": "1.1",
+                "initial_commission": "1.05",
+                "revenue_commission": "3.006826",
+                "commission_discount": "0.0",
+                "commission_eur_value": "3.006826",
+                "transaction_eur_value": "79.14",
+                "recurring_investment_count": null,
+                "initial_crypto_market_price": "0.353",
+                "recurring_investment_frequency": null
+            }
+        },
+        "metadata": {
+            "sourceId": "2K8FkGb8iIYSUuamv15p8OifGjp",
+            "workspaceId": "27kF4kmOXAj2WXAfpuRSqVN9yp1",
+            "namespace": "coinhouse",
+            "instanceId": "test-v0-rs-0",
+            "sourceType": "sT0",
+            "sourceCategory": "",
+            "trackingPlanId": "",
+            "trackingPlanVersion": 0,
+            "sourceTpConfig": null,
+            "mergedTpConfig": {},
+            "destinationId": "2d32rFS9jtlUBHhc4SQFNX51XHr",
+            "jobRunId": "",
+            "jobId": {{nowNano}},
+            "sourceBatchId": "",
+            "sourceJobId": "",
+            "sourceJobRunId": "",
+            "sourceTaskId": "",
+            "sourceTaskRunId": "",
+            "recordId": null,
+            "destinationType": "dT0",
+            "rudderId": "{{uuid}}",
+            "receivedAt": "{{$.Timestamp}}",
+            "eventName": "Sell Order Completed",
+            "eventType": "track",
+            "sourceDefinitionId": "sD0",
+            "destinationDefinitionId": "dD0",
+            "transformationId": "fn-test-1"
+        },
+        "destination": {
+            "ID": "",
+            "Name": "",
+            "DestinationDefinition": {
+                "ID": "",
+                "Name": "",
+                "DisplayName": "",
+                "Config": null,
+                "ResponseRules": null
+            },
+            "Config": null,
+            "Enabled": false,
+            "WorkspaceID": "",
+            "IsProcessorEnabled": false,
+            "RevisionID": "",
+            "Transformations": [
+                {
+                    "VersionID": "2tG0U2Ytf4Sia0ThGyOXyoOa9ad",
+                    "ID": "fn-test-1",
+                    "Config": {}
+                }
+            ]
+        },
+        "connection": {
+            "sourceId": "",
+            "destinationId": "",
+            "enabled": false,
+            "config": null,
+            "processorEnabled": false
+        }
+    }{{if lt $i (sub $.NoOfEvents 1)}},{{end}}
+    {{- end }}
+]

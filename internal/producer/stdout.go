@@ -11,9 +11,9 @@ func NewStdoutPublisher() *StdOutPublisher {
 	return &StdOutPublisher{}
 }
 
-func (p *StdOutPublisher) PublishTo(_ context.Context, key string, message []byte, extra map[string]string) (int, error) {
+func (p *StdOutPublisher) PublishTo(_ context.Context, key string, message []byte, extra map[string]string) ([]byte, error) {
 	_, err := fmt.Printf("%s %s [%v]\n\n", key, message, extra)
-	return 0, err
+	return nil, err
 }
 
 func (p *StdOutPublisher) Close() error {

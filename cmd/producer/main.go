@@ -25,17 +25,17 @@ import (
 
 	"rudder-load/internal/producer"
 	"rudder-load/internal/stats"
+	"rudder-load/internal/validator"
 
 	"github.com/rudderlabs/rudder-go-kit/profiler"
 	kitsync "github.com/rudderlabs/rudder-go-kit/sync"
 	"github.com/rudderlabs/rudder-go-kit/throttling"
 )
 
-// TODO: add support for BATCH_SIZES and HOT_BATCH_SIZES
-
 const (
 	modeStdout = "stdout"
 	modeHTTP   = "http"
+	modeHTTP2  = "http2"
 
 	hostnameSep = "rudder-load-"
 
@@ -45,7 +45,7 @@ const (
 )
 
 type publisher interface {
-	PublishTo(ctx context.Context, key string, messages []byte, extra map[string]string) (int, error)
+	PublishTo(ctx context.Context, key string, messages []byte, extra map[string]string) ([]byte, error)
 }
 
 type closer interface {
@@ -83,6 +83,7 @@ func run(ctx context.Context) int {
 		templatesPath         = optionalString("TEMPLATES_PATH", "../../templates/")
 		sourcesList           = mustList("SOURCES")
 		hotSourcesList        = optionalMap("HOT_SOURCES", sourcesList)
+		validatorType         = optionalString("VALIDATOR_TYPE", "")
 	)
 
 	if strings.Index(hostname, hostnameSep) != 0 {
@@ -167,6 +168,9 @@ func run(ctx context.Context) int {
 		return 1
 	}
 
+	// Creating validator
+	validatorFunc := validator.ValidateResponseBody(validatorType)
+
 	// Creating throttler
 	throttler, err := throttling.New(throttling.WithInMemoryGCRA(int64(maxEventsPerSecond)))
 	if err != nil {
@@ -204,6 +208,16 @@ func run(ctx context.Context) int {
 		Help:        "Publish rate per second",
 		ConstLabels: constLabels,
 	})
+	publishedMessagesCounter := prometheus.NewCounter(prometheus.CounterOpts{
+		Name:        metricsPrefix + "published_messages_count",
+		Help:        "Total number of published messages",
+		ConstLabels: constLabels,
+	})
+	numberOfRequestsCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        metricsPrefix + "number_of_requests_count",
+		Help:        "Total number of requests",
+		ConstLabels: constLabels,
+	}, []string{"error"})
 	msgGenLag := prometheus.NewCounter(prometheus.CounterOpts{
 		Name:        metricsPrefix + "msg_generation_lag",
 		Help:        "If less than a ms then this is increased meaning there are not enough generators per publishers.",
@@ -215,6 +229,8 @@ func run(ctx context.Context) int {
 		ConstLabels: constLabels,
 	})
 	reg.MustRegister(publishRatePerSecond)
+	reg.MustRegister(publishedMessagesCounter)
+	reg.MustRegister(numberOfRequestsCounter)
 	reg.MustRegister(msgGenLag)
 	reg.MustRegister(throttled)
 	// PROMETHEUS REGISTRY - END
@@ -224,6 +240,8 @@ func run(ctx context.Context) int {
 		switch mode {
 		case modeHTTP:
 			return producer.NewHTTPProducer(os.Environ())
+		case modeHTTP2:
+			return producer.NewHTTP2Producer(os.Environ())
 		case modeStdout:
 			return producer.NewStdoutPublisher(), nil
 		default:
@@ -395,7 +413,7 @@ func run(ctx context.Context) int {
 						}
 					}
 
-					n, err := client.PublishTo(ctx, msg.UserID, msg.Payload, map[string]string{
+					rb, err := client.PublishTo(ctx, msg.UserID, msg.Payload, map[string]string{
 						"auth":         msg.WriteKey,
 						"anonymous_id": msg.UserID,
 					})
@@ -403,10 +421,20 @@ func run(ctx context.Context) int {
 						printErr(ctx.Err())
 						continue
 					}
+					if err == nil && validatorFunc != nil {
+						if _, err = validatorFunc(rb); err != nil {
+							printErr(fmt.Errorf("error validating response body: %w", err))
+							continue // publishedMessages and other metrics won't be updated
+						}
+					}
 					if err == nil {
-						publishedMessages.Add(1)
-						sentBytes.Add(int64(n))
+						publishedMessages.Add(msg.NoOfEvents)
+						publishedMessagesCounter.Add(float64(msg.NoOfEvents))
+						numberOfRequestsCounter.WithLabelValues("false").Inc()
+						sentBytes.Add(int64(len(rb)))
 						continue
+					} else {
+						numberOfRequestsCounter.WithLabelValues("true").Inc()
 					}
 
 					switch mode {
