@@ -15,7 +15,7 @@ import (
 	"rudder-load/internal/parser"
 )
 
-type MetricsClient struct {
+type MetricsFetcher struct {
 	baseURL string
 	client  *http.Client
 	isLocal bool
@@ -38,8 +38,8 @@ type MetricsResponse struct {
 	Value float64
 }
 
-func NewMetricsClient(baseURL string) *MetricsClient {
-	return &MetricsClient{
+func NewMetricsFetcher(baseURL string) *MetricsFetcher {
+	return &MetricsFetcher{
 		baseURL: baseURL,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
@@ -48,8 +48,8 @@ func NewMetricsClient(baseURL string) *MetricsClient {
 	}
 }
 
-func NewLocalMetricsClient(baseURL string) *MetricsClient {
-	return &MetricsClient{
+func NewLocalMetricsFetcher(baseURL string) *MetricsFetcher {
+	return &MetricsFetcher{
 		baseURL: baseURL,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
@@ -58,9 +58,9 @@ func NewLocalMetricsClient(baseURL string) *MetricsClient {
 	}
 }
 
-func (m *MetricsClient) Query(ctx context.Context, query string, time int64) (QueryResponse, error) {
+func (m *MetricsFetcher) Query(ctx context.Context, query string, time int64) (QueryResponse, error) {
 	if m.isLocal {
-		return QueryResponse{}, fmt.Errorf("Query method not supported for local metrics client")
+		return QueryResponse{}, fmt.Errorf("Query method not supported for local metrics fetcher")
 	}
 	var queryResp QueryResponse
 
@@ -102,9 +102,9 @@ func (m *MetricsClient) Query(ctx context.Context, query string, time int64) (Qu
 	return queryResp, nil
 }
 
-func (m *MetricsClient) QueryRange(ctx context.Context, query string, start int64, end int64, step string) (QueryResponse, error) {
+func (m *MetricsFetcher) QueryRange(ctx context.Context, query string, start int64, end int64, step string) (QueryResponse, error) {
 	if m.isLocal {
-		return QueryResponse{}, fmt.Errorf("QueryRange method not supported for local metrics client")
+		return QueryResponse{}, fmt.Errorf("QueryRange method not supported for local metrics fetcher")
 	}
 	var queryResp QueryResponse
 	reqURL := fmt.Sprintf("%s/prometheus/api/v1/query_range", m.baseURL)
@@ -151,7 +151,7 @@ func (m *MetricsClient) QueryRange(ctx context.Context, query string, start int6
 	return queryResp, nil
 }
 
-func (m *MetricsClient) GetMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
+func (m *MetricsFetcher) GetMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
 	if m.isLocal {
 		return m.getLocalMetrics(ctx, mts)
 	}
@@ -185,7 +185,7 @@ func (m *MetricsClient) GetMetrics(ctx context.Context, mts []parser.Metric) ([]
 	return metricsResponses, nil
 }
 
-func (m *MetricsClient) getLocalMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
+func (m *MetricsFetcher) getLocalMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
 	var metricsResponses []MetricsResponse
 
 	req, err := http.NewRequestWithContext(ctx, "GET", m.baseURL, nil)

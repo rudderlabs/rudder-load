@@ -36,21 +36,21 @@ func (m *MockHelmClient) Upgrade(ctx context.Context, config *parser.LoadTestCon
 	return args.Error(0)
 }
 
-type MockMetricsClient struct {
+type MockMetricsFetcher struct {
 	mock.Mock
 }
 
-func (m *MockMetricsClient) GetMetrics(ctx context.Context, mts []parser.Metric) ([]metrics.MetricsResponse, error) {
+func (m *MockMetricsFetcher) GetMetrics(ctx context.Context, mts []parser.Metric) ([]metrics.MetricsResponse, error) {
 	args := m.Called(ctx, mts)
 	return args.Get(0).([]metrics.MetricsResponse), args.Error(1)
 }
 
-func (m *MockMetricsClient) Query(ctx context.Context, query string, time int64) (metrics.QueryResponse, error) {
+func (m *MockMetricsFetcher) Query(ctx context.Context, query string, time int64) (metrics.QueryResponse, error) {
 	args := m.Called(ctx, query, time)
 	return args.Get(0).(metrics.QueryResponse), args.Error(1)
 }
 
-func (m *MockMetricsClient) QueryRange(ctx context.Context, query string, start int64, end int64, step string) (metrics.QueryResponse, error) {
+func (m *MockMetricsFetcher) QueryRange(ctx context.Context, query string, start int64, end int64, step string) (metrics.QueryResponse, error) {
 	args := m.Called(ctx, query, start, end, step)
 	return args.Get(0).(metrics.QueryResponse), args.Error(1)
 }
@@ -93,7 +93,7 @@ var (
 type testCase struct {
 	name       string
 	config     *parser.LoadTestConfig
-	setupMock  func(*MockHelmClient, *MockMetricsClient, *MockPortForwarder)
+	setupMock  func(*MockHelmClient, *MockMetricsFetcher, *MockPortForwarder)
 	wantErr    bool
 	errMessage string
 }
@@ -103,7 +103,7 @@ func TestLoadTestRunner_Run(t *testing.T) {
 		{
 			name:   "successful run",
 			config: &parser.LoadTestConfig{Name: "test", Phases: []parser.RunPhase{{Duration: "10s"}}},
-			setupMock: func(h *MockHelmClient, m *MockMetricsClient, p *MockPortForwarder) {
+			setupMock: func(h *MockHelmClient, m *MockMetricsFetcher, p *MockPortForwarder) {
 				h.On("Install", mock.Anything, mock.Anything).Return(nil)
 				h.On("Uninstall", mock.Anything).Return(nil)
 				p.On("Start", mock.Anything, mock.Anything).Return(nil)
@@ -121,7 +121,7 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "100ms"},
 				},
 			},
-			setupMock: func(h *MockHelmClient, m *MockMetricsClient, p *MockPortForwarder) {
+			setupMock: func(h *MockHelmClient, m *MockMetricsFetcher, p *MockPortForwarder) {
 				h.On("Install", mock.Anything, mock.Anything).Return(nil)
 				h.On("Uninstall", mock.Anything).Return(nil)
 				m.On("GetMetrics", mock.Anything, mock.Anything).Return([]metrics.MetricsResponse{}, nil)
@@ -138,7 +138,7 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "100ms"},
 				},
 			},
-			setupMock: func(h *MockHelmClient, m *MockMetricsClient, p *MockPortForwarder) {
+			setupMock: func(h *MockHelmClient, m *MockMetricsFetcher, p *MockPortForwarder) {
 				h.On("Install", mock.Anything, mock.Anything).Return(nil)
 				h.On("Upgrade", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 				h.On("Uninstall", mock.Anything).Return(nil)
@@ -155,7 +155,7 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "100ms"},
 				},
 			},
-			setupMock: func(h *MockHelmClient, m *MockMetricsClient, p *MockPortForwarder) {
+			setupMock: func(h *MockHelmClient, m *MockMetricsFetcher, p *MockPortForwarder) {
 				h.On("Install", mock.Anything, mock.Anything).Return(errors.New("install failed"))
 				p.On("Start", mock.Anything, "mimir").Return(nil)
 				p.On("Stop").Return(nil)
@@ -172,7 +172,7 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "100ms"},
 				},
 			},
-			setupMock: func(h *MockHelmClient, m *MockMetricsClient, p *MockPortForwarder) {
+			setupMock: func(h *MockHelmClient, m *MockMetricsFetcher, p *MockPortForwarder) {
 				h.On("Install", mock.Anything, mock.Anything).Return(nil)
 				h.On("Upgrade", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("upgrade failed"))
 				h.On("Uninstall", mock.Anything).Return(nil)
@@ -190,7 +190,7 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "invalid"},
 				},
 			},
-			setupMock: func(h *MockHelmClient, m *MockMetricsClient, p *MockPortForwarder) {
+			setupMock: func(h *MockHelmClient, m *MockMetricsFetcher, p *MockPortForwarder) {
 				h.On("Install", mock.Anything, mock.Anything).Return(nil)
 				h.On("Uninstall", mock.Anything).Return(nil)
 				p.On("Start", mock.Anything, "mimir").Return(nil)
@@ -207,7 +207,7 @@ func TestLoadTestRunner_Run(t *testing.T) {
 					{Duration: "invalid"},
 				},
 			},
-			setupMock: func(h *MockHelmClient, m *MockMetricsClient, p *MockPortForwarder) {
+			setupMock: func(h *MockHelmClient, m *MockMetricsFetcher, p *MockPortForwarder) {
 				p.On("Start", mock.Anything, "mimir").Return(errors.New("failed to connect service"))
 			},
 			wantErr:    true,
@@ -224,12 +224,12 @@ func TestLoadTestRunner_Run(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockHelmClient := new(MockHelmClient)
-			mockMetricsClient := new(MockMetricsClient)
+			mockMetricsFetcher := new(MockMetricsFetcher)
 			portForwarder := new(MockPortForwarder)
-			tc.setupMock(mockHelmClient, mockMetricsClient, portForwarder)
+			tc.setupMock(mockHelmClient, mockMetricsFetcher, portForwarder)
 
 			tc.config.ChartFilePath = tempDir
-			runner := NewLoadTestRunner(tc.config, mockHelmClient, mockMetricsClient, portForwarder, logger.NOP)
+			runner := NewLoadTestRunner(tc.config, mockHelmClient, mockMetricsFetcher, portForwarder, logger.NOP)
 			err := runner.Run(context.Background())
 
 			if tc.wantErr {
@@ -240,7 +240,7 @@ func TestLoadTestRunner_Run(t *testing.T) {
 			}
 
 			mockHelmClient.AssertExpectations(t)
-			mockMetricsClient.AssertExpectations(t)
+			mockMetricsFetcher.AssertExpectations(t)
 			portForwarder.AssertExpectations(t)
 		})
 	}
@@ -262,14 +262,14 @@ func TestLoadTestRunner_RunCancellation(t *testing.T) {
 	}
 
 	mockHelmClient := new(MockHelmClient)
-	mockMetricsClient := new(MockMetricsClient)
+	mockMetricsFetcher := new(MockMetricsFetcher)
 	mockPortForwarder := new(MockPortForwarder)
 	mockHelmClient.On("Install", mock.Anything, mock.Anything).Return(nil)
 	mockHelmClient.On("Uninstall", mock.Anything).Return(nil)
 	mockPortForwarder.On("Start", mock.Anything, mock.Anything).Return(nil)
 	mockPortForwarder.On("Stop", mock.Anything).Return(nil)
 
-	runner := NewLoadTestRunner(config, mockHelmClient, mockMetricsClient, mockPortForwarder, logger.NOP)
+	runner := NewLoadTestRunner(config, mockHelmClient, mockMetricsFetcher, mockPortForwarder, logger.NOP)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	errChan := make(chan error)
@@ -398,8 +398,8 @@ func TestLoadTestRunner_CreateValuesFileCopy(t *testing.T) {
 
 			logger := logger.NOP
 			helmClient := new(MockHelmClient)
-			mimirClient := new(MockMetricsClient)
-			runner := NewLoadTestRunner(config, helmClient, mimirClient, metrics.NewPortForwarder(time.Second*5, logger), logger)
+			metricsFetcher := new(MockMetricsFetcher)
+			runner := NewLoadTestRunner(config, helmClient, metricsFetcher, metrics.NewPortForwarder(time.Second*5, logger), logger)
 
 			err = runner.createValuesFileCopy(context.Background())
 
@@ -497,12 +497,12 @@ func TestLoadTestRunner_MonitorMetrics(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockMetricsClient := new(MockMetricsClient)
-			mockMetricsClient.On("GetMetrics", mock.Anything, tt.config.Reporting.Metrics).Return(tt.mockMetrics, tt.mockError)
+			mockMetricsFetcher := new(MockMetricsFetcher)
+			mockMetricsFetcher.On("GetMetrics", mock.Anything, tt.config.Reporting.Metrics).Return(tt.mockMetrics, tt.mockError)
 
 			runner := &LoadTestRunner{
 				config:        tt.config,
-				metricsClient: mockMetricsClient,
+				metricsFetcher: mockMetricsFetcher,
 				logger:        logger.NOP,
 			}
 
@@ -512,9 +512,9 @@ func TestLoadTestRunner_MonitorMetrics(t *testing.T) {
 			runner.monitorMetrics(ctx)
 
 			if tt.expectCall {
-				mockMetricsClient.AssertExpectations(t)
+				mockMetricsFetcher.AssertExpectations(t)
 			} else {
-				mockMetricsClient.AssertNotCalled(t, "GetMetrics", mock.Anything, mock.Anything)
+				mockMetricsFetcher.AssertNotCalled(t, "GetMetrics", mock.Anything, mock.Anything)
 			}
 		})
 	}

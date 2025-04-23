@@ -17,12 +17,12 @@ func TestNewDockerComposeClient(t *testing.T) {
 	mockExecutor := new(MockExecutor)
 	mockLogger := logger.NOP
 
-	client := NewDockerComposeClient(mockExecutor, mockLogger)
+	dockerClient := NewDockerComposeClient(mockExecutor, mockLogger)
 
-	require.NotNil(t, client)
-	require.Equal(t, mockExecutor, client.executor)
-	require.Equal(t, mockLogger, client.logger)
-	require.Empty(t, client.composeFilePath)
+	require.NotNil(t, dockerClient)
+	require.Equal(t, mockExecutor, dockerClient.executor)
+	require.Equal(t, mockLogger, dockerClient.logger)
+	require.Empty(t, dockerClient.composeFilePath)
 }
 
 func TestDockerComposeClient_Install(t *testing.T) {

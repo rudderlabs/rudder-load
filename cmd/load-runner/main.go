@@ -57,18 +57,18 @@ func run(ctx context.Context, log logger.Logger) error {
 
 	// Create the appropriate loadTestManager based on the local execution flag
 	var loadTestManager loadTestManager
-	var metricsClient *metrics.MetricsClient
+	var metricsFetcher *metrics.MetricsFetcher
 
 	if args.LocalExecution {
 		log.Infon("Using Docker Compose for local execution")
 		loadTestManager = NewDockerComposeClient(&CommandExecutor{}, log)
-		// Use local metrics client for local execution
-		metricsClient = metrics.NewLocalMetricsClient("http://localhost:9102/metrics")
+		// Use local metrics fetcher for local execution
+		metricsFetcher = metrics.NewLocalMetricsFetcher("http://localhost:9102/metrics")
 	} else {
 		log.Infon("Using Helm for Kubernetes execution")
 		loadTestManager = NewHelmClient(&CommandExecutor{}, log)
-		// Use Mimir client for remote execution
-		metricsClient = metrics.NewMetricsClient("http://localhost:9898")
+		// Use Mimir fetcher for remote execution
+		metricsFetcher = metrics.NewMetricsFetcher("http://localhost:9898")
 	}
 
 	portForwardingTimeoutString := parser.GetEnvOrDefault("PORT_FORWARDING_TIMEOUT", "5s")
@@ -77,7 +77,7 @@ func run(ctx context.Context, log logger.Logger) error {
 		return fmt.Errorf("failed to parse port forwarding timeout: %w", err)
 	}
 	portForwarder := metrics.NewPortForwarder(portForwardingTimeout, log)
-	runner := NewLoadTestRunner(cfg, loadTestManager, metricsClient, portForwarder, log)
+	runner := NewLoadTestRunner(cfg, loadTestManager, metricsFetcher, portForwarder, log)
 	if err := runner.Run(ctx); err != nil {
 		return fmt.Errorf("failed to run load test: %w", err)
 	}

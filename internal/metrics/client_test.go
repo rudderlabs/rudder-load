@@ -13,7 +13,7 @@ import (
 	"rudder-load/internal/parser"
 )
 
-func TestMetricsClient_Query(t *testing.T) {
+func TestMetricsFetcher_Query(t *testing.T) {
 	tests := []struct {
 		name          string
 		query         string
@@ -87,8 +87,8 @@ func TestMetricsClient_Query(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewMetricsClient(server.URL)
-			resp, err := client.Query(context.Background(), tt.query, tt.time)
+			metricsFetcher := NewMetricsFetcher(server.URL)
+			resp, err := metricsFetcher.Query(context.Background(), tt.query, tt.time)
 
 			if tt.expectedError != "" {
 				if err == nil {
@@ -113,7 +113,7 @@ func TestMetricsClient_Query(t *testing.T) {
 	}
 }
 
-func TestMetricsClient_QueryRange(t *testing.T) {
+func TestMetricsFetcher_QueryRange(t *testing.T) {
 	tests := []struct {
 		name          string
 		query         string
@@ -175,8 +175,8 @@ func TestMetricsClient_QueryRange(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewMetricsClient(server.URL)
-			resp, err := client.QueryRange(context.Background(), tt.query, tt.start, tt.end, tt.step)
+			metricsFetcher := NewMetricsFetcher(server.URL)
+			resp, err := metricsFetcher.QueryRange(context.Background(), tt.query, tt.start, tt.end, tt.step)
 
 			if tt.expectedError != "" {
 				if err == nil || err.Error() != tt.expectedError {
@@ -197,7 +197,7 @@ func TestMetricsClient_QueryRange(t *testing.T) {
 	}
 }
 
-func TestMetricsClient_GetMetrics(t *testing.T) {
+func TestMetricsFetcher_GetMetrics(t *testing.T) {
 	tests := []struct {
 		name                string
 		metrics             []parser.Metric
@@ -279,8 +279,8 @@ func TestMetricsClient_GetMetrics(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewMetricsClient(server.URL)
-			responses, err := client.GetMetrics(context.Background(), tt.metrics)
+			metricsFetcher := NewMetricsFetcher(server.URL)
+			responses, err := metricsFetcher.GetMetrics(context.Background(), tt.metrics)
 
 			if tt.expectedError != "" {
 				if err == nil || err.Error() != tt.expectedError {
@@ -319,7 +319,7 @@ func TestMetricsClient_GetMetrics(t *testing.T) {
 	}
 }
 
-func TestMetricsClient_Query_ErrorCases(t *testing.T) {
+func TestMetricsFetcher_Query_ErrorCases(t *testing.T) {
 	tests := []struct {
 		name          string
 		mockResponse  interface{}
@@ -362,9 +362,9 @@ func TestMetricsClient_Query_ErrorCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var client *MetricsClient
+			var metricsFetcher *MetricsFetcher
 			if tt.baseURL != "" {
-				client = NewMetricsClient(tt.baseURL)
+				metricsFetcher = NewMetricsFetcher(tt.baseURL)
 			} else {
 				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(tt.mockStatus)
@@ -378,10 +378,10 @@ func TestMetricsClient_Query_ErrorCases(t *testing.T) {
 					}
 				}))
 				defer server.Close()
-				client = NewMetricsClient(server.URL)
+				metricsFetcher = NewMetricsFetcher(server.URL)
 			}
 
-			_, err := client.Query(context.Background(), tt.query, tt.time)
+			_, err := metricsFetcher.Query(context.Background(), tt.query, tt.time)
 
 			if err == nil || !strings.Contains(err.Error(), tt.expectedError) {
 				t.Errorf("expected error containing %q, got %v", tt.expectedError, err)
@@ -390,7 +390,7 @@ func TestMetricsClient_Query_ErrorCases(t *testing.T) {
 	}
 }
 
-func TestMetricsClient_GetMetrics_Extended(t *testing.T) {
+func TestMetricsFetcher_GetMetrics_Extended(t *testing.T) {
 	tests := []struct {
 		name              string
 		metrics           []parser.Metric
@@ -493,8 +493,8 @@ func TestMetricsClient_GetMetrics_Extended(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewMetricsClient(server.URL)
-			responses, err := client.GetMetrics(context.Background(), tt.metrics)
+			metricsFetcher := NewMetricsFetcher(server.URL)
+			responses, err := metricsFetcher.GetMetrics(context.Background(), tt.metrics)
 
 			if tt.expectedError != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.expectedError) {
@@ -529,7 +529,7 @@ func TestMetricsClient_GetMetrics_Extended(t *testing.T) {
 	}
 }
 
-func TestLocalMetricsClient_GetMetrics(t *testing.T) {
+func TestLocalMetricsFetcher_GetMetrics(t *testing.T) {
 	tests := []struct {
 		name              string
 		metrics           []parser.Metric
@@ -610,8 +610,8 @@ func TestLocalMetricsClient_GetMetrics(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewLocalMetricsClient(server.URL)
-			responses, err := client.GetMetrics(context.Background(), tt.metrics)
+			metricsFetcher := NewLocalMetricsFetcher(server.URL)
+			responses, err := metricsFetcher.GetMetrics(context.Background(), tt.metrics)
 
 			if tt.expectedError != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.expectedError) {
@@ -646,18 +646,18 @@ func TestLocalMetricsClient_GetMetrics(t *testing.T) {
 	}
 }
 
-func TestLocalMetricsClient_UnsupportedMethods(t *testing.T) {
-	client := NewLocalMetricsClient("")
+func TestLocalMetricsFetcher_UnsupportedMethods(t *testing.T) {
+	metricsFetcher := NewLocalMetricsFetcher("")
 	ctx := context.Background()
 
 	t.Run("Query method", func(t *testing.T) {
-		_, err := client.Query(ctx, "test_query", time.Now().Unix())
+		_, err := metricsFetcher.Query(ctx, "test_query", time.Now().Unix())
 		if err == nil || !strings.Contains(err.Error(), "not supported") {
 			t.Errorf("expected error about unsupported method, got %v", err)
 		}
 	})
 	t.Run("QueryRange method", func(t *testing.T) {
-		_, err := client.QueryRange(ctx, "test_query", time.Now().Add(-1*time.Hour).Unix(), time.Now().Unix(), "1m")
+		_, err := metricsFetcher.QueryRange(ctx, "test_query", time.Now().Add(-1*time.Hour).Unix(), time.Now().Unix(), "1m")
 		if err == nil || !strings.Contains(err.Error(), "not supported") {
 			t.Errorf("expected error about unsupported method, got %v", err)
 		}

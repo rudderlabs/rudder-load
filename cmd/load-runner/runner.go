@@ -27,7 +27,7 @@ type portForwarder interface {
 	Stop() error
 }
 
-type metricsClient interface {
+type metricsFetcher interface {
 	GetMetrics(ctx context.Context, mts []parser.Metric) ([]metrics.MetricsResponse, error)
 	Query(ctx context.Context, query string, time int64) (metrics.QueryResponse, error)
 	QueryRange(ctx context.Context, query string, start int64, end int64, step string) (metrics.QueryResponse, error)
@@ -41,7 +41,7 @@ type metricsRecord struct {
 type LoadTestRunner struct {
 	config          *parser.LoadTestConfig
 	loadTestManager loadTestManager
-	metricsClient   metricsClient
+	metricsFetcher   metricsFetcher
 	portForwarder   portForwarder
 	logger          logger.Logger
 	metricsFile     string
@@ -49,13 +49,13 @@ type LoadTestRunner struct {
 	metricsData     []metricsRecord
 }
 
-func NewLoadTestRunner(config *parser.LoadTestConfig, loadTestManager loadTestManager, metricsClient metricsClient, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
+func NewLoadTestRunner(config *parser.LoadTestConfig, loadTestManager loadTestManager, metricsFetcher metricsFetcher, portForwarder portForwarder, logger logger.Logger) *LoadTestRunner {
 	metricsFile := fmt.Sprintf("%s_metrics_%s.json", config.Name, time.Now().Format("20060102_150405"))
 
 	return &LoadTestRunner{
 		config:          config,
 		loadTestManager: loadTestManager,
-		metricsClient:   metricsClient,
+		metricsFetcher:   metricsFetcher,
 		portForwarder:   portForwarder,
 		logger:          logger,
 		metricsFile:     metricsFile,
@@ -143,7 +143,7 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 	}
 
 	if !r.config.LocalExecution {
-		summaryMetrics, err := r.metricsClient.GetMetrics(ctx, []parser.Metric{
+		summaryMetrics, err := r.metricsFetcher.GetMetrics(ctx, []parser.Metric{
 			{Name: "average rps", Query: fmt.Sprintf("sum(avg_over_time(rudder_load_publish_rate_per_second{}[%v]))", totalDuration)},
 			{Name: "error rate", Query: fmt.Sprintf("sum(rate(rudder_load_publish_error_rate_total[%v]))", totalDuration)},
 		})
@@ -241,7 +241,7 @@ func (r *LoadTestRunner) monitorMetrics(ctx context.Context) {
 				metricsToFetch = r.config.Reporting.Metrics
 			}
 
-			metrics, err := r.metricsClient.GetMetrics(ctx, metricsToFetch)
+			metrics, err := r.metricsFetcher.GetMetrics(ctx, metricsToFetch)
 			if err != nil {
 				r.logger.Errorn("Failed to get current metrics", obskit.Error(err))
 				continue
