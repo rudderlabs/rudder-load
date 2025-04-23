@@ -32,8 +32,6 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/throttling"
 )
 
-// TODO: add support for BATCH_SIZES and HOT_BATCH_SIZES
-
 const (
 	modeStdout = "stdout"
 	modeHTTP   = "http"
@@ -398,12 +396,8 @@ func run(ctx context.Context) int {
 					)
 
 					if maxEventsPerSecond > 0 {
-						key := msg.WriteKey
-						if key == "" {
-							key = "default"
-						}
 						for {
-							allowed, after, _, err := throttler.AllowAfter(ctx, msg.NoOfEvents, int64(maxEventsPerSecond), 1, key)
+							allowed, after, _, err := throttler.AllowAfter(ctx, msg.NoOfEvents, int64(maxEventsPerSecond), 1, "key")
 							if err != nil {
 								panic(fmt.Errorf("error getting allowed events: %w", err))
 							}
@@ -430,7 +424,7 @@ func run(ctx context.Context) int {
 					if err == nil && validatorFunc != nil {
 						if _, err = validatorFunc(rb); err != nil {
 							printErr(fmt.Errorf("error validating response body: %w", err))
-							continue
+							continue // publishedMessages and other metrics won't be updated
 						}
 					}
 					if err == nil {
