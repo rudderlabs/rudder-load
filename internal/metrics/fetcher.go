@@ -9,20 +9,16 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"rudder-load/internal/parser"
 )
 
-type MimirClient interface {
-	Query(ctx context.Context, query string, time int64) (QueryResponse, error)
-	QueryRange(ctx context.Context, query string, start int64, end int64, step string) (QueryResponse, error)
-	GetMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error)
-}
-
-type mimirClient struct {
+type Fetcher struct {
 	baseURL string
 	client  *http.Client
+	isLocal bool
 }
 
 type QueryResponse struct {
@@ -42,16 +38,30 @@ type MetricsResponse struct {
 	Value float64
 }
 
-func NewMimirClient(baseURL string) MimirClient {
-	return &mimirClient{
+func NewMetricsFetcher(baseURL string) *Fetcher {
+	return &Fetcher{
 		baseURL: baseURL,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
+		isLocal: false,
 	}
 }
 
-func (m *mimirClient) Query(ctx context.Context, query string, time int64) (QueryResponse, error) {
+func NewLocalMetricsFetcher(baseURL string) *Fetcher {
+	return &Fetcher{
+		baseURL: baseURL,
+		client: &http.Client{
+			Timeout: 10 * time.Second,
+		},
+		isLocal: true,
+	}
+}
+
+func (m *Fetcher) Query(ctx context.Context, query string, time int64) (QueryResponse, error) {
+	if m.isLocal {
+		return QueryResponse{}, fmt.Errorf("Query method not supported for local metrics fetcher")
+	}
 	var queryResp QueryResponse
 
 	reqURL := fmt.Sprintf("%s/prometheus/api/v1/query", m.baseURL)
@@ -92,7 +102,10 @@ func (m *mimirClient) Query(ctx context.Context, query string, time int64) (Quer
 	return queryResp, nil
 }
 
-func (m *mimirClient) QueryRange(ctx context.Context, query string, start int64, end int64, step string) (QueryResponse, error) {
+func (m *Fetcher) QueryRange(ctx context.Context, query string, start int64, end int64, step string) (QueryResponse, error) {
+	if m.isLocal {
+		return QueryResponse{}, fmt.Errorf("QueryRange method not supported for local metrics fetcher")
+	}
 	var queryResp QueryResponse
 	reqURL := fmt.Sprintf("%s/prometheus/api/v1/query_range", m.baseURL)
 
@@ -138,9 +151,12 @@ func (m *mimirClient) QueryRange(ctx context.Context, query string, start int64,
 	return queryResp, nil
 }
 
-func (m *mimirClient) GetMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
-	var metricsResponses []MetricsResponse
+func (m *Fetcher) GetMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
+	if m.isLocal {
+		return m.getLocalMetrics(ctx, mts)
+	}
 
+	var metricsResponses []MetricsResponse
 	knownMetrics := map[string]string{
 		"rps": "sum(rate(rudder_load_publish_duration_seconds_count[1m]))",
 	}
@@ -166,5 +182,67 @@ func (m *mimirClient) GetMetrics(ctx context.Context, mts []parser.Metric) ([]Me
 			}
 		}
 	}
+	return metricsResponses, nil
+}
+
+func (m *Fetcher) getLocalMetrics(ctx context.Context, mts []parser.Metric) ([]MetricsResponse, error) {
+	var metricsResponses []MetricsResponse
+
+	req, err := http.NewRequestWithContext(ctx, "GET", m.baseURL, nil)
+	if err != nil {
+		return metricsResponses, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := m.client.Do(req)
+	if err != nil {
+		return metricsResponses, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return metricsResponses, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return metricsResponses, fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
+	}
+
+	metricsText := string(body)
+	metricsLines := strings.Split(metricsText, "\n")
+
+	metricMap := make(map[string]float64)
+	for _, line := range metricsLines {
+		if strings.HasPrefix(line, "#") || line == "" {
+			continue
+		}
+
+		parts := strings.Split(line, " ")
+		if len(parts) < 2 {
+			continue
+		}
+
+		// Extract metric name and labels
+		metricWithLabels := parts[0]
+		metricName := strings.Split(metricWithLabels, "{")[0]
+
+		// Extract metric value
+		metricValue, err := strconv.ParseFloat(parts[len(parts)-1], 64)
+		if err != nil {
+			return metricsResponses, fmt.Errorf("failed to parse metric value: %w", err)
+		}
+
+		metricMap[metricName] = metricValue
+	}
+
+	for _, metric := range mts {
+		if value, ok := metricMap[metric.Name]; ok {
+			metricsResponses = append(metricsResponses, MetricsResponse{
+				Key:   metric.Name,
+				Value: value,
+			})
+		}
+	}
+
 	return metricsResponses, nil
 }

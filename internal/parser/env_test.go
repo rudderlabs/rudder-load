@@ -127,3 +127,52 @@ func TestLoadEnvConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestGetEnvOrDefault(t *testing.T) {
+	tests := []struct {
+		name     string
+		key      string
+		fallback string
+		setEnv   map[string]string
+		expected string
+	}{
+		{
+			name:     "environment variable exists",
+			key:      "TEST_VAR",
+			fallback: "fallback",
+			setEnv: map[string]string{
+				"TEST_VAR": "actual_value",
+			},
+			expected: "actual_value",
+		},
+		{
+			name:     "environment variable does not exist",
+			key:      "NONEXISTENT_VAR",
+			fallback: "fallback",
+			setEnv:   map[string]string{},
+			expected: "fallback",
+		},
+		{
+			name:     "environment variable is empty",
+			key:      "EMPTY_VAR",
+			fallback: "fallback",
+			setEnv: map[string]string{
+				"EMPTY_VAR": "",
+			},
+			expected: "fallback",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set environment variables for the test
+			for key, value := range tt.setEnv {
+				os.Setenv(key, value)
+				defer os.Unsetenv(key)
+			}
+
+			result := GetEnvOrDefault(tt.key, tt.fallback)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
