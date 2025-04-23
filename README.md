@@ -61,9 +61,9 @@ To add more event types simply do:
 There are two primary approaches to run load tests with this tool:
 1. Using the Makefile (traditional approach)
 2. Using the load-runner (more flexible approach with configuration options)
-  
+
     a. Running the load locally with Docker Compose (for development and testing)
-    
+
     b. Running the load remotely on Kubernetes with helm
 
 ### Method 1: Using the Makefile
