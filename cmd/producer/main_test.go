@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -102,7 +101,7 @@ func TestGetTemplates(t *testing.T) {
 
 		// Create an invalid template file
 		invalidTemplatePath := tempDir + "/invalid.json.tmpl"
-		err := os.WriteFile(invalidTemplatePath, []byte("{{.InvalidSyntax}"), 0644)
+		err := os.WriteFile(invalidTemplatePath, []byte("{{.InvalidSyntax}"), 0o644)
 		require.NoError(t, err)
 
 		// Test with the directory containing an invalid template
@@ -254,26 +253,6 @@ func TestRun(t *testing.T) {
 			env: map[string]string{
 				"MODE":                  "stdout",
 				"HOSTNAME":              "rudder-load-",
-				"CONCURRENCY":           "2",
-				"MESSAGE_GENERATORS":    "1",
-				"TOTAL_USERS":           "100",
-				"SOURCES":               "write-key-1",
-				"EVENT_TYPES":           "track",
-				"HOT_EVENT_TYPES":       "100",
-				"HOT_USER_GROUPS":       "100",
-				"BATCH_SIZES":           "1",
-				"HOT_BATCH_SIZES":       "100",
-				"MAX_EVENTS_PER_SECOND": "100",
-				"SOFT_MEMORY_LIMIT":     "1GB",
-			},
-			wantExitCode: 1,
-			timeout:      1 * time.Second,
-		},
-		{
-			name: "invalid mode",
-			env: map[string]string{
-				"MODE":                  "invalid",
-				"HOSTNAME":              "rudder-load-test-0",
 				"CONCURRENCY":           "2",
 				"MESSAGE_GENERATORS":    "1",
 				"TOTAL_USERS":           "100",
@@ -527,7 +506,7 @@ func TestRun(t *testing.T) {
 
 			// Run the function
 			exitCode := run(ctx)
-			assert.Equal(t, tt.wantExitCode, exitCode)
+			require.Equal(t, tt.wantExitCode, exitCode)
 		})
 	}
 }
@@ -572,7 +551,7 @@ func TestRunCancellation(t *testing.T) {
 	// Check if program exits gracefully
 	select {
 	case exitCode := <-done:
-		assert.Equal(t, 0, exitCode)
+		require.Equal(t, 0, exitCode)
 	case <-time.After(2 * time.Second):
 		t.Fatal("run did not exit after cancellation")
 	}
@@ -583,6 +562,24 @@ func TestRunPanics(t *testing.T) {
 		name string
 		env  map[string]string
 	}{
+		{
+			name: "invalid mode",
+			env: map[string]string{
+				"MODE":                  "invalid",
+				"HOSTNAME":              "rudder-load-test-0",
+				"CONCURRENCY":           "2",
+				"MESSAGE_GENERATORS":    "1",
+				"TOTAL_USERS":           "100",
+				"SOURCES":               "write-key-1",
+				"EVENT_TYPES":           "track",
+				"HOT_EVENT_TYPES":       "100",
+				"HOT_USER_GROUPS":       "100",
+				"BATCH_SIZES":           "1",
+				"HOT_BATCH_SIZES":       "100",
+				"MAX_EVENTS_PER_SECOND": "100",
+				"SOFT_MEMORY_LIMIT":     "1GB",
+			},
+		},
 		{
 			name: "more hot sources than total sources",
 			env: map[string]string{
@@ -696,7 +693,7 @@ func TestRunPanics(t *testing.T) {
 			defer cancel()
 
 			// Assert that the function panics
-			assert.Panics(t, func() {
+			require.Panics(t, func() {
 				run(ctx)
 			}, "Expected run() to panic for test case: %s", tt.name)
 		})
