@@ -41,7 +41,7 @@ type metricsRecord struct {
 type LoadTestRunner struct {
 	config          *parser.LoadTestConfig
 	loadTestManager loadTestManager
-	metricsFetcher   metricsFetcher
+	metricsFetcher  metricsFetcher
 	portForwarder   portForwarder
 	logger          logger.Logger
 	metricsFile     string
@@ -55,7 +55,7 @@ func NewLoadTestRunner(config *parser.LoadTestConfig, loadTestManager loadTestMa
 	return &LoadTestRunner{
 		config:          config,
 		loadTestManager: loadTestManager,
-		metricsFetcher:   metricsFetcher,
+		metricsFetcher:  metricsFetcher,
 		portForwarder:   portForwarder,
 		logger:          logger,
 		metricsFile:     metricsFile,
@@ -229,16 +229,13 @@ func (r *LoadTestRunner) monitorMetrics(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			var metricsToFetch []parser.Metric
-
+			// For remote execution, use the configured metrics
+			metricsToFetch := r.config.Reporting.Metrics
 			if _, ok := r.loadTestManager.(*DockerComposeClient); ok {
 				// For local execution, we need to fetch the specific metric format
 				metricsToFetch = []parser.Metric{
 					{Name: "rudder_load_publish_rate_per_second", Query: ""},
 				}
-			} else {
-				// For remote execution, use the configured metrics
-				metricsToFetch = r.config.Reporting.Metrics
 			}
 
 			metrics, err := r.metricsFetcher.GetMetrics(ctx, metricsToFetch)
