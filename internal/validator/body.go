@@ -1,9 +1,10 @@
 package validator
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
+
+	json "github.com/sugawarayuuta/sonnet"
 )
 
 // BodyValidator defines a function type that validates a request body and returns a validation result and an error.
