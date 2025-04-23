@@ -214,4 +214,66 @@ func TestPulsarProducer(t *testing.T) {
 			require.NoError(t, consumer.Ack(msg))
 		}
 	})
+
+	// Test with slotName as topic explicitly enabled
+	t.Run("SlotName as topic enabled", func(t *testing.T) {
+		// Create a slotName to use as topic
+		slotName := "slot-as-topic"
+
+		// Create a fallback topic (should not be used)
+		fallbackTopic := "fallback-topic"
+
+		// Create a consumer client
+		consumerClient, err := pulsar.NewClient(pulsar.ClientOptions{
+			URL: pulsarURL,
+		})
+		require.NoError(t, err)
+		defer consumerClient.Close()
+
+		// Create a consumer that subscribes to the slotName as topic
+		consumer, err := consumerClient.Subscribe(pulsar.ConsumerOptions{
+			Topic:            slotName,
+			SubscriptionName: "test-subscription",
+			Type:             pulsar.Exclusive,
+		})
+		require.NoError(t, err)
+		defer consumer.Close()
+
+		// Create a producer using our PulsarProducer implementation with slotName as topic
+		producer, err := NewPulsarProducer(slotName, []string{
+			"PULSAR_URL=" + pulsarURL,
+			"PULSAR_TOPIC=" + fallbackTopic,
+			"PULSAR_USE_SLOT_NAME_AS_TOPIC=true",
+		})
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, producer.Close())
+		}()
+
+		// Verify producer options
+		require.Equal(t, slotName, producer.producerOptions.Topic)
+		require.NotEqual(t, fallbackTopic, producer.producerOptions.Topic)
+
+		// Send a message
+		ctx := context.Background()
+		message := []byte(`{"test":"data with slotName as topic"}`)
+		key := "test-key-slot-topic"
+
+		_, err = producer.PublishTo(ctx, key, message, nil)
+		require.NoError(t, err)
+
+		// Receive the message
+		ctx, cancel := context.WithTimeout(context.Background(), receiveMsgTimeout)
+		msg, err := consumer.Receive(ctx)
+		cancel()
+		require.NoError(t, err)
+
+		// Verify the message
+		require.Equal(t, message, msg.Payload())
+		require.Equal(t, key, msg.Key())
+		require.Equal(t, slotName, msg.Properties()["slotName"])
+
+		// Acknowledge the message
+		require.NoError(t, consumer.Ack(msg))
+	})
 }

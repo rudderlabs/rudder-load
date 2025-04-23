@@ -30,6 +30,7 @@ import (
 // - PULSAR_BATCHING_MAX_SIZE: Maximum size of a batch in bytes (default: 128KB)
 // - PULSAR_BATCHING_MAX_PUBLISH_DELAY: Maximum delay for publishing a batch (default: 10ms)
 // - PULSAR_COMPRESSION_TYPE: Compression type (none, zlib, lz4, zstd) (default: none)
+// - PULSAR_USE_SLOT_NAME_AS_TOPIC: Use slotName as the topic instead of PULSAR_TOPIC (default: false)
 type PulsarProducer struct {
 	topic           string
 	client          pulsar.Client
@@ -133,9 +134,18 @@ func NewPulsarProducer(slotName string, environ []string) (*PulsarProducer, erro
 		return nil, err
 	}
 
+	// Check if slotName should be used as topic
+	useSlotNameAsTopic, err := getOptionalBoolSetting(conf, "use_slot_name_as_topic", false)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create producer options
-	producerOptions := pulsar.ProducerOptions{
-		Topic: topic,
+	producerOptions := pulsar.ProducerOptions{Topic: topic}
+
+	// Set topic based on configuration
+	if useSlotNameAsTopic && slotName != "" {
+		producerOptions.Topic = slotName
 	}
 
 	// Set batching options if enabled
@@ -164,6 +174,11 @@ func NewPulsarProducer(slotName string, environ []string) (*PulsarProducer, erro
 	if err != nil {
 		client.Close()
 		return nil, fmt.Errorf("could not create pulsar producer: %v", err)
+	}
+
+	// Determine the actual topic used
+	if useSlotNameAsTopic && slotName != "" {
+		topic = slotName
 	}
 
 	return &PulsarProducer{
