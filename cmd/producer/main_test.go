@@ -557,6 +557,86 @@ func TestRunCancellation(t *testing.T) {
 	}
 }
 
+func TestMustSourcesList(t *testing.T) {
+	t.Run("integer input", func(t *testing.T) {
+		// Set up environment
+		t.Setenv("SOURCES", "3")
+
+		// Call the function
+		sources := mustSourcesList("SOURCES")
+
+		// Verify the result
+		require.Len(t, sources, 3)
+		require.Equal(t, "source-0", sources[0])
+		require.Equal(t, "source-1", sources[1])
+		require.Equal(t, "source-2", sources[2])
+	})
+
+	t.Run("list input", func(t *testing.T) {
+		// Set up environment
+		t.Setenv("SOURCES", "source-a,source-b,source-c")
+
+		// Call the function
+		sources := mustSourcesList("SOURCES")
+
+		// Verify the result
+		require.Len(t, sources, 3)
+		require.Equal(t, "source-a", sources[0])
+		require.Equal(t, "source-b", sources[1])
+		require.Equal(t, "source-c", sources[2])
+	})
+
+	t.Run("empty input", func(t *testing.T) {
+		// Set up environment
+		t.Setenv("SOURCES", "")
+
+		// Verify that the function panics
+		require.Panics(t, func() {
+			mustSourcesList("SOURCES")
+		})
+	})
+
+	t.Run("zero integer input", func(t *testing.T) {
+		// Set up environment
+		t.Setenv("SOURCES", "0")
+
+		// Verify that the function treats it as a list with one item
+		sources := mustSourcesList("SOURCES")
+		require.Len(t, sources, 1)
+		require.Equal(t, "0", sources[0])
+	})
+
+	t.Run("negative integer input", func(t *testing.T) {
+		// Set up environment
+		t.Setenv("SOURCES", "-5")
+
+		// Verify that the function treats it as a list with one item
+		sources := mustSourcesList("SOURCES")
+		require.Len(t, sources, 1)
+		require.Equal(t, "-5", sources[0])
+	})
+
+	t.Run("list with empty source", func(t *testing.T) {
+		// Set up environment
+		t.Setenv("SOURCES", "source-a,,source-c")
+
+		// Verify that the function panics
+		require.Panics(t, func() {
+			mustSourcesList("SOURCES")
+		})
+	})
+
+	t.Run("non-existent environment variable", func(t *testing.T) {
+		// Unset the environment variable
+		t.Setenv("SOURCES", "")
+
+		// Verify that the function panics
+		require.Panics(t, func() {
+			mustSourcesList("NON_EXISTENT_VAR")
+		})
+	})
+}
+
 func TestRunPanics(t *testing.T) {
 	tests := []struct {
 		name string

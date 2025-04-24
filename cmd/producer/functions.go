@@ -256,6 +256,40 @@ func mustList(s string) []string {
 	return v
 }
 
+// mustSourcesList reads the SOURCES environment variable and returns a list of sources.
+// If the environment variable is a single integer, it generates that many sources with
+// predictable names like "source-0", "source-1", etc.
+// If the environment variable is a comma-separated list, it returns that list.
+func mustSourcesList(s string) []string {
+	v := os.Getenv(s)
+	if v == "" {
+		panic(fmt.Errorf("invalid sources: %q", s))
+	}
+
+	// Check if the value is a single integer
+	count, err := strconv.Atoi(v)
+	if err == nil && count > 0 {
+		// Generate sources with predictable names
+		sources := make([]string, count)
+		for i := 0; i < count; i++ {
+			sources[i] = "source-" + strconv.Itoa(i)
+		}
+		return sources
+	}
+
+	// Otherwise, treat it as a comma-separated list
+	sources := strings.Split(v, ",")
+	if len(sources) < 1 {
+		panic(fmt.Errorf("invalid sources: %q", s))
+	}
+	for _, source := range sources {
+		if source == "" {
+			panic(fmt.Errorf("got an empty source: %q", s))
+		}
+	}
+	return sources
+}
+
 func printErr(err error, retry ...bool) {
 	if len(retry) > 0 && retry[0] == true {
 		_, _ = fmt.Fprintf(os.Stdout, "error: %v (retrying...)\n\n", err)

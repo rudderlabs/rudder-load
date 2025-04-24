@@ -90,7 +90,7 @@ func run(ctx context.Context) int {
 		hotBatchSizes         = mustMap("HOT_BATCH_SIZES")
 		maxEventsPerSecond    = mustInt("MAX_EVENTS_PER_SECOND")
 		templatesPath         = optionalString("TEMPLATES_PATH", "../../templates/")
-		sourcesList           = mustList("SOURCES")
+		sourcesList           = mustSourcesList("SOURCES")
 		hotSourcesList        = optionalMap("HOT_SOURCES", sourcesList)
 		validatorType         = optionalString("VALIDATOR_TYPE", "")
 	)
