@@ -5,14 +5,45 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/apache/pulsar-client-go/pulsar"
+	"github.com/google/uuid"
 	"github.com/ory/dockertest/v3"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	dockerPulsar "github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/pulsar"
 )
+
+func TestExtractNamespaceFromTopic(t *testing.T) {
+	testCases := []struct {
+		name     string
+		topic    string
+		expected string
+	}{
+		{
+			name:     "Invalid namespace",
+			topic:    "foo-bar",
+			expected: "",
+		},
+		{
+			name:     "Standard topic with namespace",
+			topic:    "persistent://public/enterprise/source-events-foo-bar",
+			expected: "persistent://public/enterprise/",
+		},
+		{
+			name:     "Topic with multiple slashes",
+			topic:    "persistent://public/enterprise/folder/subfolder/topic",
+			expected: "persistent://public/enterprise/",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := extractNamespaceFromTopic(tc.topic)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
 
 func TestPulsarProducer(t *testing.T) {
 	const receiveMsgTimeout = 10 * time.Second
@@ -29,7 +60,7 @@ func TestPulsarProducer(t *testing.T) {
 	// Test the simplest setup
 	t.Run("Simplest setup", func(t *testing.T) {
 		// Create a topic name for testing
-		topic := "test-topic-simple"
+		topic := "persistent://public/default/test-topic-simple"
 
 		// Create a consumer client
 		consumerClient, err := pulsar.NewClient(pulsar.ClientOptions{
@@ -91,7 +122,7 @@ func TestPulsarProducer(t *testing.T) {
 	// Test with compression enabled
 	t.Run("Compression enabled", func(t *testing.T) {
 		// Create a topic name for testing
-		topic := "test-topic-compression"
+		topic := "persistent://public/default/test-topic-compression"
 
 		// Create a consumer client
 		consumerClient, err := pulsar.NewClient(pulsar.ClientOptions{
@@ -152,7 +183,7 @@ func TestPulsarProducer(t *testing.T) {
 	// Test with batching enabled
 	t.Run("Batching enabled", func(t *testing.T) {
 		// Create a topic name for testing
-		topic := "test-topic-batching"
+		topic := "persistent://public/default/test-topic-batching"
 
 		// Create a consumer client
 		consumerClient, err := pulsar.NewClient(pulsar.ClientOptions{
@@ -222,8 +253,10 @@ func TestPulsarProducer(t *testing.T) {
 		// Create a slotName to use as topic
 		slotName := "slot-as-topic"
 
-		// Create a fallback topic (should not be used)
-		fallbackTopic := "fallback-topic"
+		// Create a fallback topic with namespace (should extract namespace from this)
+		fallbackTopic := "persistent://public/default/fallback-topic"
+		expectedNamespace := "persistent://public/default/"
+		expectedTopic := expectedNamespace + slotName
 
 		// Create a consumer client
 		consumerClient, err := pulsar.NewClient(pulsar.ClientOptions{
@@ -232,9 +265,9 @@ func TestPulsarProducer(t *testing.T) {
 		require.NoError(t, err)
 		defer consumerClient.Close()
 
-		// Create a consumer that subscribes to the slotName as topic
+		// Create a consumer that subscribes to the expected topic (namespace + slotName)
 		consumer, err := consumerClient.Subscribe(pulsar.ConsumerOptions{
-			Topic:            slotName,
+			Topic:            expectedTopic,
 			SubscriptionName: "test-subscription",
 			Type:             pulsar.Exclusive,
 		})
@@ -253,7 +286,7 @@ func TestPulsarProducer(t *testing.T) {
 		}()
 
 		// Verify producer options
-		require.Equal(t, slotName, producer.producerOptions.Topic)
+		require.Equal(t, expectedTopic, producer.producerOptions.Topic)
 		require.NotEqual(t, fallbackTopic, producer.producerOptions.Topic)
 
 		// Send a message
@@ -284,8 +317,10 @@ func TestPulsarProducer(t *testing.T) {
 		// Generate a UUID for the slot name, same as in main.go
 		uuidSlotName := uuid.New().String()
 
-		// Create a fallback topic (should not be used)
-		fallbackTopic := "fallback-topic-uuid"
+		// Create a fallback topic with namespace (should extract namespace from this)
+		fallbackTopic := "persistent://public/default/fallback-topic-uuid"
+		expectedNamespace := "persistent://public/default/"
+		expectedTopic := expectedNamespace + uuidSlotName
 
 		// Create a consumer client
 		consumerClient, err := pulsar.NewClient(pulsar.ClientOptions{
@@ -294,9 +329,9 @@ func TestPulsarProducer(t *testing.T) {
 		require.NoError(t, err)
 		defer consumerClient.Close()
 
-		// Create a consumer that subscribes to the UUID as topic
+		// Create a consumer that subscribes to the expected topic (namespace + UUID)
 		consumer, err := consumerClient.Subscribe(pulsar.ConsumerOptions{
-			Topic:            uuidSlotName, // Using UUID as topic
+			Topic:            expectedTopic, // Using namespace + UUID as topic
 			SubscriptionName: "test-subscription",
 			Type:             pulsar.Exclusive,
 		})
@@ -316,7 +351,7 @@ func TestPulsarProducer(t *testing.T) {
 		}()
 
 		// Verify producer options
-		require.Equal(t, uuidSlotName, producer.producerOptions.Topic)
+		require.Equal(t, expectedTopic, producer.producerOptions.Topic)
 		require.NotEqual(t, fallbackTopic, producer.producerOptions.Topic)
 		require.Equal(t, uuidSlotName, producer.slotName)
 

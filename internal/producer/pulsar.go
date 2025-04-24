@@ -3,6 +3,7 @@ package producer
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/apache/pulsar-client-go/pulsar"
@@ -32,7 +33,6 @@ import (
 // - PULSAR_COMPRESSION_TYPE: Compression type (none, zlib, lz4, zstd) (default: none)
 // - PULSAR_USE_SLOT_NAME_AS_TOPIC: Use slotName as the topic instead of PULSAR_TOPIC (default: false)
 type PulsarProducer struct {
-	topic           string
 	client          pulsar.Client
 	producer        pulsar.Producer
 	producerOptions pulsar.ProducerOptions
@@ -56,6 +56,10 @@ func NewPulsarProducer(slotName string, environ []string) (*PulsarProducer, erro
 	topic, err := getRequiredStringSetting(conf, "topic")
 	if err != nil {
 		return nil, err
+	}
+
+	if !strings.HasPrefix(topic, "persistent://") {
+		return nil, fmt.Errorf("topic must start with persistent://")
 	}
 
 	// Optional client settings
@@ -145,7 +149,9 @@ func NewPulsarProducer(slotName string, environ []string) (*PulsarProducer, erro
 
 	// Set topic based on configuration
 	if useSlotNameAsTopic && slotName != "" {
-		producerOptions.Topic = slotName
+		// Extract namespace from the original topic and combine with slotName
+		namespace := extractNamespaceFromTopic(topic)
+		producerOptions.Topic = namespace + slotName
 	}
 
 	// Set batching options if enabled
@@ -176,15 +182,9 @@ func NewPulsarProducer(slotName string, environ []string) (*PulsarProducer, erro
 		return nil, fmt.Errorf("could not create pulsar producer: %v", err)
 	}
 
-	// Determine the actual topic used
-	if useSlotNameAsTopic && slotName != "" {
-		topic = slotName
-	}
-
 	return &PulsarProducer{
 		client:          client,
 		producer:        producer,
-		topic:           topic,
 		producerOptions: producerOptions,
 		slotName:        slotName,
 	}, nil
@@ -238,6 +238,21 @@ func (p *PulsarProducer) PublishTo(ctx context.Context, key string, message []by
 
 	// Return empty response as we're using async API
 	return nil, nil
+}
+
+// extractNamespaceFromTopic extracts the namespace part from a topic.
+// For example, if topic is "persistent://public/enterprise/source-events-foo-bar",
+// it returns "persistent://public/enterprise/".
+func extractNamespaceFromTopic(topic string) string {
+	// Split the topic by "/"
+	parts := strings.Split(topic, "/")
+	if len(parts) < 4 {
+		// If the topic doesn't have enough parts, return empty string
+		return ""
+	}
+
+	// Return the namespace (persistent://tenant/namespace/)
+	return parts[0] + "//" + parts[2] + "/" + parts[3] + "/"
 }
 
 // Close closes the Pulsar producer and client, releasing all resources.
