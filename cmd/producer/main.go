@@ -35,6 +35,8 @@ var (
 	modeHTTP   producerMode = producerModeImpl{"http"}
 	modeHTTP2  producerMode = producerModeImpl{"http2"}
 	modePulsar producerMode = producerModeImpl{"pulsar"}
+
+	hostnameRE = regexp.MustCompile(`rudder-load-(\d+)-(.+)`)
 )
 
 const (
@@ -100,23 +102,12 @@ func run(ctx context.Context) int {
 		return 1
 	}
 
-	re := regexp.MustCompile(`rudder-load-([a-z]+)-(\d+)(-?.*)`)
-	match := re.FindStringSubmatch(hostname)
-	if len(match) <= 2 {
-		printErr(fmt.Errorf("hostname is invalid: %s", hostname))
+	deploymentName, instanceNumber, err := getHostname(hostname)
+	if err != nil {
+		printErr(err)
 		return 1
 	}
 
-	deploymentName := match[1]
-	if deploymentName == "" {
-		printErr(fmt.Errorf("deployment name is empty"))
-		return 1
-	}
-	instanceNumber, err := strconv.Atoi(match[2])
-	if err != nil {
-		printErr(fmt.Errorf("error getting instance number from hostname: %v", err))
-		return 1
-	}
 	if concurrency < 1 {
 		printErr(fmt.Errorf("concurrency has to be greater than zero: %d", concurrency))
 		return 1

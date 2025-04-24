@@ -406,3 +406,22 @@ func newProducer(slotName string, mode producerMode, useOneClientPerSlot bool) (
 		return nil, fmt.Errorf("unknown mode: %s", mode)
 	}
 }
+
+func getHostname(hostname string) (string, int, error) {
+	match := hostnameRE.FindStringSubmatch(hostname)
+	if len(match) <= 2 {
+		return "", 0, fmt.Errorf("hostname is invalid: %s", hostname)
+	}
+
+	instanceNumber, err := strconv.Atoi(match[1])
+	if err != nil {
+		return "", 0, fmt.Errorf("error getting instance number from hostname %s: %v", hostname, err)
+	}
+
+	deploymentName := match[2]
+	if deploymentName == "" {
+		return "", 0, fmt.Errorf("deployment name is empty: %s", hostname)
+	}
+
+	return deploymentName, instanceNumber, nil
+}

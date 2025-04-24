@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"testing"
@@ -778,67 +779,88 @@ func TestRunPanics(t *testing.T) {
 	}
 }
 
-//func TestGetEventTypesConcentration(t *testing.T) {
-//	eventTypes := []eventType{
-//		{Type: "page", Values: nil},
-//		{Type: "batch", Values: []int{1, 2, 3}},
-//	}
-//	eventGenerators := map[string]eventGenerator{
-//		"page": func(tmpl *template.Template, userID, loadRunID string, values []int) []byte {
-//			return []byte(fmt.Sprintf("page-%s-%s-%+v", userID, loadRunID, values))
-//		},
-//		"batch": func(tmpl *template.Template, userID, loadRunID string, values []int) []byte {
-//			return []byte(fmt.Sprintf("batch-%s-%s-%+v", userID, loadRunID, values))
-//		},
-//	}
-//	templates := map[string]*template.Template{
-//		"page":  nil,
-//		"batch": nil,
-//	}
-//	eventsConcentration := getEventTypesConcentration("xxx", eventTypes, []int{50, 50}, eventGenerators, templates)
-//	require.Len(t, eventsConcentration, 100)
-//
-//	repeat := 10000
-//	for i := 0; i < repeat; i++ {
-//		for k := 0; k < 50; k++ { // 1st group (0-49)
-//			event := eventsConcentration[k]("123")
-//			require.Equal(t, "page-123-xxx-[]", string(event))
-//		}
-//		for k := 50; k < 100; k++ { // 2nd group (50-99)
-//			event := eventsConcentration[k]("123")
-//			require.Equal(t, "batch-123-xxx-[1 2 3]", string(event))
-//		}
-//	}
-//
-//	for { // repeat until you get a page and then again until you get a batch
-//		event := eventsConcentration[rand.Intn(100)]("123")
-//		if string(event) == "page-123-xxx-[]" {
-//			break
-//		}
-//	}
-//	for { // repeat until you get a page and then again until you get a batch
-//		event := eventsConcentration[rand.Intn(100)]("123")
-//		if string(event) == "batch-123-xxx-[1 2 3]" {
-//			break
-//		}
-//	}
-//}
-//
-//func TestEventGenerators(t *testing.T) {
-//	templates, err := getTemplates("./../../templates/")
-//	require.NoError(t, err)
-//
-//	require.Contains(t, templates, "batch")
-//	require.Contains(t, templates, "page")
-//
-//	t.Run("page", func(t *testing.T) {
-//		data := pageFunc(templates["page"], "123", "456", nil)
-//		t.Logf("page: %s", data)
-//	})
-//
-//	// TODO update the tests
-//	//t.Run("batch", func(t *testing.T) {
-//	//	data := batchFunc(templates["batch"], "123", "456", []int{2, 3})
-//	//	t.Logf("batch: %s", data)
-//	//})
-//}
+func TestHostname(t *testing.T) {
+	type testCase struct {
+		name                   string
+		hostname               string
+		expectedDeploymentName string
+		expectedInstanceNumber int
+		expectedError          error
+	}
+
+	tests := []testCase{
+		{
+			name:                   "valid hostname with alphanumeric deployment name",
+			hostname:               "rudder-load-0-68d8995d6c-9td2n",
+			expectedDeploymentName: "68d8995d6c-9td2n",
+			expectedInstanceNumber: 0,
+			expectedError:          nil,
+		},
+		{
+			name:                   "valid hostname with different instance number",
+			hostname:               "rudder-load-42-deployment-name",
+			expectedDeploymentName: "deployment-name",
+			expectedInstanceNumber: 42,
+			expectedError:          nil,
+		},
+		{
+			name:                   "valid hostname with special characters in deployment name",
+			hostname:               "rudder-load-7-special_chars.123!@#",
+			expectedDeploymentName: "special_chars.123!@#",
+			expectedInstanceNumber: 7,
+			expectedError:          nil,
+		},
+		{
+			name:                   "invalid hostname format - missing rudder-load prefix",
+			hostname:               "invalid-0-deployment",
+			expectedDeploymentName: "",
+			expectedInstanceNumber: 0,
+			expectedError:          fmt.Errorf("hostname is invalid: invalid-0-deployment"),
+		},
+		{
+			name:                   "invalid hostname format - missing instance number",
+			hostname:               "rudder-load-deployment",
+			expectedDeploymentName: "",
+			expectedInstanceNumber: 0,
+			expectedError:          fmt.Errorf("hostname is invalid: rudder-load-deployment"),
+		},
+		{
+			name:                   "invalid hostname format - non-numeric instance number",
+			hostname:               "rudder-load-abc-deployment",
+			expectedDeploymentName: "",
+			expectedInstanceNumber: 0,
+			expectedError:          fmt.Errorf("hostname is invalid: rudder-load-abc-deployment"),
+		},
+		{
+			name:                   "invalid hostname format - empty deployment name",
+			hostname:               "rudder-load-123-",
+			expectedDeploymentName: "",
+			expectedInstanceNumber: 0,
+			expectedError:          fmt.Errorf("hostname is invalid: rudder-load-123-%s", ""),
+		},
+		{
+			name:                   "empty hostname",
+			hostname:               "",
+			expectedDeploymentName: "",
+			expectedInstanceNumber: 0,
+			expectedError:          fmt.Errorf("hostname is invalid: %s", ""),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deploymentName, instanceNumber, err := getHostname(tt.hostname)
+
+			if tt.expectedError != nil {
+				require.Error(t, err)
+				require.Equal(t, tt.expectedError.Error(), err.Error())
+				require.Equal(t, 0, instanceNumber)
+				require.Empty(t, deploymentName)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.expectedDeploymentName, deploymentName)
+				require.Equal(t, tt.expectedInstanceNumber, instanceNumber)
+			}
+		})
+	}
+}
