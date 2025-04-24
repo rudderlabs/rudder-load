@@ -242,7 +242,7 @@ func mustMap(s string) []int {
 	for i := range v {
 		r[i], err = strconv.Atoi(v[i])
 		if err != nil {
-			panic(err)
+			panic(fmt.Errorf("invalid map: %s: %v", s, err))
 		}
 	}
 	return r

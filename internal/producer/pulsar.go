@@ -2,7 +2,9 @@ package producer
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -126,6 +128,40 @@ func NewPulsarProducer(slotName string, environ []string) (*PulsarProducer, erro
 		oauth2PrivateKey, err := getOptionalStringSetting(conf, "oauth2_private_key", "")
 		if err != nil {
 			return nil, err
+		}
+		oauth2PrivateKeyBase64, err := getOptionalStringSetting(conf, "oauth2_private_key_base64", "")
+		if err != nil {
+			return nil, err
+		}
+		if oauth2PrivateKey == "" && oauth2PrivateKeyBase64 == "" {
+			return nil, fmt.Errorf("either oauth2_private_key or oauth2_private_key_base64 must be set")
+		}
+		if oauth2PrivateKeyBase64 != "" {
+			keyBytes, err := base64.StdEncoding.DecodeString(oauth2PrivateKeyBase64)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode oauth2_private_key_base64: %v", err)
+			}
+			tmpFile, err := os.CreateTemp("", "oauth2-key-*.pem")
+			if err != nil {
+				return nil, fmt.Errorf("failed to create temp file for oauth2 key: %v", err)
+			}
+			if _, err := tmpFile.Write(keyBytes); err != nil {
+				_ = tmpFile.Close()
+				return nil, fmt.Errorf("failed to write oauth2 key to temp file: %v", err)
+			}
+			if err := tmpFile.Close(); err != nil {
+				return nil, fmt.Errorf("failed to close temp oauth2 key file: %v", err)
+			}
+			oauth2PrivateKey = "file://" + tmpFile.Name()
+		}
+		// Check if privateKey is a file path
+		if !strings.HasPrefix(oauth2PrivateKey, "file:///") {
+			return nil, fmt.Errorf("oauth2_private_key must start with file:///")
+		}
+		// Extract file path and check if file exists and is readable
+		filePath := strings.TrimPrefix(oauth2PrivateKey, "file://")
+		if _, err := os.Stat(filePath); err != nil {
+			return nil, fmt.Errorf("oauth2_private_key file does not exist: %v", err)
 		}
 
 		clientOptions.Authentication = pulsar.NewAuthenticationOAuth2(map[string]string{
