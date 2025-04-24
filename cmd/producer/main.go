@@ -259,7 +259,7 @@ func run(ctx context.Context) int {
 
 	var client publisherCloser
 	if !useOneClientPerSlot {
-		p, err := newProducer("global", mode, useOneClientPerSlot)
+		p, err := newProducer(loadRunID, mode, useOneClientPerSlot)
 		if err != nil {
 			printErr(fmt.Errorf("cannot create publisher: %v", err))
 			return 1
@@ -366,12 +366,13 @@ func run(ctx context.Context) int {
 		if !useOneClientPerSlot {
 			localClient = client
 		} else {
-			p, err := newProducer(loadRunID+"_"+strconv.Itoa(i), mode, useOneClientPerSlot)
+			slotName := loadRunID + "-" + strconv.Itoa(i)
+			p, err := newProducer(slotName, mode, useOneClientPerSlot)
 			if err != nil {
 				printErr(fmt.Errorf("cannot create publisher: %v", err))
 				return 1
 			}
-			localClient = statsFactory.New(p, loadRunID+"_"+strconv.Itoa(i))
+			localClient = statsFactory.New(p, slotName)
 		}
 
 		wg.Add(1)
