@@ -190,9 +190,11 @@ env:
 
   # Source and User Configuration
 
-  # Comma-separated list of write keys
+  # Can be either:
+  # 1. A comma-separated list of write keys
+  # 2. A single integer N, which will generate N sources with predictable names like "source-0", "source-1", etc.
   # These are the write keys used to send events to RudderStack
-  SOURCES: "writeKey1,writeKey2"
+  SOURCES: "writeKey1,writeKey2"  # or simply "3" to generate 3 sources
 
   # Percentage distribution across sources (must sum to 100)
   # This controls how traffic is distributed across the write keys
