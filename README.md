@@ -271,7 +271,7 @@ env:
   PULSAR_CONNECTION_TIMEOUT: "30s"
 
   # Enable TLS (default: false)
-  PULSAR_ENABLE_TLS: "false"
+  PULSAR_TLS_ENABLE: "false"
 
   # Allow insecure TLS connections (default: false)
   PULSAR_TLS_ALLOW_INSECURE: "false"

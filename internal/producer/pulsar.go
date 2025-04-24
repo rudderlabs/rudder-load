@@ -73,17 +73,17 @@ func NewPulsarProducer(slotName string, environ []string) (*PulsarProducer, erro
 		return nil, err
 	}
 
-	// Optional TLS settings
-	enableTLS, err := getOptionalBoolSetting(conf, "enable_tls", false)
-	if err != nil {
-		return nil, err
-	}
-
 	// Create client options
 	clientOptions := pulsar.ClientOptions{
 		URL:               pulsarURL,
 		OperationTimeout:  operationTimeout,
 		ConnectionTimeout: connectionTimeout,
+	}
+
+	// Optional TLS settings
+	enableTLS, err := getOptionalBoolSetting(conf, "tls_enable", false)
+	if err != nil {
+		return nil, err
 	}
 
 	// Configure TLS if enabled
@@ -103,6 +103,38 @@ func NewPulsarProducer(slotName string, environ []string) (*PulsarProducer, erro
 		if tlsTrustCertsFilePath != "" {
 			clientOptions.TLSTrustCertsFilePath = tlsTrustCertsFilePath
 		}
+	}
+
+	enableOAuth2, err := getOptionalBoolSetting(conf, "oauth2_enable", false)
+	if err != nil {
+		return nil, err
+	}
+
+	if enableOAuth2 {
+		oauth2Type, err := getOptionalStringSetting(conf, "oauth2_type", "client_credentials")
+		if err != nil {
+			return nil, err
+		}
+		oauth2IssuerURL, err := getOptionalStringSetting(conf, "oauth2_issuer_url", "https://auth.streamnative.cloud/")
+		if err != nil {
+			return nil, err
+		}
+		oauth2Audience, err := getOptionalStringSetting(conf, "oauth2_audience", "")
+		if err != nil {
+			return nil, err
+		}
+		oauth2PrivateKey, err := getOptionalStringSetting(conf, "oauth2_private_key", "")
+		if err != nil {
+			return nil, err
+		}
+
+		clientOptions.Authentication = pulsar.NewAuthenticationOAuth2(map[string]string{
+			"type":      oauth2Type,
+			"issuerUrl": oauth2IssuerURL,
+			"audience":  oauth2Audience,
+			// Absolute path of your downloaded key file e.g. file:///YOUR-KEY-FILE-PATH
+			"privateKey": oauth2PrivateKey,
+		})
 	}
 
 	// Create client
