@@ -30,7 +30,7 @@ type portForwarder interface {
 type metricsFetcher interface {
 	GetMetrics(ctx context.Context, mts []parser.Metric) ([]metrics.MetricsResponse, error)
 	Query(ctx context.Context, query string, time int64) (metrics.QueryResponse, error)
-	QueryRange(ctx context.Context, query string, start int64, end int64, step string) (metrics.QueryResponse, error)
+	QueryRange(ctx context.Context, query string, start, end int64, step string) (metrics.QueryResponse, error)
 }
 
 type metricsRecord struct {
@@ -152,7 +152,7 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 		}
 		fields := make([]logger.Field, len(summaryMetrics))
 		for i, m := range summaryMetrics {
-			fields[i] = logger.NewField(m.Key, m.Value)
+			fields[i] = logger.NewFloatField(m.Key, m.Value)
 		}
 		r.logger.Infon("Load test summary metrics", fields...)
 
@@ -178,7 +178,7 @@ func parseDuration(d string) (time.Duration, error) {
 func (r *LoadTestRunner) createValuesFileCopy(ctx context.Context) error {
 	const (
 		valuesFileName = "http_values.yaml"
-		valuesFilePerm = 0644
+		valuesFilePerm = 0o644
 	)
 
 	sourceFile := fmt.Sprintf("%s/%s", r.config.ChartFilePath, valuesFileName)
@@ -238,18 +238,18 @@ func (r *LoadTestRunner) monitorMetrics(ctx context.Context) {
 				}
 			}
 
-			metrics, err := r.metricsFetcher.GetMetrics(ctx, metricsToFetch)
+			metricsResp, err := r.metricsFetcher.GetMetrics(ctx, metricsToFetch)
 			if err != nil {
 				r.logger.Errorn("Failed to get current metrics", obskit.Error(err))
 				continue
 			}
-			fields := make([]logger.Field, len(metrics))
-			for i, m := range metrics {
-				fields[i] = logger.NewField(m.Key, m.Value)
+			fields := make([]logger.Field, len(metricsResp))
+			for i, m := range metricsResp {
+				fields[i] = logger.NewFloatField(m.Key, m.Value)
 			}
 			r.logger.Infon("Load test metrics", fields...)
 
-			r.recordMetrics(metrics)
+			r.recordMetrics(metricsResp)
 		}
 	}
 }
@@ -274,7 +274,7 @@ func (r *LoadTestRunner) writeMetricsToFile() error {
 	}
 
 	dir := "metrics_reports"
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create metrics directory: %w", err)
 	}
 
@@ -284,7 +284,7 @@ func (r *LoadTestRunner) writeMetricsToFile() error {
 		return fmt.Errorf("failed to marshal metrics data: %w", err)
 	}
 
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
+	if err := os.WriteFile(filePath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write metrics file: %w", err)
 	}
 
