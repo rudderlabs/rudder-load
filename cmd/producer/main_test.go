@@ -188,7 +188,7 @@ func TestRun(t *testing.T) {
 			name: "valid configuration",
 			env: map[string]string{
 				"MODE":                     "stdout",
-				"HOSTNAME":                 "rudder-load-test-0",
+				"HOSTNAME":                 "rudder-load-0-test",
 				"CONCURRENCY":              "2",
 				"MESSAGE_GENERATORS":       "1",
 				"TOTAL_USERS":              "100",
@@ -210,7 +210,7 @@ func TestRun(t *testing.T) {
 			name: "valid sources configuration",
 			env: map[string]string{
 				"MODE":                     "stdout",
-				"HOSTNAME":                 "rudder-load-test-1",
+				"HOSTNAME":                 "rudder-load-1-test",
 				"CONCURRENCY":              "2",
 				"MESSAGE_GENERATORS":       "1",
 				"TOTAL_USERS":              "100",
@@ -293,7 +293,7 @@ func TestRun(t *testing.T) {
 			name: "hostname with instance number higher than sources length",
 			env: map[string]string{
 				"MODE":                  "stdout",
-				"HOSTNAME":              "rudder-load-test-1",
+				"HOSTNAME":              "rudder-load-1-test",
 				"CONCURRENCY":           "2",
 				"MESSAGE_GENERATORS":    "1",
 				"TOTAL_USERS":           "100",
@@ -433,7 +433,7 @@ func TestRun(t *testing.T) {
 			name: "no templates path",
 			env: map[string]string{
 				"MODE":                  "stdout",
-				"HOSTNAME":              "rudder-load-test-0",
+				"HOSTNAME":              "rudder-load-0-test",
 				"CONCURRENCY":           "1",
 				"MESSAGE_GENERATORS":    "1",
 				"TOTAL_USERS":           "100",
@@ -494,7 +494,7 @@ func TestRunCancellation(t *testing.T) {
 	// Setup valid environment
 	env := map[string]string{
 		"MODE":                     "stdout",
-		"HOSTNAME":                 "rudder-load-test-0",
+		"HOSTNAME":                 "rudder-load-0-test",
 		"CONCURRENCY":              "2",
 		"MESSAGE_GENERATORS":       "1",
 		"TOTAL_USERS":              "100",
@@ -625,7 +625,7 @@ func TestRunPanics(t *testing.T) {
 			name: "invalid mode",
 			env: map[string]string{
 				"MODE":                  "invalid",
-				"HOSTNAME":              "rudder-load-test-0",
+				"HOSTNAME":              "rudder-load-0-test",
 				"CONCURRENCY":           "2",
 				"MESSAGE_GENERATORS":    "1",
 				"TOTAL_USERS":           "100",
@@ -643,7 +643,7 @@ func TestRunPanics(t *testing.T) {
 			name: "empty write key in sources",
 			env: map[string]string{
 				"MODE":                     "stdout",
-				"HOSTNAME":                 "rudder-load-test-0",
+				"HOSTNAME":                 "rudder-load-0-test",
 				"CONCURRENCY":              "2",
 				"MESSAGE_GENERATORS":       "1",
 				"TOTAL_USERS":              "100",
@@ -663,7 +663,7 @@ func TestRunPanics(t *testing.T) {
 			name: "more hot sources than total sources",
 			env: map[string]string{
 				"MODE":                     "stdout",
-				"HOSTNAME":                 "rudder-load-test-0",
+				"HOSTNAME":                 "rudder-load-0-test",
 				"CONCURRENCY":              "2",
 				"MESSAGE_GENERATORS":       "1",
 				"TOTAL_USERS":              "100",
@@ -684,7 +684,7 @@ func TestRunPanics(t *testing.T) {
 			name: "hot sources percentages don't sum to 100",
 			env: map[string]string{
 				"MODE":                     "stdout",
-				"HOSTNAME":                 "rudder-load-test-1",
+				"HOSTNAME":                 "rudder-load-1-test",
 				"CONCURRENCY":              "2",
 				"MESSAGE_GENERATORS":       "1",
 				"TOTAL_USERS":              "100",
@@ -705,7 +705,7 @@ func TestRunPanics(t *testing.T) {
 			name: "hot batch sizes don't sum to 100",
 			env: map[string]string{
 				"MODE":                     "stdout",
-				"HOSTNAME":                 "rudder-load-test-0",
+				"HOSTNAME":                 "rudder-load-0-test",
 				"CONCURRENCY":              "2",
 				"MESSAGE_GENERATORS":       "1",
 				"TOTAL_USERS":              "100",
@@ -725,7 +725,7 @@ func TestRunPanics(t *testing.T) {
 			name: "missing hot user groups",
 			env: map[string]string{
 				"MODE":                     "stdout",
-				"HOSTNAME":                 "rudder-load-test-0",
+				"HOSTNAME":                 "rudder-load-0-test",
 				"CONCURRENCY":              "2",
 				"MESSAGE_GENERATORS":       "1",
 				"TOTAL_USERS":              "100",
@@ -744,7 +744,7 @@ func TestRunPanics(t *testing.T) {
 			name: "missing mode",
 			env: map[string]string{
 				// mode is missing
-				"HOSTNAME":              "rudder-load-test-0",
+				"HOSTNAME":              "rudder-load-0-test",
 				"CONCURRENCY":           "2",
 				"MESSAGE_GENERATORS":    "1",
 				"TOTAL_USERS":           "100",
