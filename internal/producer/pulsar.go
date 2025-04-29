@@ -152,16 +152,15 @@ func NewPulsarProducer(slotName string, environ []string) (*PulsarProducer, erro
 			if err := tmpFile.Close(); err != nil {
 				return nil, fmt.Errorf("failed to close temp oauth2 key file: %v", err)
 			}
-			oauth2PrivateKey = "file://" + tmpFile.Name()
+			oauth2PrivateKey = tmpFile.Name()
 		}
-		// Check if privateKey is a file path
-		if !strings.HasPrefix(oauth2PrivateKey, "file:///") {
-			return nil, fmt.Errorf("oauth2_private_key must start with file:///")
+		// Check if privateKey has the file:// prefix
+		if strings.HasPrefix(oauth2PrivateKey, "file://") {
+			oauth2PrivateKey = strings.TrimPrefix(oauth2PrivateKey, "file://")
 		}
 		// Extract file path and check if file exists and is readable
-		filePath := strings.TrimPrefix(oauth2PrivateKey, "file://")
-		if _, err := os.Stat(filePath); err != nil {
-			return nil, fmt.Errorf("oauth2_private_key file does not exist: %v", err)
+		if _, err := os.Stat(oauth2PrivateKey); err != nil {
+			return nil, fmt.Errorf("oauth2_private_key file does not exist %q: %v", oauth2PrivateKey, err)
 		}
 
 		clientOptions.Authentication = pulsar.NewAuthenticationOAuth2(map[string]string{
