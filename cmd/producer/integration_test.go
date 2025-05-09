@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -215,6 +216,145 @@ func TestPulsarIntegration(t *testing.T) {
 			t.Errorf("run exited with %d", exitCode)
 		}
 	}()
+
+	// Wait for the application to finish
+	<-done
+}
+
+func TestPulsarIntegrationWithSlotNameAsTopic(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+	pool.MaxWait = time.Minute
+
+	pulsarResource, err := dockerPulsar.Setup(pool, t)
+	require.NoError(t, err)
+
+	pulsarURL := pulsarResource.URL
+	originalTopic := "persistent://public/default/will-be-replaced-by-slot-name"
+
+	// Define the desired slotName
+	// In main.go, slotName is constructed as loadRunID + "-" + i
+	// With CONCURRENCY=2, two producers are created
+	// So we set LOAD_RUN_ID to "custom-slot-name" to get slotNames of "custom-slot-name-0" and "custom-slot-name-1"
+	loadRunID := "custom-slot-name"
+	slotName0 := loadRunID + "-0" // First producer's slotName
+	slotName1 := loadRunID + "-1" // Second producer's slotName
+
+	// Extract namespace from the original topic and combine with slotNames
+	// This mimics the behavior in pulsar.go's extractNamespaceFromTopic function
+	namespace := "persistent://public/default/"
+	expectedTopic0 := namespace + slotName0
+	expectedTopic1 := namespace + slotName1
+
+	// Create a context that can be cancelled when we receive messages from both topics
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create a consumer client
+	consumerClient, err := pulsar.NewClient(pulsar.ClientOptions{
+		URL: pulsarURL,
+	})
+	require.NoError(t, err)
+	defer consumerClient.Close()
+
+	// Create consumers that subscribe to the expected topics (namespace + slotName)
+	consumer0, err := consumerClient.Subscribe(pulsar.ConsumerOptions{
+		Topic:            expectedTopic0,
+		SubscriptionName: "test-subscription-slot-name-0",
+		Type:             pulsar.Exclusive,
+	})
+	require.NoError(t, err)
+	defer consumer0.Close()
+
+	consumer1, err := consumerClient.Subscribe(pulsar.ConsumerOptions{
+		Topic:            expectedTopic1,
+		SubscriptionName: "test-subscription-slot-name-1",
+		Type:             pulsar.Exclusive,
+	})
+	require.NoError(t, err)
+	defer consumer1.Close()
+
+	// Set environment variables for the test
+	t.Setenv("MODE", "pulsar")
+	t.Setenv("HOSTNAME", "rudder-load-0-baseline-test")
+	t.Setenv("CONCURRENCY", "2") // Set to 2 to create two producers with different slotNames
+	t.Setenv("MESSAGE_GENERATORS", "1")
+	t.Setenv("MAX_EVENTS_PER_SECOND", "100000")
+	t.Setenv("SOURCES", "2")
+	t.Setenv("USE_ONE_CLIENT_PER_SLOT", "true") // Required for Pulsar mode
+	t.Setenv("ENABLE_SOFT_MEMORY_LIMIT", "true")
+	t.Setenv("SOFT_MEMORY_LIMIT", "256mb")
+	t.Setenv("TOTAL_USERS", "100000")
+	t.Setenv("HOT_USER_GROUPS", "100")
+	t.Setenv("EVENT_TYPES", "track")
+	t.Setenv("HOT_EVENT_TYPES", "100")
+	t.Setenv("BATCH_SIZES", "1,2,3")
+	t.Setenv("HOT_BATCH_SIZES", "40,30,30")
+	t.Setenv("LOAD_RUN_ID", loadRunID) // Set LOAD_RUN_ID to control the slotName
+	t.Setenv("PULSAR_URL", pulsarURL)
+	t.Setenv("PULSAR_TOPIC", originalTopic)
+	t.Setenv("PULSAR_USE_SLOT_NAME_AS_TOPIC", "true") // Enable using slotName as topic
+	t.Setenv("PULSAR_BATCHING_ENABLED", "false")      // Disable batching for simpler testing
+	t.Setenv("TEMPLATES_PATH", "./../../templates/")
+
+	// Start goroutines to receive messages from both topics
+	messagesReceived := sync.WaitGroup{}
+	messagesReceived.Add(2) // We expect messages from both topics
+
+	// Receive from the first topic
+	go func() {
+		defer messagesReceived.Done()
+		// Set a timeout for receiving the message
+		receiveCtx, receiveCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer receiveCancel()
+
+		// Wait for a message
+		msg, err := consumer0.Receive(receiveCtx)
+		if err != nil {
+			t.Errorf("Failed to receive message from topic 0: %v", err)
+			return
+		}
+
+		// Verify that the slotName is set in the message properties
+		require.Equal(t, slotName0, msg.Properties()["slotName"])
+
+		// Acknowledge the message
+		require.NoError(t, consumer0.Ack(msg))
+	}()
+
+	// Receive from the second topic
+	go func() {
+		defer messagesReceived.Done()
+		// Set a timeout for receiving the message
+		receiveCtx, receiveCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer receiveCancel()
+
+		// Wait for a message
+		msg, err := consumer1.Receive(receiveCtx)
+		if err != nil {
+			t.Errorf("Failed to receive message from topic 1: %v", err)
+			return
+		}
+
+		// Verify that the slotName is set in the message properties
+		require.Equal(t, slotName1, msg.Properties()["slotName"])
+
+		// Acknowledge the message
+		require.NoError(t, consumer1.Ack(msg))
+	}()
+
+	// Run the application
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if exitCode := run(ctx); exitCode != 0 {
+			t.Errorf("run exited with %d", exitCode)
+		}
+	}()
+
+	messagesReceived.Wait()
+	// Cancel the context to terminate the test
+	cancel()
 
 	// Wait for the application to finish
 	<-done
