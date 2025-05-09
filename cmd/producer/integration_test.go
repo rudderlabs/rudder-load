@@ -2,17 +2,24 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"net/http"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/httptest"
 )
 
-func TestIntegration(t *testing.T) {
+func TestHTTPIntegration(t *testing.T) {
+	writeKey := "2lNXnjJU9xrbUERT3Uy3Po8jKbr"
+	expectedAuthHeader := "Basic " + base64.StdEncoding.EncodeToString([]byte(writeKey+":"))
+
 	ctx, cancel := context.WithCancel(context.Background())
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		cancel()
+		require.Equal(t, expectedAuthHeader, r.Header.Get("Authorization"))
+		cancel() // cancelling the context to terminate the test. this makes sure at least one request is received.
 	}))
 	t.Cleanup(srv.Close)
 
@@ -21,7 +28,7 @@ func TestIntegration(t *testing.T) {
 	t.Setenv("CONCURRENCY", "200")
 	t.Setenv("MESSAGE_GENERATORS", "1")
 	t.Setenv("MAX_EVENTS_PER_SECOND", "100000")
-	t.Setenv("SOURCES", "2lNXnjJU9xrbUERT3Uy3Po8jKbr")
+	t.Setenv("SOURCES", writeKey)
 	t.Setenv("USE_ONE_CLIENT_PER_SLOT", "true")
 	t.Setenv("ENABLE_SOFT_MEMORY_LIMIT", "true")
 	t.Setenv("SOFT_MEMORY_LIMIT", "256mb")
