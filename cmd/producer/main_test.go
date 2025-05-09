@@ -758,6 +758,24 @@ func TestRunPanics(t *testing.T) {
 				"SOFT_MEMORY_LIMIT":     "1GB",
 			},
 		},
+		{
+			name: "invalid sources with a comma",
+			env: map[string]string{
+				"MODE":                  "http",
+				"HOSTNAME":              "rudder-load-0-test",
+				"CONCURRENCY":           "2",
+				"MESSAGE_GENERATORS":    "1",
+				"TOTAL_USERS":           "100",
+				"SOURCES":               ",",
+				"EVENT_TYPES":           "track",
+				"HOT_EVENT_TYPES":       "100",
+				"HOT_USER_GROUPS":       "100",
+				"BATCH_SIZES":           "1",
+				"HOT_BATCH_SIZES":       "100",
+				"MAX_EVENTS_PER_SECOND": "100",
+				"SOFT_MEMORY_LIMIT":     "1GB",
+			},
+		},
 	}
 
 	for _, tt := range tests {
