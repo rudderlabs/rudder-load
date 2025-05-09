@@ -7,11 +7,15 @@ import (
 	"net"
 	"net/http"
 	"testing"
+	"time"
 
+	"github.com/apache/pulsar-client-go/pulsar"
+	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
+	dockerPulsar "github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/pulsar"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/httptest"
 )
 
@@ -125,5 +129,93 @@ func TestHTTP2Integration(t *testing.T) {
 			t.Errorf("run exited with %d", exitCode)
 		}
 	}()
+	<-done
+}
+
+func TestPulsarIntegration(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+	pool.MaxWait = time.Minute
+
+	pulsarResource, err := dockerPulsar.Setup(pool, t)
+	require.NoError(t, err)
+
+	pulsarURL := pulsarResource.URL
+	topic := "persistent://public/default/test-topic-integration"
+	writeKey := "2lNXnjJU9xrbUERT3Uy3Po8jKbr"
+
+	// Create a context that can be cancelled when we receive a message
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create a consumer client
+	consumerClient, err := pulsar.NewClient(pulsar.ClientOptions{
+		URL: pulsarURL,
+	})
+	require.NoError(t, err)
+	defer consumerClient.Close()
+
+	// Create a consumer
+	consumer, err := consumerClient.Subscribe(pulsar.ConsumerOptions{
+		Topic:            topic,
+		SubscriptionName: "test-subscription",
+		Type:             pulsar.Exclusive,
+	})
+	require.NoError(t, err)
+	defer consumer.Close()
+
+	// Set environment variables for the test
+	t.Setenv("MODE", "pulsar")
+	t.Setenv("HOSTNAME", "rudder-load-0-baseline-test")
+	t.Setenv("CONCURRENCY", "200")
+	t.Setenv("MESSAGE_GENERATORS", "1")
+	t.Setenv("MAX_EVENTS_PER_SECOND", "100000")
+	t.Setenv("SOURCES", writeKey)
+	t.Setenv("USE_ONE_CLIENT_PER_SLOT", "true") // Required for Pulsar mode
+	t.Setenv("ENABLE_SOFT_MEMORY_LIMIT", "true")
+	t.Setenv("SOFT_MEMORY_LIMIT", "256mb")
+	t.Setenv("TOTAL_USERS", "100000")
+	t.Setenv("HOT_USER_GROUPS", "100")
+	t.Setenv("EVENT_TYPES", "track")
+	t.Setenv("HOT_EVENT_TYPES", "100")
+	t.Setenv("BATCH_SIZES", "1,2,3")
+	t.Setenv("HOT_BATCH_SIZES", "40,30,30")
+	t.Setenv("PULSAR_URL", pulsarURL)
+	t.Setenv("PULSAR_TOPIC", topic)
+	t.Setenv("PULSAR_BATCHING_ENABLED", "false") // Disable batching for simpler testing
+	t.Setenv("TEMPLATES_PATH", "./../../templates/")
+
+	// Start a goroutine to receive messages
+	messageReceived := make(chan struct{})
+	go func() {
+		defer close(messageReceived)
+		// Set a timeout for receiving the message
+		receiveCtx, receiveCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer receiveCancel()
+
+		// Wait for a message
+		msg, err := consumer.Receive(receiveCtx)
+		if err != nil {
+			t.Errorf("Failed to receive message: %v", err)
+			return
+		}
+
+		// Acknowledge the message
+		require.NoError(t, consumer.Ack(msg))
+
+		// Cancel the context to terminate the test
+		cancel()
+	}()
+
+	// Run the application
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if exitCode := run(ctx); exitCode != 0 {
+			t.Errorf("run exited with %d", exitCode)
+		}
+	}()
+
+	// Wait for the application to finish
 	<-done
 }
