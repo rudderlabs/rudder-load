@@ -53,7 +53,9 @@ func (p *PortForwarder) Start(ctx context.Context, namespace string) error {
 			}
 
 			// TODO: check health endpoint here for more certainty
-			p.logger.Infon("Port-forward started", logger.NewField("port", localPort), logger.NewField("pid", p.cmd.Process.Pid))
+			p.logger.Infon("Port-forward started",
+				logger.NewIntField("port", localPort), logger.NewIntField("pid", int64(p.cmd.Process.Pid)),
+			)
 			return nil
 		}
 

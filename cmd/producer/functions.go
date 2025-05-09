@@ -10,6 +10,8 @@ import (
 	"text/template"
 	"time"
 
+	"rudder-load/internal/producer"
+
 	"github.com/google/uuid"
 )
 
@@ -240,7 +242,7 @@ func mustMap(s string) []int {
 	for i := range v {
 		r[i], err = strconv.Atoi(v[i])
 		if err != nil {
-			panic(err)
+			panic(fmt.Errorf("invalid map: %s: %v", s, err))
 		}
 	}
 	return r
@@ -252,6 +254,40 @@ func mustList(s string) []string {
 		panic(fmt.Errorf("invalid list: %s", s))
 	}
 	return v
+}
+
+// mustSourcesList reads the SOURCES environment variable and returns a list of sources.
+// If the environment variable is a single integer, it generates that many sources with
+// predictable names like "source-0", "source-1", etc.
+// If the environment variable is a comma-separated list, it returns that list.
+func mustSourcesList(s string) []string {
+	v := os.Getenv(s)
+	if v == "" {
+		panic(fmt.Errorf("invalid sources: %q", s))
+	}
+
+	// Check if the value is a single integer
+	count, err := strconv.Atoi(v)
+	if err == nil && count > 0 {
+		// Generate sources with predictable names
+		sources := make([]string, count)
+		for i := 0; i < count; i++ {
+			sources[i] = "source-" + strconv.Itoa(i)
+		}
+		return sources
+	}
+
+	// Otherwise, treat it as a comma-separated list
+	sources := strings.Split(v, ",")
+	if len(sources) < 1 {
+		panic(fmt.Errorf("invalid sources: %q", s))
+	}
+	for _, source := range sources {
+		if source == "" {
+			panic(fmt.Errorf("got an empty source: %q", s))
+		}
+	}
+	return sources
 }
 
 func printErr(err error, retry ...bool) {
@@ -335,4 +371,57 @@ func optionalMap(s string, items []string) []int {
 
 	// Parse provided percentages
 	return mustMap(s)
+}
+
+func mustProducerMode(s string) producerMode {
+	v := strings.ToLower(strings.Trim(os.Getenv(s), " "))
+	switch v {
+	case "stdout":
+		return modeStdout
+	case "http":
+		return modeHTTP
+	case "http2":
+		return modeHTTP2
+	case "pulsar":
+		return modePulsar
+	default:
+		panic(fmt.Errorf("producer mode out of the known domain: %s", s))
+	}
+}
+
+func newProducer(slotName string, mode producerMode, useOneClientPerSlot bool) (publisherCloser, error) {
+	switch mode {
+	case modeHTTP:
+		return producer.NewHTTPProducer(slotName, os.Environ())
+	case modeHTTP2:
+		return producer.NewHTTP2Producer(slotName, os.Environ())
+	case modeStdout:
+		return producer.NewStdoutPublisher(slotName), nil
+	case modePulsar:
+		if !useOneClientPerSlot {
+			return nil, fmt.Errorf("pulsar mode requires useOneClientPerSlot to be true")
+		}
+		return producer.NewPulsarProducer(slotName, os.Environ())
+	default:
+		return nil, fmt.Errorf("unknown mode: %s", mode)
+	}
+}
+
+func getHostname(hostname string) (string, int, error) {
+	match := hostnameRE.FindStringSubmatch(hostname)
+	if len(match) <= 2 {
+		return "", 0, fmt.Errorf("hostname is invalid: %s", hostname)
+	}
+
+	instanceNumber, err := strconv.Atoi(match[1])
+	if err != nil {
+		return "", 0, fmt.Errorf("error getting instance number from hostname %s: %v", hostname, err)
+	}
+
+	deploymentName := match[2]
+	if deploymentName == "" {
+		return "", 0, fmt.Errorf("deployment name is empty: %s", hostname)
+	}
+
+	return deploymentName, instanceNumber, nil
 }

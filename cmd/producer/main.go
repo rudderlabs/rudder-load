@@ -23,7 +23,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"rudder-load/internal/producer"
 	"rudder-load/internal/stats"
 	"rudder-load/internal/validator"
 
@@ -32,17 +31,30 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/throttling"
 )
 
-const (
-	modeStdout = "stdout"
-	modeHTTP   = "http"
-	modeHTTP2  = "http2"
+var (
+	modeStdout producerMode = producerModeImpl{"stdout"}
+	modeHTTP   producerMode = producerModeImpl{"http"}
+	modeHTTP2  producerMode = producerModeImpl{"http2"}
+	modePulsar producerMode = producerModeImpl{"pulsar"}
 
-	hostnameSep = "rudder-load-"
-
-	templatesExtension = ".json.tmpl"
-
-	metricsPrefix = "rudder_load_"
+	hostnameRE = regexp.MustCompile(`rudder-load-(\d+)-(.+)`)
 )
+
+const (
+	hostnameSep        = "rudder-load-"
+	templatesExtension = ".json.tmpl"
+	metricsPrefix      = "rudder_load_"
+)
+
+type producerMode interface {
+	protected()
+	String() string
+}
+
+type producerModeImpl struct{ value string }
+
+func (p producerModeImpl) protected()     {}
+func (p producerModeImpl) String() string { return p.value }
 
 type publisher interface {
 	PublishTo(ctx context.Context, key string, messages []byte, extra map[string]string) ([]byte, error)
@@ -58,7 +70,7 @@ type publisherCloser interface {
 }
 
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill, syscall.SIGTERM)
 	defer cancel()
 	os.Exit(run(ctx))
 }
@@ -66,7 +78,7 @@ func main() {
 func run(ctx context.Context) int {
 	var (
 		hostname              = mustString("HOSTNAME")
-		mode                  = mustString("MODE")
+		mode                  = mustProducerMode("MODE")
 		loadRunID             = optionalString("LOAD_RUN_ID", uuid.New().String())
 		concurrency           = mustInt("CONCURRENCY")
 		messageGenerators     = mustInt("MESSAGE_GENERATORS")
@@ -81,7 +93,7 @@ func run(ctx context.Context) int {
 		hotBatchSizes         = mustMap("HOT_BATCH_SIZES")
 		maxEventsPerSecond    = mustInt("MAX_EVENTS_PER_SECOND")
 		templatesPath         = optionalString("TEMPLATES_PATH", "../../templates/")
-		sourcesList           = mustList("SOURCES")
+		sourcesList           = mustSourcesList("SOURCES")
 		hotSourcesList        = optionalMap("HOT_SOURCES", sourcesList)
 		validatorType         = optionalString("VALIDATOR_TYPE", "")
 	)
@@ -91,23 +103,12 @@ func run(ctx context.Context) int {
 		return 1
 	}
 
-	re := regexp.MustCompile(`rudder-load-([a-z]+)-(\d+)`)
-	match := re.FindStringSubmatch(hostname)
-	if len(match) <= 2 {
-		printErr(fmt.Errorf("hostname is invalid: %s", hostname))
+	deploymentName, instanceNumber, err := getHostname(hostname)
+	if err != nil {
+		printErr(err)
 		return 1
 	}
 
-	deploymentName := match[1]
-	if deploymentName == "" {
-		printErr(fmt.Errorf("deployment name is empty"))
-		return 1
-	}
-	instanceNumber, err := strconv.Atoi(match[2])
-	if err != nil {
-		printErr(fmt.Errorf("error getting instance number from hostname: %v", err))
-		return 1
-	}
 	if concurrency < 1 {
 		printErr(fmt.Errorf("concurrency has to be greater than zero: %d", concurrency))
 		return 1
@@ -197,7 +198,7 @@ func run(ctx context.Context) int {
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
 	constLabels := map[string]string{
-		"mode":        mode, // publisher type: e.g. http, stdout, etc...
+		"mode":        mode.String(), // publisher type: e.g. http, stdout, etc...
 		"deployment":  deploymentName,
 		"concurrency": strconv.Itoa(concurrency),       // number of go routines publishing messages
 		"msg_gen":     strconv.Itoa(messageGenerators), // number of go routines generating messages for the "slots"
@@ -236,23 +237,10 @@ func run(ctx context.Context) int {
 	// PROMETHEUS REGISTRY - END
 
 	// Setting up dependencies for publishers - START
-	publisherFactory := func(clientID string) (publisherCloser, error) {
-		switch mode {
-		case modeHTTP:
-			return producer.NewHTTPProducer(os.Environ())
-		case modeHTTP2:
-			return producer.NewHTTP2Producer(os.Environ())
-		case modeStdout:
-			return producer.NewStdoutPublisher(), nil
-		default:
-			return nil, fmt.Errorf("unknown mode: %s", mode)
-		}
-	}
-
 	statsFactory, err := stats.NewFactory(reg, stats.Data{
 		Prefix:         metricsPrefix,
 		DeploymentName: deploymentName,
-		Mode:           mode,
+		Mode:           mode.String(),
 		Concurrency:    concurrency,
 		TotalUsers:     totalUsers,
 	})
@@ -263,12 +251,12 @@ func run(ctx context.Context) int {
 
 	var client publisherCloser
 	if !useOneClientPerSlot {
-		p, err := publisherFactory(os.Getenv("HOSTNAME"))
+		p, err := newProducer(loadRunID, mode, useOneClientPerSlot)
 		if err != nil {
 			printErr(fmt.Errorf("cannot create publisher: %v", err))
 			return 1
 		}
-		client = statsFactory.New(p)
+		client = statsFactory.New(p, "global")
 	}
 	// Setting up dependencies for publishers - END
 
@@ -370,12 +358,13 @@ func run(ctx context.Context) int {
 		if !useOneClientPerSlot {
 			localClient = client
 		} else {
-			p, err := publisherFactory(os.Getenv("HOSTNAME") + "_" + strconv.Itoa(i))
+			slotName := loadRunID + "-" + strconv.Itoa(i)
+			p, err := newProducer(slotName, mode, useOneClientPerSlot)
 			if err != nil {
 				printErr(fmt.Errorf("cannot create publisher: %v", err))
 				return 1
 			}
-			localClient = statsFactory.New(p)
+			localClient = statsFactory.New(p, slotName)
 		}
 
 		wg.Add(1)
