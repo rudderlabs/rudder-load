@@ -418,6 +418,7 @@ func getHostname(hostname string) (string, int, error) {
 		return "", 0, fmt.Errorf("error getting instance number from hostname %s: %v", hostname, err)
 	}
 
+	// The pod ID and optional suffix are in match[2]
 	deploymentName := match[2]
 	if deploymentName == "" {
 		return "", 0, fmt.Errorf("deployment name is empty: %s", hostname)
