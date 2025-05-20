@@ -37,7 +37,7 @@ var (
 	modeHTTP2  producerMode = producerModeImpl{"http2"}
 	modePulsar producerMode = producerModeImpl{"pulsar"}
 
-	hostnameRE = regexp.MustCompile(`rudder-load-([a-z]+)-(\d+)-(.+)`)
+	hostnameRE = regexp.MustCompile(`rudder-load-(\d+)-(.+)`)
 )
 
 const (

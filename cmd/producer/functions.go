@@ -413,12 +413,12 @@ func getHostname(hostname string) (string, int, error) {
 		return "", 0, fmt.Errorf("hostname is invalid: %s", hostname)
 	}
 
-	instanceNumber, err := strconv.Atoi(match[2])
+	instanceNumber, err := strconv.Atoi(match[1])
 	if err != nil {
 		return "", 0, fmt.Errorf("error getting instance number from hostname %s: %v", hostname, err)
 	}
 
-	deploymentName := match[3]
+	deploymentName := match[2]
 	if deploymentName == "" {
 		return "", 0, fmt.Errorf("deployment name is empty: %s", hostname)
 	}
