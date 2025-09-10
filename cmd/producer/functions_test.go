@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOptionalMap(t *testing.T) {
@@ -72,6 +73,7 @@ func TestConvertToBytes(t *testing.T) {
 		want    int
 		wantErr bool
 	}{
+		{"100", 100, false},
 		{"1kb", 1000, false},
 		{"1mb", 1000000, false},
 		{"1gb", 1000000000, false},
@@ -86,11 +88,11 @@ func TestConvertToBytes(t *testing.T) {
 		t.Run(tt.input, func(t *testing.T) {
 			got, err := convertToBytes(tt.input)
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
-			assert.NoError(t, err)
-			assert.Equal(t, tt.want, got)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }

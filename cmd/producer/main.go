@@ -102,7 +102,7 @@ func run(ctx context.Context) int {
 		sourcesList           = mustSourcesList("SOURCES")
 		hotSourcesList        = optionalMap("HOT_SOURCES", sourcesList)
 		validatorType         = optionalString("VALIDATOR_TYPE", "")
-		maxData               = optionalInt("MAX_DATA", 0)
+		maxData               = optionalBytes("MAX_DATA", 0)
 	)
 
 	if strings.Index(hostname, hostnameSep) != 0 {

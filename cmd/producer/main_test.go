@@ -818,7 +818,7 @@ func TestMaxData(t *testing.T) {
 		},
 		{
 			name:             "max data enabled with small limit",
-			maxData:          "1000",
+			maxData:          "1kb",
 			expectMaxReached: true,
 		},
 		{
