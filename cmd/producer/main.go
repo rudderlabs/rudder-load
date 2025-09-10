@@ -326,6 +326,7 @@ func run(ctx context.Context) int {
 			}
 		}()
 
+		fmt.Printf("Starting the HTTP metrics server...\n")
 		err := srv.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			printErr(fmt.Errorf("HTTP server: %w", err))

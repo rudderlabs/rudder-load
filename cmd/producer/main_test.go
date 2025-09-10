@@ -7,8 +7,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -870,48 +870,39 @@ func TestMaxData(t *testing.T) {
 			}()
 
 			timeout := 5 * time.Second
-
-			if tt.expectMaxReached {
-				require.Eventually(t, func() bool {
-					resp, err := http.Get("http://localhost:9102/metrics")
-					if err != nil {
-						return false
-					}
-					defer func() { _ = resp.Body.Close() }()
-
-					body, err := io.ReadAll(resp.Body)
-					if err != nil {
-						return false
-					}
-
-					return strings.Contains(string(body), "rudder_load_max_data_reached 1")
-				}, timeout, 10*time.Millisecond, "max data should be reached")
-
-				cancel()
-
-				select {
-				case exitCode := <-done:
-					require.Equal(t, 0, exitCode)
-				case <-time.After(timeout):
-					t.Fatal("run did not exit after cancellation")
-				}
-			} else {
-				time.Sleep(500 * time.Millisecond)
-				cancel()
-
-				select {
-				case exitCode := <-done:
-					require.Equal(t, 0, exitCode)
-				case <-time.After(timeout):
-					t.Fatal("run did not exit after cancellation")
-				}
-
+			re := regexp.MustCompile(`rudder_load_max_data_reached{.*} 1`)
+			verifyMaxDataGauge := func() bool {
 				resp, err := http.Get("http://localhost:9102/metrics")
-				require.NoError(t, err, "failed to get metrics")
+				if err != nil {
+					t.Logf("failed to get metrics: %v", err)
+					return false
+				}
 				defer func() { _ = resp.Body.Close() }()
 				body, err := io.ReadAll(resp.Body)
-				require.NoError(t, err, "failed to read response body")
-				require.NotContains(t, string(body), "rudder_load_max_data_reached 1", "max data should not be reached")
+				if err != nil {
+					t.Logf("failed to read response body: %v", err)
+					return false
+				}
+				return re.Match(body)
+			}
+
+			if tt.expectMaxReached {
+				require.Eventually(
+					t, verifyMaxDataGauge, timeout, 10*time.Millisecond, "max data should be reached",
+				)
+			} else {
+				require.Never(
+					t, verifyMaxDataGauge, timeout, 10*time.Millisecond, "max data should not be reached",
+				)
+			}
+
+			cancel()
+
+			select {
+			case exitCode := <-done:
+				require.Equal(t, 0, exitCode)
+			case <-time.After(timeout):
+				t.Fatal("run did not exit after cancellation")
 			}
 		})
 	}
