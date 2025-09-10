@@ -102,6 +102,7 @@ func run(ctx context.Context) int {
 		sourcesList           = mustSourcesList("SOURCES")
 		hotSourcesList        = optionalMap("HOT_SOURCES", sourcesList)
 		validatorType         = optionalString("VALIDATOR_TYPE", "")
+		maxData               = optionalInt("MAX_DATA", 0)
 	)
 
 	if strings.Index(hostname, hostnameSep) != 0 {
@@ -479,6 +480,17 @@ func run(ctx context.Context) int {
 				}
 				msg := eventTypesConcentration[random](userID, batchSize)
 				processedBytes.Add(int64(len(msg)))
+
+				if maxData > 0 && processedBytes.Load() >= int64(maxData) {
+					fmt.Printf(
+						"Processed bytes (%d) reached the limit (%d), stopping the message generator...\n",
+						processedBytes.Load(), maxData,
+					)
+					select { // block indefinitely until the context is cancelled
+					case <-gCtx.Done():
+						return gCtx.Err()
+					}
+				}
 
 				start := time.Now()
 				select {

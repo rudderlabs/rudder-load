@@ -225,6 +225,18 @@ func optionalString(s, def string) string {
 	return v
 }
 
+func optionalInt(s string, def int) int {
+	v := os.Getenv(s)
+	if v == "" {
+		return def
+	}
+	i, err := strconv.Atoi(v)
+	if err != nil {
+		return def
+	}
+	return i
+}
+
 func mustString(s string) string {
 	v := os.Getenv(s)
 	if v == "" {
