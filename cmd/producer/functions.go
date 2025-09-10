@@ -418,7 +418,7 @@ func newProducer(slotName string, mode producerMode, useOneClientPerSlot bool) (
 	case modeHTTP2:
 		return producer.NewHTTP2Producer(slotName, os.Environ())
 	case modeStdout:
-		return producer.NewStdoutPublisher(slotName), nil
+		return producer.NewStdoutPublisher(slotName, os.Environ())
 	case modePulsar:
 		if !useOneClientPerSlot {
 			return nil, fmt.Errorf("pulsar mode requires useOneClientPerSlot to be true")

@@ -837,6 +837,7 @@ func TestMaxData(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env := map[string]string{
 				"MODE":                     "stdout",
+				"STDOUT_DISCARD":           "true",
 				"HOSTNAME":                 "rudder-load-0-test",
 				"CONCURRENCY":              "1",
 				"MESSAGE_GENERATORS":       "1",
