@@ -236,11 +236,17 @@ func run(ctx context.Context) int {
 		Help:        "Number of times we get throttled",
 		ConstLabels: constLabels,
 	})
+	maxDataReached := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:        metricsPrefix + "max_data_reached",
+		Help:        "Set to 1 when max data limit is reached",
+		ConstLabels: constLabels,
+	})
 	reg.MustRegister(publishRatePerSecond)
 	reg.MustRegister(publishedMessagesCounter)
 	reg.MustRegister(numberOfRequestsCounter)
 	reg.MustRegister(msgGenLag)
 	reg.MustRegister(throttled)
+	reg.MustRegister(maxDataReached)
 	// PROMETHEUS REGISTRY - END
 
 	// Setting up dependencies for publishers - START
@@ -482,6 +488,7 @@ func run(ctx context.Context) int {
 				processedBytes.Add(int64(len(msg)))
 
 				if maxData > 0 && processedBytes.Load() >= int64(maxData) {
+					maxDataReached.Set(1)
 					fmt.Printf(
 						"Processed bytes (%d) reached the limit (%d), stopping the message generator...\n",
 						processedBytes.Load(), maxData,

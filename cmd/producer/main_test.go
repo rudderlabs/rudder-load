@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -799,40 +802,34 @@ func TestRunPanics(t *testing.T) {
 
 func TestMaxData(t *testing.T) {
 	tests := []struct {
-		name         string
-		maxData      string
-		timeout      time.Duration
-		wantExitCode int
+		name             string
+		maxData          string
+		expectMaxReached bool
 	}{
 		{
-			name:         "max data disabled (default)",
-			maxData:      "",
-			timeout:      500 * time.Millisecond,
-			wantExitCode: 0,
+			name:             "max data disabled (default)",
+			maxData:          "",
+			expectMaxReached: false,
 		},
 		{
-			name:         "max data disabled (explicit zero)",
-			maxData:      "0",
-			timeout:      500 * time.Millisecond,
-			wantExitCode: 0,
+			name:             "max data disabled (explicit zero)",
+			maxData:          "0",
+			expectMaxReached: false,
 		},
 		{
-			name:         "max data enabled with small limit",
-			maxData:      "1000",
-			timeout:      2 * time.Second,
-			wantExitCode: 0,
+			name:             "max data enabled with small limit",
+			maxData:          "1000",
+			expectMaxReached: true,
 		},
 		{
-			name:         "max data enabled with very small limit",
-			maxData:      "100",
-			timeout:      2 * time.Second,
-			wantExitCode: 0,
+			name:             "max data enabled with very small limit",
+			maxData:          "100",
+			expectMaxReached: true,
 		},
 		{
-			name:         "invalid max data value",
-			maxData:      "invalid",
-			timeout:      500 * time.Millisecond,
-			wantExitCode: 0,
+			name:             "invalid max data value",
+			maxData:          "invalid",
+			expectMaxReached: false,
 		},
 	}
 
@@ -864,11 +861,58 @@ func TestMaxData(t *testing.T) {
 				t.Setenv(k, v)
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), tt.timeout)
+			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			exitCode := run(ctx)
-			require.Equal(t, tt.wantExitCode, exitCode)
+			done := make(chan int, 1)
+			go func() {
+				done <- run(ctx)
+			}()
+
+			timeout := 5 * time.Second
+
+			if tt.expectMaxReached {
+				require.Eventually(t, func() bool {
+					resp, err := http.Get("http://localhost:9102/metrics")
+					if err != nil {
+						return false
+					}
+					defer func() { _ = resp.Body.Close() }()
+
+					body, err := io.ReadAll(resp.Body)
+					if err != nil {
+						return false
+					}
+
+					return strings.Contains(string(body), "rudder_load_max_data_reached 1")
+				}, timeout, 10*time.Millisecond, "max data should be reached")
+
+				cancel()
+
+				select {
+				case exitCode := <-done:
+					require.Equal(t, 0, exitCode)
+				case <-time.After(timeout):
+					t.Fatal("run did not exit after cancellation")
+				}
+			} else {
+				time.Sleep(500 * time.Millisecond)
+				cancel()
+
+				select {
+				case exitCode := <-done:
+					require.Equal(t, 0, exitCode)
+				case <-time.After(timeout):
+					t.Fatal("run did not exit after cancellation")
+				}
+
+				resp, err := http.Get("http://localhost:9102/metrics")
+				require.NoError(t, err, "failed to get metrics")
+				defer func() { _ = resp.Body.Close() }()
+				body, err := io.ReadAll(resp.Body)
+				require.NoError(t, err, "failed to read response body")
+				require.NotContains(t, string(body), "rudder_load_max_data_reached 1", "max data should not be reached")
+			}
 		})
 	}
 }
