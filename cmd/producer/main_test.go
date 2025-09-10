@@ -797,6 +797,82 @@ func TestRunPanics(t *testing.T) {
 	}
 }
 
+func TestMaxData(t *testing.T) {
+	tests := []struct {
+		name         string
+		maxData      string
+		timeout      time.Duration
+		wantExitCode int
+	}{
+		{
+			name:         "max data disabled (default)",
+			maxData:      "",
+			timeout:      500 * time.Millisecond,
+			wantExitCode: 0,
+		},
+		{
+			name:         "max data disabled (explicit zero)",
+			maxData:      "0",
+			timeout:      500 * time.Millisecond,
+			wantExitCode: 0,
+		},
+		{
+			name:         "max data enabled with small limit",
+			maxData:      "1000",
+			timeout:      2 * time.Second,
+			wantExitCode: 0,
+		},
+		{
+			name:         "max data enabled with very small limit",
+			maxData:      "100",
+			timeout:      2 * time.Second,
+			wantExitCode: 0,
+		},
+		{
+			name:         "invalid max data value",
+			maxData:      "invalid",
+			timeout:      500 * time.Millisecond,
+			wantExitCode: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := map[string]string{
+				"MODE":                     "stdout",
+				"HOSTNAME":                 "rudder-load-0-test",
+				"CONCURRENCY":              "1",
+				"MESSAGE_GENERATORS":       "1",
+				"TOTAL_USERS":              "10",
+				"SOURCES":                  "write-key-1",
+				"EVENT_TYPES":              "track",
+				"HOT_EVENT_TYPES":          "100",
+				"HOT_USER_GROUPS":          "100",
+				"BATCH_SIZES":              "1",
+				"HOT_BATCH_SIZES":          "100",
+				"MAX_EVENTS_PER_SECOND":    "1000",
+				"SOFT_MEMORY_LIMIT":        "1GB",
+				"TEMPLATES_PATH":           "../../templates/",
+				"ENABLE_SOFT_MEMORY_LIMIT": "false",
+			}
+
+			if tt.maxData != "" {
+				env["MAX_DATA"] = tt.maxData
+			}
+
+			for k, v := range env {
+				t.Setenv(k, v)
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), tt.timeout)
+			defer cancel()
+
+			exitCode := run(ctx)
+			require.Equal(t, tt.wantExitCode, exitCode)
+		})
+	}
+}
+
 func TestHostname(t *testing.T) {
 	type testCase struct {
 		name                   string
