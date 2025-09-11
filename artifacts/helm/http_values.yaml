@@ -9,6 +9,15 @@ deployment:
   command: ["/rudder-load-producer"]
   backoffLimit: 1
   replicas: 1
+  # Uncomment below block to move the pods to the critical pool
+  # This is useful if you need to respect MAX_DATA (e.g. testing infra cost and need to publish an exact amount of data)
+  # because restarting the pods resets the MAX_DATA counter (which is kept in memory)
+  # nodeSelector:
+  #   karpenter.sh/nodepool: critical
+  # tolerations:
+  #   - effect: NoSchedule
+  #     key: type
+  #     value: critical
   resources:
     cpuRequests: 1
     memoryRequests: 2Gi
