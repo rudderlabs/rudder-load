@@ -194,6 +194,7 @@ func run(ctx context.Context) int {
 	fmt.Printf("Use one client per slot: %v\n", useOneClientPerSlot)
 	fmt.Printf("Instance number: %d\n", instanceNumber)
 	fmt.Printf("Total users: %d\n", totalUsers)
+	fmt.Printf("Max data: %s\n", byteCount(uint64(maxData)))
 	if enableSoftMemoryLimit {
 		fmt.Printf("Soft memory limit at 80%% of %s: %s\n", byteCount(uint64(softMemoryLimit)), byteCount(uint64(newMemoryLimit)))
 	}
