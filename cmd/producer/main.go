@@ -102,6 +102,7 @@ func run(ctx context.Context) int {
 		sourcesList           = mustSourcesList("SOURCES")
 		hotSourcesList        = optionalMap("HOT_SOURCES", sourcesList)
 		validatorType         = optionalString("VALIDATOR_TYPE", "")
+		maxData               = optionalBytes("MAX_DATA", 0)
 	)
 
 	if strings.Index(hostname, hostnameSep) != 0 {
@@ -193,6 +194,7 @@ func run(ctx context.Context) int {
 	fmt.Printf("Use one client per slot: %v\n", useOneClientPerSlot)
 	fmt.Printf("Instance number: %d\n", instanceNumber)
 	fmt.Printf("Total users: %d\n", totalUsers)
+	fmt.Printf("Max data: %s\n", byteCount(uint64(maxData)))
 	if enableSoftMemoryLimit {
 		fmt.Printf("Soft memory limit at 80%% of %s: %s\n", byteCount(uint64(softMemoryLimit)), byteCount(uint64(newMemoryLimit)))
 	}
@@ -235,11 +237,17 @@ func run(ctx context.Context) int {
 		Help:        "Number of times we get throttled",
 		ConstLabels: constLabels,
 	})
+	maxDataReached := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:        metricsPrefix + "max_data_reached",
+		Help:        "Set to 1 when max data limit is reached",
+		ConstLabels: constLabels,
+	})
 	reg.MustRegister(publishRatePerSecond)
 	reg.MustRegister(publishedMessagesCounter)
 	reg.MustRegister(numberOfRequestsCounter)
 	reg.MustRegister(msgGenLag)
 	reg.MustRegister(throttled)
+	reg.MustRegister(maxDataReached)
 	// PROMETHEUS REGISTRY - END
 
 	// Setting up dependencies for publishers - START
@@ -319,6 +327,7 @@ func run(ctx context.Context) int {
 			}
 		}()
 
+		fmt.Printf("Starting the HTTP metrics server...\n")
 		err := srv.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			printErr(fmt.Errorf("HTTP server: %w", err))
@@ -470,6 +479,18 @@ func run(ctx context.Context) int {
 		group.Go(func() error {
 			defer fmt.Printf("Message generator %d is done\n", i)
 			for {
+				if maxData > 0 && processedBytes.Load() >= int64(maxData) {
+					maxDataReached.Set(1)
+					fmt.Printf(
+						"Processed bytes (%d) reached the limit (%d), stopping the message generator...\n",
+						processedBytes.Load(), maxData,
+					)
+					select { // block indefinitely until the context is cancelled
+					case <-gCtx.Done():
+						return gCtx.Err()
+					}
+				}
+
 				random := rand.Intn(100)
 				userID := userIDsConcentration[random]()
 				batchSize := batchSizesConcentration[random]

@@ -53,5 +53,13 @@ spec:
           limits:
             cpu: "{{ $.Values.deployment.resources.cpuLimits }}"
             memory: "{{ $.Values.deployment.resources.memoryLimits }}"
+      {{- with $.Values.deployment.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.deployment.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
 ---
 {{- end }}

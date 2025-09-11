@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"testing"
 	"time"
@@ -793,6 +796,115 @@ func TestRunPanics(t *testing.T) {
 			require.Panics(t, func() {
 				run(ctx)
 			}, "Expected run() to panic for test case: %s", tt.name)
+		})
+	}
+}
+
+func TestMaxData(t *testing.T) {
+	tests := []struct {
+		name             string
+		maxData          string
+		expectMaxReached bool
+	}{
+		{
+			name:             "max data disabled (default)",
+			maxData:          "",
+			expectMaxReached: false,
+		},
+		{
+			name:             "max data disabled (explicit zero)",
+			maxData:          "0",
+			expectMaxReached: false,
+		},
+		{
+			name:             "max data enabled with small limit",
+			maxData:          "1kb",
+			expectMaxReached: true,
+		},
+		{
+			name:             "max data enabled with very small limit",
+			maxData:          "100",
+			expectMaxReached: true,
+		},
+		{
+			name:             "invalid max data value",
+			maxData:          "invalid",
+			expectMaxReached: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := map[string]string{
+				"MODE":                     "stdout",
+				"STDOUT_DISCARD":           "true",
+				"HOSTNAME":                 "rudder-load-0-test",
+				"CONCURRENCY":              "1",
+				"MESSAGE_GENERATORS":       "1",
+				"TOTAL_USERS":              "10",
+				"SOURCES":                  "write-key-1",
+				"EVENT_TYPES":              "track",
+				"HOT_EVENT_TYPES":          "100",
+				"HOT_USER_GROUPS":          "100",
+				"BATCH_SIZES":              "1",
+				"HOT_BATCH_SIZES":          "100",
+				"MAX_EVENTS_PER_SECOND":    "1000",
+				"SOFT_MEMORY_LIMIT":        "1GB",
+				"TEMPLATES_PATH":           "../../templates/",
+				"ENABLE_SOFT_MEMORY_LIMIT": "false",
+			}
+
+			if tt.maxData != "" {
+				env["MAX_DATA"] = tt.maxData
+			}
+
+			for k, v := range env {
+				t.Setenv(k, v)
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			done := make(chan int, 1)
+			go func() {
+				done <- run(ctx)
+			}()
+
+			timeout := 5 * time.Second
+			re := regexp.MustCompile(`rudder_load_max_data_reached{.*} 1`)
+			verifyMaxDataGauge := func() bool {
+				resp, err := http.Get("http://localhost:9102/metrics")
+				if err != nil {
+					t.Logf("failed to get metrics: %v", err)
+					return false
+				}
+				defer func() { _ = resp.Body.Close() }()
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					t.Logf("failed to read response body: %v", err)
+					return false
+				}
+				return re.Match(body)
+			}
+
+			if tt.expectMaxReached {
+				require.Eventually(
+					t, verifyMaxDataGauge, timeout, 10*time.Millisecond, "max data should be reached",
+				)
+			} else {
+				require.Never(
+					t, verifyMaxDataGauge, timeout, 10*time.Millisecond, "max data should not be reached",
+				)
+			}
+
+			cancel()
+
+			select {
+			case exitCode := <-done:
+				require.Equal(t, 0, exitCode)
+			case <-time.After(timeout):
+				t.Fatal("run did not exit after cancellation")
+			}
 		})
 	}
 }

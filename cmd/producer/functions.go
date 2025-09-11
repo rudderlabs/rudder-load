@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/google/uuid"
 )
+
+var convertToBytesRegex = regexp.MustCompile(`^(\d+)(kb|kib|mb|mib|gb|gi|tb|tib)?$`)
 
 type message struct {
 	Payload    []byte
@@ -146,16 +149,21 @@ func byteCount(b uint64) string {
 func convertToBytes(input string) (int, error) {
 	input = strings.ToLower(input) // Make sure the input is lowercase for easier parsing
 
-	// Identify the unit and numeric part of the input
-	var unit string
-	var numberPart string
-	for i, char := range input {
-		if char < '0' || char > '9' {
-			unit = input[i:]
-			numberPart = input[:i]
-			break
-		}
+	if !convertToBytesRegex.MatchString(input) {
+		return 0, fmt.Errorf("invalid input: %s", input)
 	}
+
+	matches := convertToBytesRegex.FindAllStringSubmatch(input, -1)
+	if len(matches) != 1 {
+		return 0, fmt.Errorf("invalid matches: %s", input)
+	}
+
+	if len(matches[0]) != 3 {
+		return 0, fmt.Errorf("invalid unit and number matches: %s", input)
+	}
+
+	numberPart := matches[0][1]
+	unit := matches[0][2]
 
 	// Convert the number part to an integer
 	number, err := strconv.Atoi(numberPart)
@@ -164,6 +172,8 @@ func convertToBytes(input string) (int, error) {
 	}
 
 	switch unit {
+	case "": // No unit specified, assume bytes
+		return number, nil
 	case "kb":
 		return number * 1000, nil
 	case "kib":
@@ -223,6 +233,18 @@ func optionalString(s, def string) string {
 		return def
 	}
 	return v
+}
+
+func optionalBytes(s string, def int) int {
+	v := os.Getenv(s)
+	if v == "" {
+		return def
+	}
+	i, err := convertToBytes(v)
+	if err != nil {
+		return def
+	}
+	return i
 }
 
 func mustString(s string) string {
@@ -396,7 +418,7 @@ func newProducer(slotName string, mode producerMode, useOneClientPerSlot bool) (
 	case modeHTTP2:
 		return producer.NewHTTP2Producer(slotName, os.Environ())
 	case modeStdout:
-		return producer.NewStdoutPublisher(slotName), nil
+		return producer.NewStdoutPublisher(slotName, os.Environ())
 	case modePulsar:
 		if !useOneClientPerSlot {
 			return nil, fmt.Errorf("pulsar mode requires useOneClientPerSlot to be true")
