@@ -479,16 +479,6 @@ func run(ctx context.Context) int {
 		group.Go(func() error {
 			defer fmt.Printf("Message generator %d is done\n", i)
 			for {
-				random := rand.Intn(100)
-				userID := userIDsConcentration[random]()
-				batchSize := batchSizesConcentration[random]
-				writeKey := sourcesConcentration[random]()
-				if writeKey == "" {
-					printErr(fmt.Errorf("empty write key: current index: %d", random))
-				}
-				msg := eventTypesConcentration[random](userID, batchSize)
-				processedBytes.Add(int64(len(msg)))
-
 				if maxData > 0 && processedBytes.Load() >= int64(maxData) {
 					maxDataReached.Set(1)
 					fmt.Printf(
@@ -500,6 +490,16 @@ func run(ctx context.Context) int {
 						return gCtx.Err()
 					}
 				}
+
+				random := rand.Intn(100)
+				userID := userIDsConcentration[random]()
+				batchSize := batchSizesConcentration[random]
+				writeKey := sourcesConcentration[random]()
+				if writeKey == "" {
+					printErr(fmt.Errorf("empty write key: current index: %d", random))
+				}
+				msg := eventTypesConcentration[random](userID, batchSize)
+				processedBytes.Add(int64(len(msg)))
 
 				start := time.Now()
 				select {
