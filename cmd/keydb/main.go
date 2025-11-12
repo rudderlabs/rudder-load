@@ -5,21 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
-	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/rudderlabs/keydb/client"
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
@@ -28,10 +23,6 @@ import (
 	svcMetric "github.com/rudderlabs/rudder-go-kit/stats/metric"
 	kitsync "github.com/rudderlabs/rudder-go-kit/sync"
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
-)
-
-const (
-	metricsPrefix = "rudder_load_keydb_"
 )
 
 func main() {
@@ -49,9 +40,12 @@ func run(ctx context.Context) int {
 	log := logFactory.NewLogger()
 
 	// Initialize stats
+	registerer := prometheus.DefaultRegisterer
+	gatherer := prometheus.DefaultGatherer
 	statsOptions := []stats.Option{
 		stats.WithServiceName("keydb-load-test"),
 		stats.WithDefaultHistogramBuckets(defaultHistogramBuckets),
+		stats.WithPrometheusRegistry(registerer, gatherer),
 	}
 	for histogramName, buckets := range customBuckets {
 		statsOptions = append(statsOptions, stats.WithHistogramBuckets(histogramName, buckets))
@@ -126,102 +120,17 @@ func run(ctx context.Context) int {
 		}
 	}()
 
-	// PROMETHEUS REGISTRY - START
-	reg := prometheus.NewRegistry()
-	reg.MustRegister(
-		collectors.NewGoCollector(),
-		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
-	)
-
-	constLabels := map[string]string{
-		"workers":    strconv.Itoa(workers),
-		"batch_size": strconv.Itoa(batchSize),
-	}
-
-	getOperationsCounter := prometheus.NewCounter(prometheus.CounterOpts{
-		Name:        metricsPrefix + "get_operations_count",
-		Help:        "Total number of Get operations",
-		ConstLabels: constLabels,
-	})
-	putOperationsCounter := prometheus.NewCounter(prometheus.CounterOpts{
-		Name:        metricsPrefix + "put_operations_count",
-		Help:        "Total number of Put operations",
-		ConstLabels: constLabels,
-	})
-	getErrorsCounter := prometheus.NewCounter(prometheus.CounterOpts{
-		Name:        metricsPrefix + "get_errors_count",
-		Help:        "Total number of Get errors",
-		ConstLabels: constLabels,
-	})
-	putErrorsCounter := prometheus.NewCounter(prometheus.CounterOpts{
-		Name:        metricsPrefix + "put_errors_count",
-		Help:        "Total number of Put errors",
-		ConstLabels: constLabels,
-	})
-	keysFoundCounter := prometheus.NewCounter(prometheus.CounterOpts{
-		Name:        metricsPrefix + "keys_found_count",
-		Help:        "Total number of keys found during Get operations",
-		ConstLabels: constLabels,
-	})
-	keysNotFoundCounter := prometheus.NewCounter(prometheus.CounterOpts{
-		Name:        metricsPrefix + "keys_not_found_count",
-		Help:        "Total number of keys not found during Get operations",
-		ConstLabels: constLabels,
-	})
-	operationsPerSecond := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name:        metricsPrefix + "operations_per_second",
-		Help:        "Operations per second",
-		ConstLabels: constLabels,
-	})
-
-	reg.MustRegister(getOperationsCounter)
-	reg.MustRegister(putOperationsCounter)
-	reg.MustRegister(getErrorsCounter)
-	reg.MustRegister(putErrorsCounter)
-	reg.MustRegister(keysFoundCounter)
-	reg.MustRegister(keysNotFoundCounter)
-	reg.MustRegister(operationsPerSecond)
-	// PROMETHEUS REGISTRY - END
-
-	// HTTP METRICS SERVER - START
-	var httpServersWG sync.WaitGroup
-	httpServersWG.Add(1)
-	defer httpServersWG.Wait()
-	go func() {
-		defer httpServersWG.Done()
-
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{
-			Registry:          reg,
-			EnableOpenMetrics: true,
-		}))
-		srv := http.Server{
-			Addr:    ":9102",
-			Handler: mux,
-		}
-
-		httpServersWG.Add(1)
-		go func() {
-			defer httpServersWG.Done()
-			<-ctx.Done()
-			log.Infon("shutting down HTTP metrics server")
-			if err := srv.Shutdown(context.Background()); err != nil {
-				log.Errorn("HTTP server shutdown", obskit.Error(err))
-			}
-		}()
-
-		log.Infon("starting HTTP metrics server", logger.NewStringField("addr", ":9102"))
-		err := srv.ListenAndServe()
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Errorn("HTTP server", obskit.Error(err))
-		}
-	}()
-	// HTTP METRICS SERVER - END
-
 	// Statistics tracking
 	var (
-		totalOperations atomic.Int64
-		startTime       = time.Now()
+		totalOperations      atomic.Int64
+		startTime            = time.Now()
+		getErrorsCounter     = stat.NewStat("get_errors_count", stats.CountType)
+		getOperationsCounter = stat.NewStat("get_operations_count", stats.CountType)
+		keysFoundCounter     = stat.NewStat("keys_found_count", stats.CountType)
+		keysNotFoundCounter  = stat.NewStat("keys_not_found_count", stats.CountType)
+		putErrorsCounter     = stat.NewStat("put_errors_count", stats.CountType)
+		putOperationsCounter = stat.NewStat("put_operations_count", stats.CountType)
+		operationsPerSecond  = stat.NewStat("operations_per_second", stats.GaugeType)
 	)
 
 	// Create key pool for duplicates
@@ -272,18 +181,18 @@ func run(ctx context.Context) int {
 				exists, err := keydbClient.Get(gCtx, keys)
 				if err != nil {
 					log.Errorn("Get operation", obskit.Error(err))
-					getErrorsCounter.Inc()
+					getErrorsCounter.Increment()
 					continue
 				}
-				getOperationsCounter.Inc()
+				getOperationsCounter.Increment()
 
 				// Count found and not found keys
 				var keysToPut []string
 				for idx, exist := range exists {
 					if exist {
-						keysFoundCounter.Inc()
+						keysFoundCounter.Increment()
 					} else {
-						keysNotFoundCounter.Inc()
+						keysNotFoundCounter.Increment()
 						keysToPut = append(keysToPut, keys[idx])
 					}
 				}
@@ -296,10 +205,10 @@ func run(ctx context.Context) int {
 							logger.NewIntField("keyCount", int64(len(keysToPut))),
 							obskit.Error(err),
 						)
-						putErrorsCounter.Inc()
+						putErrorsCounter.Increment()
 						continue
 					}
-					putOperationsCounter.Inc()
+					putOperationsCounter.Increment()
 				}
 
 				// Update statistics
@@ -307,7 +216,7 @@ func run(ctx context.Context) int {
 				if ops%100 == 0 {
 					elapsed := time.Since(startTime).Seconds()
 					if elapsed > 0 {
-						operationsPerSecond.Set(float64(ops) / elapsed)
+						operationsPerSecond.Gauge(float64(ops) / elapsed)
 					}
 				}
 			}
