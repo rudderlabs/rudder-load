@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/rudderlabs/keydb/client"
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -46,15 +47,15 @@ func run(ctx context.Context) int {
 	log := logFactory.NewLogger()
 
 	// Read configuration parameters
-	addresses := conf.GetStringSlice("ADDRESSES", []string{"localhost:50051"})
-	batchSize := conf.GetInt("BATCH_SIZE", 100)
-	workers := conf.GetInt("WORKERS", 10)
-	duplicatePercentage := conf.GetInt("DUPLICATE_PERCENTAGE", 50)
-	ttl := conf.GetDuration("TTL", 24, time.Hour)
-	totalHashRanges := conf.GetInt("TOTAL_HASH_RANGES", 271)
-	retryInitialInterval := conf.GetDuration("RETRY_INITIAL_INTERVAL", 100, time.Millisecond)
-	retryMultiplier := conf.GetFloat64("RETRY_MULTIPLIER", 2.0)
-	retryMaxInterval := conf.GetDuration("RETRY_MAX_INTERVAL", 5, time.Second)
+	addresses := strings.Split(conf.GetString("addresses", ""), ",")
+	batchSize := conf.GetInt("batchSize", 100)
+	workers := conf.GetInt("workers", 10)
+	duplicatePercentage := conf.GetInt("duplicatePercentage", 50)
+	totalHashRanges := conf.GetInt("totalHashRanges", int(client.DefaultTotalHashRanges))
+	ttl := conf.GetDuration("ttl", 24, time.Hour)
+	retryInitialInterval := conf.GetDuration("retryInitialInterval", 100, time.Millisecond)
+	retryMultiplier := conf.GetFloat64("retryMultiplier", 2.0)
+	retryMaxInterval := conf.GetDuration("retryMaxInterval", 5, time.Second)
 
 	// Validate configuration
 	if len(addresses) == 0 {
@@ -166,6 +167,7 @@ func run(ctx context.Context) int {
 	// HTTP METRICS SERVER - START
 	var httpServersWG sync.WaitGroup
 	httpServersWG.Add(1)
+	defer httpServersWG.Wait()
 	go func() {
 		defer httpServersWG.Done()
 
@@ -210,8 +212,9 @@ func run(ctx context.Context) int {
 	for workerID := 0; workerID < workers; workerID++ {
 		workerID := workerID
 		group.Go(func() error {
-			log.Infon("worker started", logger.NewIntField("workerID", int64(workerID)))
-			defer log.Infon("worker stopped", logger.NewIntField("workerID", int64(workerID)))
+			log := log.Withn(logger.NewIntField("workerID", int64(workerID)))
+			log.Infon("worker started")
+			defer log.Infon("worker stopped")
 
 			for {
 				select {
@@ -237,10 +240,7 @@ func run(ctx context.Context) int {
 				// Perform Get operation
 				exists, err := keydbClient.Get(gCtx, keys)
 				if err != nil {
-					log.Errorn("Get operation",
-						logger.NewIntField("workerID", int64(workerID)),
-						obskit.Error(err),
-					)
+					log.Errorn("Get operation", obskit.Error(err))
 					getErrorsCounter.Inc()
 					continue
 				}
@@ -262,7 +262,6 @@ func run(ctx context.Context) int {
 					err = keydbClient.Put(gCtx, keysToPut, ttl)
 					if err != nil {
 						log.Errorn("Put operation",
-							logger.NewIntField("workerID", int64(workerID)),
 							logger.NewIntField("keyCount", int64(len(keysToPut))),
 							obskit.Error(err),
 						)
@@ -297,9 +296,6 @@ func run(ctx context.Context) int {
 		logger.NewStringField("duration", elapsed.Round(time.Millisecond).String()),
 		logger.NewStringField("operationsPerSecond", fmt.Sprintf("%.2f", float64(totalOps)/elapsed.Seconds())),
 	)
-
-	log.Infon("waiting for HTTP metrics server to shutdown")
-	httpServersWG.Wait()
 
 	return 0
 }
