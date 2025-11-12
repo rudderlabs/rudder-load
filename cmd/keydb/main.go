@@ -24,6 +24,8 @@ import (
 	"github.com/rudderlabs/keydb/client"
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	"github.com/rudderlabs/rudder-go-kit/stats"
+	svcMetric "github.com/rudderlabs/rudder-go-kit/stats/metric"
 	kitsync "github.com/rudderlabs/rudder-go-kit/sync"
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
@@ -45,6 +47,21 @@ func run(ctx context.Context) int {
 	// Initialize logger
 	logFactory := logger.NewFactory(conf)
 	log := logFactory.NewLogger()
+
+	// Initialize stats
+	statsOptions := []stats.Option{
+		stats.WithServiceName("keydb-load-test"),
+		stats.WithDefaultHistogramBuckets(defaultHistogramBuckets),
+	}
+	for histogramName, buckets := range customBuckets {
+		statsOptions = append(statsOptions, stats.WithHistogramBuckets(histogramName, buckets))
+	}
+	stat := stats.NewStats(conf, logFactory, svcMetric.NewManager(), statsOptions...)
+	defer stat.Stop()
+	if err := stat.Start(ctx, stats.DefaultGoRoutineFactory); err != nil {
+		log.Errorn("Failed to start Stats", obskit.Error(err))
+		return 1
+	}
 
 	// Read configuration parameters
 	addresses := strings.Split(conf.GetString("addresses", ""), ",")
