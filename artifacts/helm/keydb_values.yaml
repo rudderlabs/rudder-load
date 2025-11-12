@@ -22,7 +22,7 @@ deployment:
     KEYDB_ADDRESSES: "keydb-node-0:50051,keydb-node-1:50051"
 
     # Batch size of keys used when calling Get and Put commands
-    KEYDB_BATCH_SIZE: "100"
+    KEYDB_BATCH_SIZE: "1000"
 
     # Number of workers to use in parallel to stress the keydb instance
     KEYDB_WORKERS: "10"
@@ -30,7 +30,11 @@ deployment:
     # Percentage of duplicates in the data (0-100)
     # This affects when Put is called - we do Get first to check if keys exist,
     # then call Put for keys that don't exist
-    KEYDB_DUPLICATE_PERCENTAGE: "50"
+    KEYDB_DUPLICATE_PERCENTAGE: "20"
+
+    # Size of the key pool used for generating duplicate keys across operations
+    # A larger pool means less chance of the same key being reused frequently
+    KEYDB_KEY_POOL_SIZE: "1000000"
 
     # TTL for keys (duration string, e.g., "24h", "1h30m")
     KEYDB_TTL: "24h"

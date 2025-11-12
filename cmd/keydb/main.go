@@ -48,8 +48,9 @@ func run(ctx context.Context) int {
 
 	// Read configuration parameters
 	addresses := strings.Split(conf.GetString("addresses", ""), ",")
-	batchSize := conf.GetInt("batchSize", 100)
+	batchSize := conf.GetInt("batchSize", 1000)
 	workers := conf.GetInt("workers", 10)
+	keyPoolSize := conf.GetInt("keyPoolSize", 300000)
 	duplicatePercentage := conf.GetInt("duplicatePercentage", 50)
 	totalHashRanges := conf.GetInt("totalHashRanges", int(client.DefaultTotalHashRanges))
 	ttl := conf.GetDuration("ttl", 24, time.Hour)
@@ -80,6 +81,7 @@ func run(ctx context.Context) int {
 		logger.NewIntField("batchSize", int64(batchSize)),
 		logger.NewIntField("workers", int64(workers)),
 		logger.NewIntField("duplicatePercentage", int64(duplicatePercentage)),
+		logger.NewIntField("keyPoolSize", int64(keyPoolSize)),
 		logger.NewIntField("cpus", int64(runtime.GOMAXPROCS(-1))),
 	)
 
@@ -205,6 +207,13 @@ func run(ctx context.Context) int {
 		startTime       = time.Now()
 	)
 
+	// Create key pool for duplicates
+	keyPool := make([]string, keyPoolSize)
+	for i := 0; i < keyPoolSize; i++ {
+		keyPool[i] = uuid.New().String()
+	}
+	log.Infon("created key pool", logger.NewIntField("size", int64(keyPoolSize)))
+
 	// Start workers
 	log.Infon("starting workers", logger.NewIntField("count", int64(workers)))
 	group, gCtx := kitsync.NewEagerGroup(ctx, workers)
@@ -223,17 +232,22 @@ func run(ctx context.Context) int {
 				default:
 				}
 
-				// Generate batch of keys
-				keys := make([]string, batchSize)
-				for j := 0; j < batchSize; j++ {
-					// Determine if this key should be a duplicate based on percentage
+				// Generate batch of keys (ensuring no duplicates within the same batch)
+				keys := make([]string, 0, batchSize)
+				keysInBatch := make(map[string]struct{}, batchSize)
+				for len(keys) < batchSize {
+					var key string
+					// Determine if this key should come from the pool (duplicate) or be unique
 					if duplicatePercentage > 0 && rand.Intn(100) < duplicatePercentage {
-						// Use a key from a limited pool to create duplicates
-						poolSize := 1000
-						keys[j] = fmt.Sprintf("duplicate-key-%d", rand.Intn(poolSize))
-					} else {
-						// Generate unique key
-						keys[j] = fmt.Sprintf("unique-key-%s", uuid.New().String())
+						key = keyPool[rand.Intn(keyPoolSize)]
+					} else { // Generate unique key
+						key = uuid.New().String()
+					}
+
+					// Only add if not already in this batch
+					if _, exists := keysInBatch[key]; !exists {
+						keys = append(keys, key)
+						keysInBatch[key] = struct{}{}
 					}
 				}
 
