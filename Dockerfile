@@ -20,10 +20,14 @@ COPY cmd cmd
 COPY internal internal
 COPY templates templates
 
-# Build binary
+# Build binaries
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix -ldflags="-s -w" \
     -o ./rudder-load-producer \
     cmd/producer/*.go
+
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix -ldflags="-s -w" \
+    -o ./rudder-load-keydb \
+    cmd/keydb/*.go
 
 FROM alpine:${ALPINE_VERSION}
 
@@ -36,3 +40,4 @@ WORKDIR /
 RUN mkdir templates
 COPY --from=builder /app/templates templates
 COPY --from=builder /app/rudder-load-producer .
+COPY --from=builder /app/rudder-load-keydb .

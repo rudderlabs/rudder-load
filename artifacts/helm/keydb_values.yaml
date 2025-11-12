@@ -1,0 +1,44 @@
+namespace: default
+dockerUser: your_docker_user
+
+deployment:
+  name: rudder-load-keydb
+  image: rudderstack/rudder-load:main
+  imagePullPolicy: Always
+  restartPolicy: Always
+  command: ["/rudder-load-keydb"]
+  backoffLimit: 1
+  replicas: 1
+  resources:
+    cpuRequests: 1
+    memoryRequests: 2Gi
+    cpuLimits: 1
+    memoryLimits: 2Gi
+  ports:
+    - name: metrics
+      containerPort: 9102
+  env:
+    # KeyDB server addresses (comma-separated list of host:port)
+    KEYDB_ADDRESSES: "keydb-node-0:50051,keydb-node-1:50051"
+
+    # Batch size of keys used when calling Get and Put commands
+    KEYDB_BATCH_SIZE: "100"
+
+    # Number of workers to use in parallel to stress the keydb instance
+    KEYDB_WORKERS: "10"
+
+    # Percentage of duplicates in the data (0-100)
+    # This affects when Put is called - we do Get first to check if keys exist,
+    # then call Put for keys that don't exist
+    KEYDB_DUPLICATE_PERCENTAGE: "50"
+
+    # TTL for keys (duration string, e.g., "24h", "1h30m")
+    KEYDB_TTL: "24h"
+
+    # Total hash ranges for the KeyDB cluster
+    KEYDB_TOTAL_HASH_RANGES: "271"
+
+    # Retry policy configuration
+    KEYDB_RETRY_INITIAL_INTERVAL: "100ms"
+    KEYDB_RETRY_MULTIPLIER: "2.0"
+    KEYDB_RETRY_MAX_INTERVAL: "5s"
