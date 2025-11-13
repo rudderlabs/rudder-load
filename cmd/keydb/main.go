@@ -124,13 +124,13 @@ func run(ctx context.Context) int {
 	var (
 		totalOperations      atomic.Int64
 		startTime            = time.Now()
-		getErrorsCounter     = stat.NewStat("get_errors_count", stats.CountType)
-		getOperationsCounter = stat.NewStat("get_operations_count", stats.CountType)
-		keysFoundCounter     = stat.NewStat("keys_found_count", stats.CountType)
-		keysNotFoundCounter  = stat.NewStat("keys_not_found_count", stats.CountType)
-		putErrorsCounter     = stat.NewStat("put_errors_count", stats.CountType)
-		putOperationsCounter = stat.NewStat("put_operations_count", stats.CountType)
-		operationsPerSecond  = stat.NewStat("operations_per_second", stats.GaugeType)
+		getErrorsCounter     = stat.NewStat("rudder_load_keydb_get_errors_count", stats.CountType)
+		getOperationsCounter = stat.NewStat("rudder_load_keydb_get_operations_count", stats.CountType)
+		keysFoundCounter     = stat.NewStat("rudder_load_keydb_keys_found_count", stats.CountType)
+		keysNotFoundCounter  = stat.NewStat("rudder_load_keydb_keys_not_found_count", stats.CountType)
+		putErrorsCounter     = stat.NewStat("rudder_load_keydb_put_errors_count", stats.CountType)
+		putOperationsCounter = stat.NewStat("rudder_load_keydb_put_operations_count", stats.CountType)
+		operationsPerSecond  = stat.NewStat("rudder_load_keydb_operations_per_second", stats.GaugeType)
 	)
 
 	// Create key pool for duplicates
