@@ -109,7 +109,7 @@ func run(ctx context.Context) int {
 	}
 
 	// Initialize KeyDB client
-	keydbClient, err := client.NewClient(clientConfig, log)
+	keydbClient, err := client.NewClient(clientConfig, log, client.WithStats(stat))
 	if err != nil {
 		log.Errorn("creating KeyDB client", obskit.Error(err))
 		return 1
