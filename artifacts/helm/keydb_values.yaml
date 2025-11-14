@@ -35,10 +35,6 @@ deployment:
     # then call Put for keys that don't exist
     KEYDB_DUPLICATE_PERCENTAGE: "20"
 
-    # Size of the key pool used for generating duplicate keys across operations
-    # A larger pool means less chance of the same key being reused frequently
-    KEYDB_KEY_POOL_SIZE: "1000000"
-
     # TTL for keys (duration string, e.g., "24h", "1h30m")
     KEYDB_TTL: "24h"
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/signal"
 	"runtime"
@@ -63,7 +62,6 @@ func run(ctx context.Context) int {
 	addresses := strings.Split(conf.GetString("addresses", ""), ",")
 	batchSize := conf.GetInt("batchSize", 1000)
 	workers := conf.GetInt("workers", 10)
-	keyPoolSize := conf.GetInt("keyPoolSize", 300000)
 	duplicatePercentage := conf.GetInt("duplicatePercentage", 50)
 	ttl := conf.GetDuration("ttl", 24, time.Hour)
 
@@ -84,6 +82,9 @@ func run(ctx context.Context) int {
 		log.Errorn("duplicate percentage must be between 0 and 100", logger.NewIntField("duplicatePercentage", int64(duplicatePercentage)))
 		return 1
 	}
+
+	// batchSize : 100 = keyPoolSize : duplicatePercentage
+	keyPoolSize := batchSize * duplicatePercentage / 100
 
 	log.Infon("starting KeyDB load test",
 		logger.NewStringField("addresses", strings.Join(addresses, ",")),
@@ -190,7 +191,6 @@ func run(ctx context.Context) int {
 	for workerID := 0; workerID < workers; workerID++ {
 		// Create per-worker random source to avoid global rand lock contention
 		workerID := int64(workerID)
-		rng := rand.New(rand.NewSource(time.Now().UnixNano() + workerID))
 		group.Go(func() error {
 			log := log.Withn(logger.NewIntField("workerID", workerID))
 			log.Infon("worker started")
@@ -205,14 +205,12 @@ func run(ctx context.Context) int {
 				}
 
 				// Generate batch of keys with pre-calculated distribution
-				// No need for deduplication map - pool is large enough that collisions are negligible
 				startBatch := time.Now()
-				duplicateCount := (batchSize * duplicatePercentage) / 100
 				keys := make([]string, batchSize)
-				for i := 0; i < duplicateCount; i++ {
-					keys[i] = keyPool[rng.Intn(keyPoolSize)]
+				for i := 0; i < keyPoolSize; i++ {
+					keys[i] = keyPool[i]
 				}
-				for i := duplicateCount; i < batchSize; i++ {
+				for i := keyPoolSize; i < batchSize; i++ {
 					keys[i] = uuid.New().String()
 				}
 				batchCreationLatency.Since(startBatch)
