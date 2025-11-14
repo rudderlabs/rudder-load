@@ -204,24 +204,16 @@ func run(ctx context.Context) int {
 				default:
 				}
 
-				// Generate batch of keys (ensuring no duplicates within the same batch)
+				// Generate batch of keys with pre-calculated distribution
+				// No need for deduplication map - pool is large enough that collisions are negligible
 				startBatch := time.Now()
-				keys := make([]string, 0, batchSize)
-				keysInBatch := make(map[string]struct{}, batchSize)
-				for len(keys) < batchSize {
-					var key string
-					// Determine if this key should come from the pool (duplicate) or be unique
-					if duplicatePercentage > 0 && rng.Intn(100) < duplicatePercentage {
-						key = keyPool[rng.Intn(keyPoolSize)]
-					} else { // Generate unique key
-						key = uuid.New().String()
-					}
-
-					// Only add if not already in this batch
-					if _, exists := keysInBatch[key]; !exists {
-						keys = append(keys, key)
-						keysInBatch[key] = struct{}{}
-					}
+				duplicateCount := (batchSize * duplicatePercentage) / 100
+				keys := make([]string, batchSize)
+				for i := 0; i < duplicateCount; i++ {
+					keys[i] = keyPool[rng.Intn(keyPoolSize)]
+				}
+				for i := duplicateCount; i < batchSize; i++ {
+					keys[i] = uuid.New().String()
 				}
 				batchCreationLatency.Since(startBatch)
 
