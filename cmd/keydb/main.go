@@ -134,18 +134,6 @@ func run(ctx context.Context) int {
 		},
 	}
 
-	// Initialize KeyDB client
-	keydbClient, err := client.NewClient(clientConfig, log, client.WithStats(stat))
-	if err != nil {
-		log.Errorn("creating KeyDB client", obskit.Error(err))
-		return 1
-	}
-	defer func() {
-		if err := keydbClient.Close(); err != nil {
-			log.Errorn("closing KeyDB client", obskit.Error(err))
-		}
-	}()
-
 	// Starting profiler
 	profilerDone := make(chan struct{})
 	go func() {
@@ -158,7 +146,7 @@ func run(ctx context.Context) int {
 
 	// Statistics tracking
 	var (
-		totalOperations      atomic.Int64
+		totalOperations      atomic.Uint64
 		startTime            = time.Now()
 		getErrorsCounter     = stat.NewStat("rudder_load_keydb_get_errors_count", stats.CountType)
 		getOperationsCounter = stat.NewStat("rudder_load_keydb_get_operations_count", stats.CountType)
@@ -167,6 +155,7 @@ func run(ctx context.Context) int {
 		putErrorsCounter     = stat.NewStat("rudder_load_keydb_put_errors_count", stats.CountType)
 		putOperationsCounter = stat.NewStat("rudder_load_keydb_put_operations_count", stats.CountType)
 		operationsPerSecond  = stat.NewStat("rudder_load_keydb_operations_per_second", stats.GaugeType)
+		batchCreationLatency = stat.NewStat("rudder_load_keydb_batch_creation_latency", stats.TimerType)
 	)
 
 	// Create key pool for duplicates
@@ -175,6 +164,24 @@ func run(ctx context.Context) int {
 		keyPool[i] = uuid.New().String()
 	}
 	log.Infon("created key pool", logger.NewIntField("size", int64(keyPoolSize)))
+
+	// Clients pool
+	clientPool := make([]*client.Client, workers)
+	for i := 0; i < workers; i++ {
+		keydbClient, err := client.NewClient(clientConfig, log, client.WithStats(stat))
+		if err != nil {
+			log.Errorn("creating KeyDB client", obskit.Error(err))
+			return 1
+		}
+		clientPool[i] = keydbClient
+	}
+	defer func() {
+		for _, c := range clientPool {
+			if err := c.Close(); err != nil {
+				log.Errorn("closing KeyDB client", obskit.Error(err))
+			}
+		}
+	}()
 
 	// Start workers
 	log.Infon("starting workers", logger.NewIntField("count", int64(workers)))
@@ -192,11 +199,13 @@ func run(ctx context.Context) int {
 			for {
 				select {
 				case <-gCtx.Done():
+					log.Warn("worker stopped")
 					return gCtx.Err()
 				default:
 				}
 
 				// Generate batch of keys (ensuring no duplicates within the same batch)
+				startBatch := time.Now()
 				keys := make([]string, 0, batchSize)
 				keysInBatch := make(map[string]struct{}, batchSize)
 				for len(keys) < batchSize {
@@ -214,8 +223,10 @@ func run(ctx context.Context) int {
 						keysInBatch[key] = struct{}{}
 					}
 				}
+				batchCreationLatency.Since(startBatch)
 
 				// Perform Get operation
+				keydbClient := clientPool[workerID]
 				exists, err := keydbClient.Get(gCtx, keys)
 				if err != nil {
 					log.Errorn("Get operation", obskit.Error(err))
@@ -253,9 +264,7 @@ func run(ctx context.Context) int {
 				ops := totalOperations.Add(1)
 				if ops%100 == 0 {
 					elapsed := time.Since(startTime).Seconds()
-					if elapsed > 0 {
-						operationsPerSecond.Gauge(float64(ops) / elapsed)
-					}
+					operationsPerSecond.Gauge(float64(ops) / elapsed)
 				}
 			}
 		})
@@ -270,7 +279,7 @@ func run(ctx context.Context) int {
 	elapsed := time.Since(startTime)
 	totalOps := totalOperations.Load()
 	log.Infon("load test completed",
-		logger.NewIntField("totalOperations", totalOps),
+		logger.NewIntField("totalOperations", int64(totalOps)),
 		logger.NewStringField("duration", elapsed.Round(time.Millisecond).String()),
 		logger.NewStringField("operationsPerSecond", fmt.Sprintf("%.2f", float64(totalOps)/elapsed.Seconds())),
 	)
