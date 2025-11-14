@@ -19,6 +19,7 @@ import (
 	"github.com/rudderlabs/keydb/client"
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	_ "github.com/rudderlabs/rudder-go-kit/maxprocs"
 	"github.com/rudderlabs/rudder-go-kit/profiler"
 	"github.com/rudderlabs/rudder-go-kit/stats"
 	svcMetric "github.com/rudderlabs/rudder-go-kit/stats/metric"
