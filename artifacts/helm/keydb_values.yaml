@@ -20,7 +20,6 @@ deployment:
   env:
     # Go settings
     MAXPROCS_REQUESTS: 2
-    GOMEMLIMITS: 4000000000 # 4gb in bytes
 
     # KeyDB server addresses (comma-separated list of host:port)
     KEYDB_ADDRESSES: "keydb-node-0:50051,keydb-node-1:50051"
