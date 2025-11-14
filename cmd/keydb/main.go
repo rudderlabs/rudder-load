@@ -157,9 +157,11 @@ func run(ctx context.Context) int {
 	group, gCtx := kitsync.NewEagerGroup(ctx, workers)
 
 	for workerID := 0; workerID < workers; workerID++ {
-		workerID := workerID
+		// Create per-worker random source to avoid global rand lock contention
+		workerID := int64(workerID)
+		rng := rand.New(rand.NewSource(time.Now().UnixNano() + workerID))
 		group.Go(func() error {
-			log := log.Withn(logger.NewIntField("workerID", int64(workerID)))
+			log := log.Withn(logger.NewIntField("workerID", workerID))
 			log.Infon("worker started")
 			defer log.Infon("worker stopped")
 
@@ -176,8 +178,8 @@ func run(ctx context.Context) int {
 				for len(keys) < batchSize {
 					var key string
 					// Determine if this key should come from the pool (duplicate) or be unique
-					if duplicatePercentage > 0 && rand.Intn(100) < duplicatePercentage {
-						key = keyPool[rand.Intn(keyPoolSize)]
+					if duplicatePercentage > 0 && rng.Intn(100) < duplicatePercentage {
+						key = keyPool[rng.Intn(keyPoolSize)]
 					} else { // Generate unique key
 						key = uuid.New().String()
 					}
