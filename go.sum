@@ -248,6 +248,8 @@ github.com/rudderlabs/keydb v1.2.4-0.20251117181051-01f0374620fb h1:qhdesM9h+UWI
 github.com/rudderlabs/keydb v1.2.4-0.20251117181051-01f0374620fb/go.mod h1:14hlhxH8mrCrwvhYOj5YsyECRvr/CY5idfSIZNhsq6g=
 github.com/rudderlabs/keydb v1.2.4-0.20251118074716-da9a17fa7250 h1:xxF9duzMNnXPLyVSeA9S/Z0YDvLORhJHrc6WHHPHqdA=
 github.com/rudderlabs/keydb v1.2.4-0.20251118074716-da9a17fa7250/go.mod h1:14hlhxH8mrCrwvhYOj5YsyECRvr/CY5idfSIZNhsq6g=
+github.com/rudderlabs/keydb v1.2.4-0.20251118085213-8e987be96501 h1:T+5oZcPfWbOFSpueVl9trYqnjtOfbGBcgcAjQT7sHJ4=
+github.com/rudderlabs/keydb v1.2.4-0.20251118085213-8e987be96501/go.mod h1:14hlhxH8mrCrwvhYOj5YsyECRvr/CY5idfSIZNhsq6g=
 github.com/rudderlabs/rudder-go-kit v0.65.0 h1:fxSVzPbeq7CtSEwj0wggMHzmGPyi7TtRElnmdejzVGQ=
 github.com/rudderlabs/rudder-go-kit v0.65.0/go.mod h1:58UhsuOVycglmqOhfBHMppAowoX4ANrdUeugS8qG0EM=
 github.com/rudderlabs/rudder-observability-kit v0.0.6 h1:xIA/1Sp38B542EYzxR7qUfNGJwsQCpmBnl6h5ul0AHA=
