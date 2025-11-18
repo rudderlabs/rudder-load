@@ -8,7 +8,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/ory/dockertest/v3 v3.12.0
 	github.com/prometheus/client_golang v1.23.2
-	github.com/rudderlabs/keydb v1.2.4-0.20251117181051-01f0374620fb
+	github.com/rudderlabs/keydb v1.2.4-0.20251118074716-da9a17fa7250
 	github.com/rudderlabs/rudder-go-kit v0.65.0
 	github.com/rudderlabs/rudder-observability-kit v0.0.6
 	github.com/stretchr/testify v1.11.1
