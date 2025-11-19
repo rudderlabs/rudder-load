@@ -97,8 +97,9 @@ func run(ctx context.Context) int {
 
 	// Create KeyDB client configuration
 	clientConfig := client.Config{
-		Addresses:       addresses,
-		TotalHashRanges: uint32(conf.GetInt("KeyDB.Dedup.TotalHashRanges", int(client.DefaultTotalHashRanges))),
+		Addresses:          addresses,
+		TotalHashRanges:    conf.GetInt64("KeyDB.Dedup.TotalHashRanges", client.DefaultTotalHashRanges),
+		ConnectionPoolSize: conf.GetInt("KeyDB.Dedup.ConnectionPoolSize", client.DefaultConnectionPoolSize),
 		RetryPolicy: client.RetryPolicy{
 			Disabled:        conf.GetBool("KeyDB.Dedup.RetryPolicy.Disabled", false),
 			InitialInterval: conf.GetDuration("KeyDB.Dedup.RetryPolicy.InitialInterval", 100, time.Millisecond),
