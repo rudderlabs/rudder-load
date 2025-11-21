@@ -1,0 +1,58 @@
+namespace: default
+dockerUser: your_docker_user
+
+deployment:
+  name: rudder-load-keydb
+  image: rudderstack/rudder-load:main
+  imagePullPolicy: Always
+  restartPolicy: Always
+  command: ["/rudder-load-keydb"]
+  backoffLimit: 1
+  replicas: 1
+  resources:
+    cpuRequests: 1
+    memoryRequests: 2Gi
+    cpuLimits: 1
+    memoryLimits: 2Gi
+  ports:
+    - name: metrics
+      containerPort: 9102
+  env:
+    # Go settings
+    MAXPROCS_REQUESTS: 2
+
+    # KeyDB server addresses (comma-separated list of host:port)
+    KEYDB_ADDRESSES: "keydb-node-0:50051,keydb-node-1:50051"
+
+    # Batch size of keys used when calling Get and Put commands
+    KEYDB_BATCH_SIZE: "1000"
+
+    # Number of workers to use in parallel to stress the keydb instance
+    KEYDB_WORKERS: "10"
+
+    # Percentage of duplicates in the data (0-100)
+    # This affects when Put is called - we do Get first to check if keys exist,
+    # then call Put for keys that don't exist
+    KEYDB_DUPLICATE_PERCENTAGE: "20"
+
+    # TTL for keys (duration string, e.g., "24h", "1h30m")
+    KEYDB_TTL: "24h"
+
+    # Total hash ranges for the KeyDB cluster
+    KEYDB_DEDUP_TOTAL_HASH_RANGES: "271"
+    KEYDB_DEDUP_CONNECTION_POOL_SIZE: "10"
+
+    # Retry policy configuration
+    KEYDB_DEDUP_RETRY_INITIAL_INTERVAL: "100ms"
+    KEYDB_DEDUP_RETRY_MULTIPLIER: "2.0"
+    KEYDB_DEDUP_RETRY_MAX_INTERVAL: "5s"
+
+    # Logs configuration
+    KEYDB_LOGGER_CONSOLE_JSON_FORMAT: "true"
+    KEYDB_LOGGER_ENABLE_FILE_NAME_IN_LOG: "true"
+
+    # Stats configuration
+    KEYDB_OPEN_TELEMETRY_ENABLED: "true"
+    KEYDB_OPEN_TELEMETRY_METRICS_EXPORT_INTERVAL: "5s"
+    KEYDB_OPEN_TELEMETRY_METRICS_PROMETHEUS_ENABLED: "true"
+    KEYDB_OPEN_TELEMETRY_METRICS_PROMETHEUS_PORT: "9102"
