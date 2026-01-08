@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ok-responder
+  labels:
+    app: ok-responder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ok-responder
+  template:
+    metadata:
+      labels:
+        app: ok-responder
+    spec:
+      restartPolicy: Always
+      hostname: ok-responder
+      subdomain: oksubdomain
+      containers:
+        - name: http-echo
+          image: hashicorp/http-echo
+          args:
+            - "-text=OK"
+            - "-listen=:5678"
+          ports:
+            - containerPort: 5678
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ok-responder
+  name: oksubdomain
+spec:
+  ports:
+  - port: 5678
+    protocol: TCP
+    targetPort: 5678
+  selector:
+    app: ok-responder
+  clusterIP: None
