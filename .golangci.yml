@@ -13,8 +13,6 @@ linters:
         - G304  # File path provided as taint input (2 findings)
         - G306  # Expect WriteFile permissions to be 0600 or less (2 findings)
         - G404  # Insecure random number source (3 findings)
-        - G703  # Deferred error handling (2 findings)
-        - G704  # Unhandled type assertion (4 findings)
   exclusions:
     generated: lax
     presets:
