@@ -16,6 +16,14 @@ ifeq ($(MAKECMDGOALS),build)
     endif
 endif
 
+GO=go
+GOLANGCI=github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0
+
+.PHONY: lint
+lint: ## Run linters on all go files
+	$(GO) run $(GOLANGCI) run -v
+
+
 .PHONY: build
 build:
 	docker build --progress plain -t $(DOCKER_USER)/rudder-load .
