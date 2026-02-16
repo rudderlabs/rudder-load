@@ -344,3 +344,10 @@ if err != nil {
     return fmt.Errorf("starting server on port %d: %w", port, err)
 }
 ```
+
+## Build & Test
+
+- `make lint` — Run linters (must pass before committing)
+- `make test` — Run tests
+
+Always run `make lint` after making changes and before committing.
