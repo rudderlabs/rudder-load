@@ -18,9 +18,9 @@ env:
     type=ref,event=branch
     type=raw,value=${{ github.head_ref }},enable=${{ github.event_name == 'pull_request' }}
     type=raw,value=latest,enable=${{ github.event_name == 'release' }}
-    type=semver,pattern={{version}},enable=${{ github.ref == format('refs/heads/{0}', 'main') || github.event_name == 'release' }}
+    type=semver,pattern={{version}},enable=${{ github.ref == refs/heads/main || github.event_name == 'release' }}
     type=semver,pattern={{major}},enable=${{ github.ref == format('refs/heads/{0}', 'main') || github.event_name == 'release' }}
-    type=semver,pattern={{major}}.{{minor}},enable=${{ github.ref == format('refs/heads/{0}', 'main') || github.event_name == 'release' }}
+    type=semver,pattern={{major}}.{{minor}},enable=${{ github.ref == refs/heads/main || github.event_name == 'release' }}
 
 
 permissions:
@@ -41,7 +41,7 @@ jobs:
       amd64_labels: ${{ steps.amd64_meta.outputs.labels }}
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
@@ -84,7 +84,7 @@ jobs:
     runs-on: ${{matrix.build-config.os}}
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
@@ -114,7 +114,7 @@ jobs:
     needs: [ docker, docker-meta ]
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@95d9a5deda9de15063e7595e9719c11c38c90ae2 # v2.13.2
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
         with:
           egress-policy: audit
 
