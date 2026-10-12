@@ -19,10 +19,11 @@ var trackEventNames = []string{"checkout", "view", "add_to_cart", "event_1", "ev
 type eventGenerator func(t *template.Template, userID, loadRunID string, n int, values []int) []byte
 
 var eventGenerators = map[string]eventGenerator{
-	"page":     pageFunc,
-	"track":    trackFunc,
-	"identify": identifyFunc,
-	"ut-email": utEmailFunc,
+	"page":          pageFunc,
+	"track":         trackFunc,
+	"smaller-track": trackFunc, // same data as track, rendered with a ~3 KB template instead of ~5 KB
+	"identify":      identifyFunc,
+	"ut-email":      utEmailFunc,
 }
 
 var (

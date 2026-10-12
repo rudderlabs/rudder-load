@@ -1,9 +1,11 @@
 package producer
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -132,6 +134,11 @@ func TestHTTPProducer_PublishTo(t *testing.T) {
 			serverHandler: func(w http.ResponseWriter, r *http.Request) {
 				require.Equal(t, "gzip", r.Header.Get("Content-Encoding"))
 				require.Equal(t, "test-slot", r.Header.Get("X-SlotName"))
+				gz, err := gzip.NewReader(r.Body)
+				require.NoError(t, err)
+				body, err := io.ReadAll(gz)
+				require.NoError(t, err, "body must be a complete gzip stream")
+				require.Equal(t, `{"test":"data"}`, string(body))
 				w.WriteHeader(http.StatusOK)
 			},
 			wantErr: false,

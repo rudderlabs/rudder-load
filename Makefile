@@ -17,12 +17,16 @@ ifeq ($(MAKECMDGOALS),build)
 endif
 
 GO=go
-GOLANGCI=github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0
+GOLANGCI=github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+govulncheck=golang.org/x/vuln/cmd/govulncheck@v1.8.0
 
 .PHONY: lint
 lint: ## Run linters on all go files
 	$(GO) run $(GOLANGCI) run -v
 
+.PHONY: vulncheck
+vulncheck: ## Check for known vulnerabilities reachable from the code
+	GOVULNCHECK=$(govulncheck) ./scripts/govulncheck.sh
 
 .PHONY: build
 build:

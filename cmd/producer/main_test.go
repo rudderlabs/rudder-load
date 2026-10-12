@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -60,6 +61,21 @@ func TestGetTemplates(t *testing.T) {
 			require.Contains(t, output, "test-user-id")
 			require.Contains(t, output, "test-event")
 			require.Contains(t, output, "test-load-run-id")
+		})
+
+		t.Run("smaller-track template execution", func(t *testing.T) {
+			require.Contains(t, templates, "smaller-track")
+			require.Contains(t, eventGenerators, "smaller-track")
+
+			render := func(eventType string) []byte {
+				return eventGenerators[eventType](templates[eventType], "test-user-id", "test-load-run-id", 1, nil)
+			}
+			track, smallerTrack := render("track"), render("smaller-track")
+
+			require.True(t, json.Valid(smallerTrack), "smaller-track must render valid JSON: %s", smallerTrack)
+			require.Contains(t, string(smallerTrack), "test-user-id")
+			require.Contains(t, string(smallerTrack), "test-load-run-id")
+			require.Less(t, len(smallerTrack), len(track), "smaller-track must be smaller than track")
 		})
 
 		t.Run("identify template execution", func(t *testing.T) {
@@ -872,16 +888,16 @@ func TestMaxData(t *testing.T) {
 
 			timeout := 5 * time.Second
 			re := regexp.MustCompile(`rudder_load_max_data_reached{.*} 1`)
+			// Must not use t: require.Never/Eventually can still be running this in a goroutine after the subtest
+			// has completed, and logging then panics with "Log in goroutine after test has completed".
 			verifyMaxDataGauge := func() bool {
 				resp, err := http.Get("http://localhost:9102/metrics")
 				if err != nil {
-					t.Logf("failed to get metrics: %v", err)
 					return false
 				}
 				defer func() { _ = resp.Body.Close() }()
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					t.Logf("failed to read response body: %v", err)
 					return false
 				}
 				return re.Match(body)

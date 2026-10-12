@@ -1,11 +1,14 @@
 package producer
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -24,6 +27,7 @@ type HTTPProducer struct {
 	clientType  string
 	compression bool
 	slotName    string
+	gzipPool    sync.Pool
 }
 
 func NewHTTPProducer(slotName string, environ []string) (*HTTPProducer, error) {
@@ -95,7 +99,7 @@ func NewHTTPProducer(slotName string, environ []string) (*HTTPProducer, error) {
 		return nil, err
 	}
 
-	return &HTTPProducer{
+	p := &HTTPProducer{
 		c:           client,
 		endpoint:    endpoint,
 		contentType: contentType,
@@ -103,7 +107,19 @@ func NewHTTPProducer(slotName string, environ []string) (*HTTPProducer, error) {
 		clientType:  clientType,
 		compression: compression,
 		slotName:    slotName,
-	}, nil
+	}
+	if compression {
+		p.gzipPool = sync.Pool{
+			New: func() any {
+				w, err := gzip.NewWriterLevel(nil, gzip.BestSpeed)
+				if err != nil { // unreachable: BestSpeed is a valid level
+					panic(fmt.Errorf("creating gzip writer: %w", err))
+				}
+				return w
+			},
+		}
+	}
+	return p, nil
 }
 
 func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, extra map[string]string) ([]byte, error) {
@@ -111,9 +127,14 @@ func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, 
 	req.SetRequestURI(p.endpoint)
 
 	if p.compression {
-		_, err := fasthttp.WriteGzipLevel(req.BodyWriter(), message, fasthttp.CompressBestSpeed)
+		gz := p.gzipPool.Get().(*gzip.Writer)
+		gz.Reset(req.BodyWriter())
+		_, err := gz.Write(message)
+		err = errors.Join(err, gz.Close())
+		p.gzipPool.Put(gz)
 		if err != nil {
-			return nil, fmt.Errorf("cannot compress message: %w", err)
+			fasthttp.ReleaseRequest(req)
+			return nil, fmt.Errorf("compressing message: %w", err)
 		}
 		req.Header.Set("Content-Encoding", "gzip")
 	} else {
