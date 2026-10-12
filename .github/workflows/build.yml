@@ -12,11 +12,10 @@ concurrency:
 env:
   arch_amd64: amd64
   arch_arm64: arm64
-  docker_images: |
-    name=rudderstack/rudder-load
+  image_name: rudderstack/rudder-load
+  # PR images are tagged pr-<number> only: the ECR lifecycle rules expire pr-* tags after 7 days, branch names never.
   docker_tags: |
     type=ref,event=branch
-    type=raw,value=${{ github.head_ref }},enable=${{ github.event_name == 'pull_request' }}
     type=raw,value=pr-${{ github.event.pull_request.number }},enable=${{ github.event_name == 'pull_request' }}
     type=raw,value=latest,enable=${{ github.event_name == 'release' }}
     type=semver,pattern={{version}},enable=${{ github.ref == 'refs/heads/main' || github.event_name == 'release' }}
@@ -27,7 +26,7 @@ permissions: {}
 
 jobs:
   docker-meta:
-    # Dependabot and fork PRs get no secrets, so they cannot log in to DockerHub: skip the build instead of failing it.
+    # Dependabot and fork PRs cannot get an OIDC token for the ECR role: skip the build instead of failing it.
     if: >-
       github.actor != 'dependabot[bot]' &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
@@ -35,6 +34,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      id-token: write # OIDC for the ECR role
     outputs:
       labels: ${{ steps.meta.outputs.labels }}
       build-date: ${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
@@ -51,17 +51,29 @@ jobs:
         with:
           egress-policy: audit
 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: ${{ vars.AWS_ECR_REGION }}
+          role-to-assume: ${{ vars.AWS_ECR_IAM_ROLE_ARN }}
+          role-session-name: ${{ github.event.repository.name }}-meta
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ${{ env.docker_images }}
+          images: |
+            name=${{ steps.login-ecr.outputs.registry }}/${{ env.image_name }}
           tags: ${{ env.docker_tags }}
       - name: Docker arm64 meta
         id: arm64_meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ${{ env.docker_images }}
+          images: |
+            name=${{ steps.login-ecr.outputs.registry }}/${{ env.image_name }}
           tags: ${{ env.docker_tags }}
           flavor: |
             suffix=-${{ env.arch_arm64 }},onlatest=true
@@ -69,7 +81,8 @@ jobs:
         id: amd64_meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ${{ env.docker_images }}
+          images: |
+            name=${{ steps.login-ecr.outputs.registry }}/${{ env.image_name }}
           tags: ${{ env.docker_tags }}
           flavor: |
             suffix=-${{ env.arch_amd64 }},onlatest=true
@@ -91,6 +104,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+      id-token: write # OIDC for the ECR role
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -101,13 +115,22 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Login to DockerHub
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          username: rudderlabs
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          aws-region: ${{ vars.AWS_ECR_REGION }}
+          role-to-assume: ${{ vars.AWS_ECR_IAM_ROLE_ARN }}
+          role-session-name: ${{ github.event.repository.name }}-build
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+      # Base images come from Docker Hub through the ECR pull-through cache, avoiding Docker Hub rate limits.
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["${{ steps.login-ecr.outputs.registry }}/docker-hub"]
       # Scans the built image for secrets (TruffleHog) before pushing it.
       - name: Build, scan and push
         uses: rudderlabs/build-scan-push-action@865b4253caa57f8f20cd109e0efc1affe3a64939 # v2.2.0
@@ -128,22 +151,25 @@ jobs:
     needs: [ docker, docker-meta ]
     permissions:
       contents: read
+      id-token: write # OIDC for the ECR role
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: ${{ vars.AWS_ECR_REGION }}
+          role-to-assume: ${{ vars.AWS_ECR_IAM_ROLE_ARN }}
+          role-session-name: ${{ github.event.repository.name }}-manifest
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: Login to DockerHub
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          username: rudderlabs
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      # Tags are passed through env rather than ${{ }} so that a crafted branch name (it ends up in a tag) cannot
-      # inject shell commands.
-      - name: Create multi-arch manifest for Docker
+      # Tags are passed through env rather than ${{ }} so that nothing from the event can inject shell commands.
+      - name: Create multi-arch manifest for ECR
         env:
           MANIFEST_TAGS: ${{ needs.docker-meta.outputs.tags }}
         run: |

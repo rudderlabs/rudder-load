@@ -17,12 +17,30 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+      id-token: write # OIDC for the ECR read-only role
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
+      # Test containers (Pulsar) are pulled from Docker Hub through the ECR pull-through cache. Dependabot and fork PRs
+      # cannot get an OIDC token, so they skip the login and pull from Docker Hub directly.
+      - name: Configure AWS Credentials
+        if: >-
+          github.actor != 'dependabot[bot]' &&
+          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: ${{ vars.AWS_ECR_REGION }}
+          role-to-assume: ${{ vars.AWS_ECR_READ_ONLY_IAM_ROLE_ARN }}
+          role-session-name: ${{ github.event.repository.name }}-tests
+      - name: Login to ECR
+        id: login-ecr
+        if: >-
+          github.actor != 'dependabot[bot]' &&
+          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -31,7 +49,22 @@ jobs:
           go-version-file: 'go.mod'
       - run: go version
       - run: go mod download
-      - run: make test
+      - name: Run tests
+        env:
+          # The tests need no AWS access: undo the credentials configure-aws-credentials exported.
+          AWS_REGION: ""
+          AWS_DEFAULT_REGION: ""
+          AWS_ACCESS_KEY_ID: ""
+          AWS_SECRET_ACCESS_KEY: ""
+          AWS_SESSION_TOKEN: ""
+          # Read by rudder-go-kit's testhelper/docker resources; empty (no ECR login) means Docker Hub.
+          DOCKERHUB_REGISTRY_MIRROR: >-
+            ${{ steps.login-ecr.outputs.registry && format('{0}/docker-hub', steps.login-ecr.outputs.registry) || '' }}
+          DOCKERHUB_REGISTRY_MIRROR_USERNAME: >-
+            ${{ steps.login-ecr.outputs.docker_username_422074288268_dkr_ecr_us_east_1_amazonaws_com }}
+          DOCKERHUB_REGISTRY_MIRROR_PASSWORD: >-
+            ${{ steps.login-ecr.outputs.docker_password_422074288268_dkr_ecr_us_east_1_amazonaws_com }}
+        run: make test
       - name: Upload coverage report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
