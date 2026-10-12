@@ -349,5 +349,6 @@ if err != nil {
 
 - `make lint` — Run linters (must pass before committing)
 - `make test` — Run tests
+- `make vulncheck` — Run govulncheck; accepted vulnerabilities without a fix are listed in `scripts/govulncheck.sh`
 
 Always run `make lint` after making changes and before committing.
