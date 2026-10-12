@@ -30,11 +30,9 @@ func TestPortForward_Start(t *testing.T) {
 			name:      "command failed to start",
 			namespace: "test-namespace",
 			commandCreator: func(ctx context.Context, name string, arg ...string) *exec.Cmd {
-				cmd := exec.Command("false")
-				cmd.Process = &os.Process{Pid: 0}
-				return cmd
+				return exec.Command("/nonexistent/kubectl")
 			},
-			expectedError: "exec: already started",
+			expectedError: "no such file or directory",
 		},
 		{
 			name:      "port-forward process exited prematurely",
@@ -60,6 +58,9 @@ func TestPortForward_Start(t *testing.T) {
 				if err == nil {
 					t.Errorf("expected error, got nil")
 					return
+				}
+				if !strings.Contains(err.Error(), tt.expectedError) {
+					t.Errorf("expected error containing %q, got %q", tt.expectedError, err.Error())
 				}
 				return
 			}

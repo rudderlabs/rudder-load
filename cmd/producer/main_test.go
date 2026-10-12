@@ -872,16 +872,16 @@ func TestMaxData(t *testing.T) {
 
 			timeout := 5 * time.Second
 			re := regexp.MustCompile(`rudder_load_max_data_reached{.*} 1`)
+			// Must not use t: require.Never/Eventually can still be running this in a goroutine after the subtest
+			// has completed, and logging then panics with "Log in goroutine after test has completed".
 			verifyMaxDataGauge := func() bool {
 				resp, err := http.Get("http://localhost:9102/metrics")
 				if err != nil {
-					t.Logf("failed to get metrics: %v", err)
 					return false
 				}
 				defer func() { _ = resp.Body.Close() }()
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					t.Logf("failed to read response body: %v", err)
 					return false
 				}
 				return re.Match(body)
