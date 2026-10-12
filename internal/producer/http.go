@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -110,7 +111,10 @@ func NewHTTPProducer(slotName string, environ []string) (*HTTPProducer, error) {
 	if compression {
 		p.gzipPool = sync.Pool{
 			New: func() any {
-				w, _ := gzip.NewWriterLevel(nil, gzip.BestSpeed)
+				w, err := gzip.NewWriterLevel(nil, gzip.BestSpeed)
+				if err != nil { // unreachable: BestSpeed is a valid level
+					panic(fmt.Errorf("creating gzip writer: %w", err))
+				}
 				return w
 			},
 		}
@@ -126,9 +130,10 @@ func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, 
 		gz := p.gzipPool.Get().(*gzip.Writer)
 		gz.Reset(req.BodyWriter())
 		_, err := gz.Write(message)
-		_ = gz.Close()
+		err = errors.Join(err, gz.Close())
 		p.gzipPool.Put(gz)
 		if err != nil {
+			fasthttp.ReleaseRequest(req)
 			return nil, fmt.Errorf("compressing message: %w", err)
 		}
 		req.Header.Set("Content-Encoding", "gzip")
