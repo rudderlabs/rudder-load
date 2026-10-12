@@ -17,7 +17,7 @@ ifeq ($(MAKECMDGOALS),build)
 endif
 
 GO=go
-GOLANGCI=github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0
+GOLANGCI=github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 
 .PHONY: lint
 lint: ## Run linters on all go files
