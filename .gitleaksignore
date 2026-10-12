@@ -10,3 +10,8 @@ templates/custom-failing-payload.json.tmpl:generic-api-key:36
 edb0692f2bb3dbbee355918a66ebd76b637bc357:cmd/producer/integration_test.go:generic-api-key:24
 edb0692f2bb3dbbee355918a66ebd76b637bc357:cmd/producer/integration_test.go:generic-api-key:73
 edb0692f2bb3dbbee355918a66ebd76b637bc357:cmd/producer/integration_test.go:generic-api-key:146
+templates/track.json.tmpl:generic-api-key:35
+templates/track.json.tmpl:generic-api-key:53
+templates/track.json.tmpl:generic-api-key:74
+templates/smaller-track.json.tmpl:generic-api-key:30
+templates/smaller-track.json.tmpl:generic-api-key:50

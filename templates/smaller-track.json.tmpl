@@ -1,0 +1,75 @@
+{
+    "batch": [
+        {{range $i := loop $.NoOfEvents }}
+        {
+            "type": "track",
+            "userId": "{{$.UserID}}",
+            "event": "{{$.Event}}",
+            "messageId": "{{uuid}}",
+            "properties": {
+                "link_text": "Request demo",
+                "target_url": "/request-demo/",
+                "click_type": "button",
+                "page_title": "The Warehouse Native Customer Data Platform",
+                "timezone": {
+                    "name": "Europe/Amsterdam"
+                },
+                "mutiny_visitor": {
+                    "data": {
+                        "browser": {
+                            "device_type": "desktop",
+                            "referrer": "https://www.rudderstack.com/",
+                            "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+                        },
+                        "person": {
+                            "behavior": {
+                                "session_number": 26,
+                                "viewed_questionnaires": [],
+                                "visited_url": [
+                                    {
+                                        "token": "aa40e331-7b9d-4bb5-933e-f67d08d2a344",
+                                        "url": "https://www.rudderstack.com/"
+                                    }
+                                ]
+                            }
+                        },
+                        "query": {},
+                        "client": {
+                            "mode": "default",
+                            "disabled": false
+                        },
+                        "person_identification_token": {},
+                        "generated_at": "2024-10-28T09:42:15-07:00",
+                        "dynamic_dom_updates": {},
+                        "account": {
+                            "properties": {},
+                            "lists": [],
+                            "cleaned_properties": {}
+                        }
+                    },
+                    "token": "c4ffbb17-4576-4a86-be78-55bb72b41fec"
+                }
+            },
+            "context": {
+                "load_run_id": "{{$.LoadRunID}}",
+                "traits": {
+                    "activation_api_experience": false,
+                    "email": "{{$.Email}}"
+                },
+                "sessionId": {{nowNano}},
+                "app": {
+                    "name": "RudderLabs JavaScript SDK",
+                    "namespace": "com.rudderlabs.javascript",
+                    "version": "3.0.3"
+                },
+                "library": {
+                    "name": "RudderLabs JavaScript SDK",
+                    "version": "3.0.3"
+                },
+                "timezone": "GMT+0100"
+            },
+            "timestamp": "{{$.Timestamp}}"
+        }{{if lt $i (sub $.NoOfEvents 1)}},{{end}}
+        {{- end }}
+    ]
+}

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -60,6 +61,21 @@ func TestGetTemplates(t *testing.T) {
 			require.Contains(t, output, "test-user-id")
 			require.Contains(t, output, "test-event")
 			require.Contains(t, output, "test-load-run-id")
+		})
+
+		t.Run("smaller-track template execution", func(t *testing.T) {
+			require.Contains(t, templates, "smaller-track")
+			require.Contains(t, eventGenerators, "smaller-track")
+
+			render := func(eventType string) []byte {
+				return eventGenerators[eventType](templates[eventType], "test-user-id", "test-load-run-id", 1, nil)
+			}
+			track, smallerTrack := render("track"), render("smaller-track")
+
+			require.True(t, json.Valid(smallerTrack), "smaller-track must render valid JSON: %s", smallerTrack)
+			require.Contains(t, string(smallerTrack), "test-user-id")
+			require.Contains(t, string(smallerTrack), "test-load-run-id")
+			require.Less(t, len(smallerTrack), len(track), "smaller-track must be smaller than track")
 		})
 
 		t.Run("identify template execution", func(t *testing.T) {

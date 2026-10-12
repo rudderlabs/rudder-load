@@ -211,7 +211,8 @@ env:
   # Event Configuration
 
   # Comma-separated list of event types to generate
-  # Options include: track, page, identify, ut-email, and custom types
+  # Options include: track, smaller-track, page, identify, ut-email, and custom types
+  # smaller-track: same as track, with a ~3 KB payload per event instead of ~5 KB
   # ut-email: generates events with email fields for testing user transformers that hash emails
   EVENT_TYPES: "track,page,identify"
 
