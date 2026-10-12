@@ -26,6 +26,10 @@ updates:
       interval: "daily"
     cooldown:
       default-days: 10
+    ignore:
+      # v3 is not on the org allowed-actions list, so the workflow fails to start with it. Remove once it is.
+      - dependency-name: "gitleaks/gitleaks-action"
+        update-types: ["version-update:semver-major"]
     groups:
       actions:
         patterns:
