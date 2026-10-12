@@ -3,7 +3,7 @@ dockerUser: your_docker_user
 
 deployment:
   name: rudder-load-keydb
-  image: rudderstack/rudder-load:main
+  image: 422074288268.dkr.ecr.us-east-1.amazonaws.com/rudderstack/rudder-load:main
   imagePullPolicy: Always
   restartPolicy: Always
   command: ["/rudder-load-keydb"]
