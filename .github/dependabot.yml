@@ -1,10 +1,45 @@
 version: 2
 updates:
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 10
+      semver-patch-days: 5
+      exclude:
+        - "github.com/rudderlabs/*"
+    groups:
+      opentelemetry:
+        patterns:
+          - "go.opentelemetry.io/otel*"
+          - "go.opentelemetry.io/contrib/*"
+      go-deps:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "daily"
+    cooldown:
+      default-days: 10
     groups:
       actions:
         patterns:
           - "*"
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 10
+    groups:
+      docker-deps:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
