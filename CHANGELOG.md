@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/rudderlabs/rudder-load/compare/v0.1.0...v0.1.1) (2026-10-13)
+
+
+### Miscellaneous
+
+* fix the release build race and let make deploy-% pick the image ([#56](https://github.com/rudderlabs/rudder-load/issues/56)) ([e57e760](https://github.com/rudderlabs/rudder-load/commit/e57e760b8f9ca2c2ffb2bd326d4fd71febd01b2a))
+
 ## 0.1.0 (2026-10-12)
 
 
