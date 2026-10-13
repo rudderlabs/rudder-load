@@ -33,15 +33,20 @@ build:
 	docker build --progress plain -t $(DOCKER_USER)/rudder-load .
 	docker push $(DOCKER_USER)/rudder-load:latest
 
+# Optional: the image to deploy, overriding deployment.image from the values file, e.g.
+# IMAGE=422074288268.dkr.ecr.us-east-1.amazonaws.com/rudderstack/rudder-load:0.1.0
+IMAGE ?=
+
 .PHONY: deploy-%
 deploy-%:
 	@$(eval SERVICE_NAME=$*)
 	@$(eval VALUES_FILE=$(PWD)/artifacts/helm/${SERVICE_NAME}_values_copy.yaml)
 	@echo Deploying using $(VALUES_FILE)
-	helm install rudder-load-${SERVICE_NAME} $(PWD)/artifacts/helm \
+	helm upgrade --install rudder-load-${SERVICE_NAME} $(PWD)/artifacts/helm \
 		--namespace $(K8S_NAMESPACE) \
 		--set namespace=$(K8S_NAMESPACE) \
-		--values $(VALUES_FILE)
+		--values $(VALUES_FILE) \
+		$(if $(IMAGE),--set deployment.image=$(IMAGE))
 
 .PHONY: delete-%
 delete-%:

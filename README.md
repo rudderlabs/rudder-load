@@ -76,19 +76,23 @@ The `Makefile` has 2 important variables:
 end of the file name (e.g. `http_values_copy.yaml`). The `Makefile` will use the copied file.
 Also, that file is ignored by git so you can add whatever you want to it.
 
-Those are the only variables that you can tune via the `Makefile`.
+Optionally, `IMAGE` overrides the image set in the values file (`deployment.image`).
 
-The docker image is built in the CI pipeline.
+The docker image is built in the CI pipeline and published to ECR as `422074288268.dkr.ecr.us-east-1.amazonaws.com/rudderstack/rudder-load`, tagged `main`, `pr-<number>` and, for each release, `<version>` (e.g. `0.1.0`) and `latest`.
 If you want you can still build your own image by doing `make DOCKER_USER=<your-docker-username> build`.
 
-! Remember to update your values file (e.g. `http_values_copy.yaml`) with the new image tag (see
-`deployment.image`).
+! Remember to update your values file (e.g. `http_values_copy.yaml`) with the image you want (see `deployment.image`), or pass `IMAGE`.
+
+Deploying again upgrades the existing release in place, so there is no need to delete it first.
 
 #### Examples
 
 ```shell
 # To deploy
 make K8S_NAMESPACE=my-ns deploy-http
+
+# To deploy a specific image
+make K8S_NAMESPACE=my-ns IMAGE=422074288268.dkr.ecr.us-east-1.amazonaws.com/rudderstack/rudder-load:0.1.0 deploy-http
 
 # To remove the last deployment
 K8S_NAMESPACE=my-ns make delete-http
