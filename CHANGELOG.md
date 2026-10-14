@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/rudderlabs/rudder-load/compare/v0.1.1...v0.2.0) (2026-10-14)
+
+
+### Features
+
+* **producer:** retry HTTP requests after connection errors ([#58](https://github.com/rudderlabs/rudder-load/issues/58)) ([62b61e1](https://github.com/rudderlabs/rudder-load/commit/62b61e161bed4f1a2cf6a6281b4a42fb25d09513))
+
 ## [0.1.1](https://github.com/rudderlabs/rudder-load/compare/v0.1.0...v0.1.1) (2026-10-13)
 
 
