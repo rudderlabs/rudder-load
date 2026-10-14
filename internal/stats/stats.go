@@ -70,7 +70,7 @@ func NewFactory(reg *prometheus.Registry, data Data) (*Factory, error) {
 
 	errorRateTotal := prometheus.NewCounter(prometheus.CounterOpts{
 		Name:        data.Prefix + "publish_error_rate_total",
-		Help:        "Total error rate",
+		Help:        "Total number of failed publish attempts, including ones that were retried",
 		ConstLabels: constLabels,
 	})
 	reg.MustRegister(errorRateTotal)

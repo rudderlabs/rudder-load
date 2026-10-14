@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -280,4 +283,119 @@ func TestGetSourcesConcentration(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRetryPolicyPublish(t *testing.T) {
+	errRetryable := errors.New("retryable")
+	errOther := errors.New("other")
+	policy := retryPolicy{
+		maxRetries:     3,
+		initialBackoff: time.Millisecond,
+		maxBackoff:     2 * time.Millisecond,
+		retryable:      func(err error) bool { return errors.Is(err, errRetryable) },
+	}
+	// failing returns a publish func that fails with the given errors in turn, then succeeds, and counts its calls.
+	failing := func(calls *int, errs ...error) func() ([]byte, error) {
+		return func() ([]byte, error) {
+			*calls++
+			if *calls <= len(errs) {
+				return nil, errs[*calls-1]
+			}
+			return []byte("ok"), nil
+		}
+	}
+
+	t.Run("retries retryable errors until it succeeds", func(t *testing.T) {
+		var calls, retries int
+		rb, err := policy.publish(context.Background(), failing(&calls, errRetryable, errRetryable),
+			func(error) { retries++ })
+		require.NoError(t, err)
+		require.Equal(t, "ok", string(rb))
+		require.Equal(t, 3, calls)
+		require.Equal(t, 2, retries)
+	})
+
+	t.Run("doesn't retry other errors", func(t *testing.T) {
+		var calls, retries int
+		_, err := policy.publish(context.Background(), failing(&calls, errOther), func(error) { retries++ })
+		require.ErrorIs(t, err, errOther)
+		require.Equal(t, 1, calls)
+		require.Zero(t, retries)
+	})
+
+	t.Run("gives up after maxRetries", func(t *testing.T) {
+		var calls, retries int
+		_, err := policy.publish(context.Background(),
+			failing(&calls, errRetryable, errRetryable, errRetryable, errRetryable, errRetryable),
+			func(error) { retries++ })
+		require.ErrorIs(t, err, errRetryable)
+		require.Equal(t, 4, calls)
+		require.Equal(t, 3, retries)
+	})
+
+	t.Run("never retries with maxRetries 0", func(t *testing.T) {
+		var calls int
+		noRetries := policy
+		noRetries.maxRetries = 0
+		_, err := noRetries.publish(context.Background(), failing(&calls, errRetryable), func(error) {})
+		require.ErrorIs(t, err, errRetryable)
+		require.Equal(t, 1, calls)
+	})
+
+	t.Run("stops when the context is done", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		var calls int
+		slow := policy
+		slow.initialBackoff, slow.maxBackoff = time.Hour, time.Hour
+		_, err := slow.publish(ctx, failing(&calls, errRetryable), func(error) { cancel() })
+		require.ErrorIs(t, err, context.Canceled)
+		require.Equal(t, 1, calls)
+	})
+
+	t.Run("doesn't retry when the context ends during publish", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		var retries int
+		_, err := policy.publish(ctx, func() ([]byte, error) {
+			cancel()
+			return nil, errRetryable
+		}, func(error) { retries++ })
+		require.ErrorIs(t, err, errRetryable)
+		require.Zero(t, retries)
+	})
+
+	t.Run("backs off exponentially up to maxBackoff, waiting half to all of each backoff", func(t *testing.T) {
+		// waitsWith returns the waits between attempts when the random jitter is always int63n's result.
+		waitsWith := func(int63n func(int64) int64) []time.Duration {
+			var waits []time.Duration
+			recording := retryPolicy{
+				maxRetries:     5,
+				initialBackoff: 100 * time.Millisecond,
+				maxBackoff:     400 * time.Millisecond,
+				retryable:      policy.retryable,
+				after: func(d time.Duration) <-chan time.Time {
+					waits = append(waits, d)
+					ch := make(chan time.Time, 1)
+					ch <- time.Time{}
+					return ch
+				},
+				int63n: int63n,
+			}
+			var calls int
+			errs := []error{errRetryable, errRetryable, errRetryable, errRetryable, errRetryable}
+			_, err := recording.publish(context.Background(), failing(&calls, errs...), func(error) {})
+			require.NoError(t, err)
+			return waits
+		}
+		ms := func(ds ...time.Duration) []time.Duration {
+			for i := range ds {
+				ds[i] *= time.Millisecond
+			}
+			return ds
+		}
+
+		lowest := waitsWith(func(int64) int64 { return 0 })
+		highest := waitsWith(func(n int64) int64 { return n - 1 })
+		require.Equal(t, ms(50, 100, 200, 200, 200), lowest)
+		require.Equal(t, ms(100, 200, 400, 400, 400), highest)
+	})
 }

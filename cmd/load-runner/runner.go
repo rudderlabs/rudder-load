@@ -145,7 +145,14 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 	if !r.config.LocalExecution {
 		summaryMetrics, err := r.metricsFetcher.GetMetrics(ctx, []parser.Metric{
 			{Name: "average rps", Query: fmt.Sprintf("sum(avg_over_time(rudder_load_publish_rate_per_second{}[%v]))", totalDuration)},
+			// Failed attempts per second, including ones that were retried.
 			{Name: "error rate", Query: fmt.Sprintf("sum(rate(rudder_load_publish_error_rate_total[%v]))", totalDuration)},
+			{
+				Name: "dropped requests",
+				// The series only exists once a request is dropped, so 0 has to be added explicitly.
+				Query: fmt.Sprintf(`sum(increase(rudder_load_number_of_requests_count{error="true"}[%v])) or vector(0)`,
+					totalDuration),
+			},
 		})
 		if err != nil {
 			r.logger.Errorn("Failed to get current metrics", obskit.Error(err))
