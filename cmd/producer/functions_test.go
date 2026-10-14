@@ -363,31 +363,39 @@ func TestRetryPolicyPublish(t *testing.T) {
 		require.Zero(t, retries)
 	})
 
-	t.Run("backs off exponentially with jitter, up to maxBackoff", func(t *testing.T) {
-		var waits []time.Duration
-		recording := retryPolicy{
-			maxRetries:     5,
-			initialBackoff: 100 * time.Millisecond,
-			maxBackoff:     400 * time.Millisecond,
-			retryable:      policy.retryable,
-			after: func(d time.Duration) <-chan time.Time {
-				waits = append(waits, d)
-				ch := make(chan time.Time, 1)
-				ch <- time.Time{}
-				return ch
-			},
+	t.Run("backs off exponentially up to maxBackoff, waiting half to all of each backoff", func(t *testing.T) {
+		// waitsWith returns the waits between attempts when the random jitter is always int63n's result.
+		waitsWith := func(int63n func(int64) int64) []time.Duration {
+			var waits []time.Duration
+			recording := retryPolicy{
+				maxRetries:     5,
+				initialBackoff: 100 * time.Millisecond,
+				maxBackoff:     400 * time.Millisecond,
+				retryable:      policy.retryable,
+				after: func(d time.Duration) <-chan time.Time {
+					waits = append(waits, d)
+					ch := make(chan time.Time, 1)
+					ch <- time.Time{}
+					return ch
+				},
+				int63n: int63n,
+			}
+			var calls int
+			errs := []error{errRetryable, errRetryable, errRetryable, errRetryable, errRetryable}
+			_, err := recording.publish(context.Background(), failing(&calls, errs...), func(error) {})
+			require.NoError(t, err)
+			return waits
 		}
-		var calls int
-		errs := []error{errRetryable, errRetryable, errRetryable, errRetryable, errRetryable}
-		_, err := recording.publish(context.Background(), failing(&calls, errs...), func(error) {})
-		require.NoError(t, err)
+		ms := func(ds ...time.Duration) []time.Duration {
+			for i := range ds {
+				ds[i] *= time.Millisecond
+			}
+			return ds
+		}
 
-		backoffs := []time.Duration{100, 200, 400, 400, 400}
-		require.Len(t, waits, len(backoffs))
-		for i, b := range backoffs {
-			b *= time.Millisecond
-			require.GreaterOrEqual(t, waits[i], b/2, "wait %d", i)
-			require.LessOrEqual(t, waits[i], b, "wait %d", i)
-		}
+		lowest := waitsWith(func(int64) int64 { return 0 })
+		highest := waitsWith(func(n int64) int64 { return n - 1 })
+		require.Equal(t, ms(50, 100, 200, 200, 200), lowest)
+		require.Equal(t, ms(100, 200, 400, 400, 400), highest)
 	})
 }

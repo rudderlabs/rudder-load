@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -43,8 +45,10 @@ func TestRunRetriesConnectionErrors(t *testing.T) {
 		{name: "retries them", maxRetries: "10", wantDrops: false},
 		{name: "drops them with retries disabled", maxRetries: "0", wantDrops: true},
 	}
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// A deployment name of its own, so the metrics it reads can't come from another process on the port.
+			deployment := fmt.Sprintf("retry-test-%d-%d", os.Getpid(), i)
 			raw, err := net.Listen("tcp", "127.0.0.1:0")
 			require.NoError(t, err)
 			l := &rejectingListener{Listener: raw}
@@ -63,7 +67,7 @@ func TestRunRetriesConnectionErrors(t *testing.T) {
 
 			env := map[string]string{
 				"MODE":                     "http",
-				"HOSTNAME":                 "rudder-load-0-retry-test",
+				"HOSTNAME":                 "rudder-load-0-" + deployment,
 				"CONCURRENCY":              "20",
 				"MESSAGE_GENERATORS":       "2",
 				"MAX_EVENTS_PER_SECOND":    "0",
@@ -99,15 +103,21 @@ func TestRunRetriesConnectionErrors(t *testing.T) {
 			cancel()
 			require.Equal(t, 0, <-done)
 
-			retried := sumMetric(metrics, "rudder_load_retried_requests_count", "")
-			dropped := sumMetric(metrics, "rudder_load_number_of_requests_count", `error="true"`)
+			ours := `deployment="` + deployment + `"`
+			require.Positive(t, sumMetric(metrics, "rudder_load_published_messages_count", ours),
+				"the metrics on :9102 should be this test's")
+			retried := sumMetric(metrics, "rudder_load_retried_requests_count", ours)
+			dropped := sumMetric(metrics, "rudder_load_number_of_requests_count", ours, `error="true"`)
 			if tt.wantDrops {
 				require.Positive(t, dropped)
 				require.Zero(t, retried)
-			} else {
-				require.Positive(t, retried)
-				require.Zero(t, dropped)
+				return
 			}
+			require.Positive(t, retried)
+			require.Zero(t, dropped)
+			// The listener closes connections after reading part of the request, which is one of these two.
+			require.Equal(t, retried, sumMetric(metrics, "rudder_load_retried_requests_count", ours, `reason="write"`)+
+				sumMetric(metrics, "rudder_load_retried_requests_count", ours, `reason="connection_closed"`))
 		})
 	}
 }
@@ -122,11 +132,11 @@ func scrapeMetrics(t *testing.T) string {
 	return string(b)
 }
 
-// sumMetric adds up the samples of a metric whose labels contain labelFilter.
-func sumMetric(metrics, name, labelFilter string) float64 {
+// sumMetric adds up the samples of a metric whose labels contain every one of labelFilters.
+func sumMetric(metrics, name string, labelFilters ...string) float64 {
 	var total float64
 	for _, line := range strings.Split(metrics, "\n") {
-		if !strings.HasPrefix(line, name+"{") || !strings.Contains(line, labelFilter) {
+		if !strings.HasPrefix(line, name+"{") || !containsAll(line, labelFilters) {
 			continue
 		}
 		fields := strings.Fields(line)
@@ -136,4 +146,13 @@ func sumMetric(metrics, name, labelFilter string) float64 {
 		}
 	}
 	return total
+}
+
+func containsAll(s string, subs []string) bool {
+	for _, sub := range subs {
+		if !strings.Contains(s, sub) {
+			return false
+		}
+	}
+	return true
 }

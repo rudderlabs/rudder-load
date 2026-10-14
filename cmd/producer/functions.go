@@ -326,13 +326,14 @@ func mustSourcesList(s string) []string {
 }
 
 // retryPolicy retries failed publishes that retryable accepts, up to maxRetries times, backing off exponentially from
-// initialBackoff to maxBackoff. after waits like time.After, which it defaults to; tests replace it.
+// initialBackoff to maxBackoff. after and int63n default to time.After and rand.Int63n; tests replace them.
 type retryPolicy struct {
 	maxRetries     int
 	initialBackoff time.Duration
 	maxBackoff     time.Duration
 	retryable      func(error) bool
 	after          func(time.Duration) <-chan time.Time
+	int63n         func(int64) int64
 }
 
 // publish calls publish until it succeeds, fails with an error the policy doesn't retry, runs out of retries or ctx is
@@ -340,9 +341,12 @@ type retryPolicy struct {
 func (rp retryPolicy) publish(
 	ctx context.Context, publish func() ([]byte, error), onRetry func(error),
 ) ([]byte, error) {
-	after := rp.after
+	after, int63n := rp.after, rp.int63n
 	if after == nil {
 		after = time.After
+	}
+	if int63n == nil {
+		int63n = rand.Int63n
 	}
 	backoff := rp.initialBackoff
 	for attempt := 0; ; attempt++ {
@@ -352,7 +356,7 @@ func (rp retryPolicy) publish(
 		}
 		onRetry(err)
 		// Half the backoff plus random jitter, so goroutines that failed together don't retry together.
-		wait := backoff/2 + time.Duration(rand.Int63n(int64(backoff/2)+1))
+		wait := backoff/2 + time.Duration(int63n(int64(backoff/2)+1))
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()

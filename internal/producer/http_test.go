@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -268,9 +269,14 @@ func TestRetryReason(t *testing.T) {
 		requireReason(t, "", &net.OpError{Op: "dial", Net: "tcp", Err: dnsErr}) // as net/http wraps it
 	})
 
+	t.Run("write timeout", func(t *testing.T) {
+		requireReason(t, "", &net.OpError{Op: "write", Net: "tcp", Err: os.ErrDeadlineExceeded})
+	})
+
 	t.Run("connection reset while sending the request", func(t *testing.T) {
 		endpoint := listen(t, func(conn *net.TCPConn) {
-			_ = conn.SetLinger(0) // reset rather than close
+			_, _ = conn.Read(make([]byte, 1)) // the request is being sent, so the dial is done
+			_ = conn.SetLinger(0)             // reset rather than close
 			_ = conn.Close()
 		})
 

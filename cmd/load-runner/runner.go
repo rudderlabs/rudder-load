@@ -149,7 +149,8 @@ func (r *LoadTestRunner) Run(ctx context.Context) error {
 			{Name: "error rate", Query: fmt.Sprintf("sum(rate(rudder_load_publish_error_rate_total[%v]))", totalDuration)},
 			{
 				Name: "dropped requests",
-				Query: fmt.Sprintf(`sum(increase(rudder_load_number_of_requests_count{error="true"}[%v]))`,
+				// The series only exists once a request is dropped, so 0 has to be added explicitly.
+				Query: fmt.Sprintf(`sum(increase(rudder_load_number_of_requests_count{error="true"}[%v])) or vector(0)`,
 					totalDuration),
 			},
 		})
