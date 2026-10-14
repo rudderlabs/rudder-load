@@ -257,6 +257,10 @@ env:
   # Target endpoint URL where events will be sent
   HTTP_ENDPOINT: "https://dataplane.rudderstack.com/v1/batch"
 
+  # How many times to retry a request that failed before reaching the server (DNS lookup, dial timeout, connection
+  # refused, or the connection closed before any response byte), backing off from 100ms to 5s. 0 disables retries.
+  HTTP_MAX_RETRIES: "10"
+
   # Pulsar Settings
 
   # Required Settings

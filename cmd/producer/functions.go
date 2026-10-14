@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"os"
@@ -215,6 +216,18 @@ func mustInt(s string) int {
 	return i
 }
 
+func optionalInt(s string, def int) int {
+	v := os.Getenv(s)
+	if v == "" {
+		return def
+	}
+	i, err := strconv.Atoi(v)
+	if err != nil {
+		panic(fmt.Errorf("invalid int: %s: %v", s, err))
+	}
+	return i
+}
+
 func optionalBool(s string, def bool) bool {
 	v := os.Getenv(s)
 	if v == "" {
@@ -310,6 +323,36 @@ func mustSourcesList(s string) []string {
 		}
 	}
 	return sources
+}
+
+// retryPolicy retries failed publishes that retryable accepts, up to maxRetries times, backing off exponentially from
+// initialBackoff to maxBackoff.
+type retryPolicy struct {
+	maxRetries     int
+	initialBackoff time.Duration
+	maxBackoff     time.Duration
+	retryable      func(error) bool
+}
+
+// publish calls publish until it succeeds, fails with an error the policy doesn't retry, runs out of retries or ctx is
+// done. onRetry is called with the error before each retry.
+func (rp retryPolicy) publish(
+	ctx context.Context, publish func() ([]byte, error), onRetry func(error),
+) ([]byte, error) {
+	backoff := rp.initialBackoff
+	for attempt := 0; ; attempt++ {
+		rb, err := publish()
+		if err == nil || attempt >= rp.maxRetries || ctx.Err() != nil || !rp.retryable(err) {
+			return rb, err
+		}
+		onRetry(err)
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(backoff):
+		}
+		backoff = min(2*backoff, rp.maxBackoff)
+	}
 }
 
 func printErr(err error, retry ...bool) {

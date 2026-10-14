@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"sync"
@@ -176,4 +177,18 @@ func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, 
 func (p *HTTPProducer) Close() error {
 	p.c.CloseIdleConnections()
 	return nil
+}
+
+// IsRetryable reports whether a failed HTTP request can be sent again. Either the connection couldn't be opened (DNS
+// lookup, dial timeout, connection refused), so the request never reached the server, or the server closed the
+// connection before sending any response byte. A server does that to idle keep-alive connections while shutting
+// down, so the request almost certainly wasn't processed. Other errors, like a read timeout or a non-200 status,
+// aren't retryable: the server may have processed the request.
+func IsRetryable(err error) bool {
+	var dnsErr *net.DNSError
+	var opErr *net.OpError
+	return errors.Is(err, fasthttp.ErrDialTimeout) ||
+		errors.Is(err, fasthttp.ErrConnectionClosed) ||
+		errors.As(err, &dnsErr) ||
+		(errors.As(err, &opErr) && opErr.Op == "dial")
 }

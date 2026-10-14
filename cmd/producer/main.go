@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"rudder-load/internal/producer"
 	"rudder-load/internal/stats"
 	"rudder-load/internal/validator"
 
@@ -98,6 +99,7 @@ func run(ctx context.Context) int {
 		batchSizes            = mustMap("BATCH_SIZES")
 		hotBatchSizes         = mustMap("HOT_BATCH_SIZES")
 		maxEventsPerSecond    = mustInt("MAX_EVENTS_PER_SECOND")
+		httpMaxRetries        = optionalInt("HTTP_MAX_RETRIES", 10)
 		templatesPath         = optionalString("TEMPLATES_PATH", "../../templates/")
 		sourcesList           = mustSourcesList("SOURCES")
 		hotSourcesList        = optionalMap("HOT_SOURCES", sourcesList)
@@ -118,6 +120,10 @@ func run(ctx context.Context) int {
 
 	if concurrency < 1 {
 		printErr(fmt.Errorf("concurrency has to be greater than zero: %d", concurrency))
+		return 1
+	}
+	if httpMaxRetries < 0 {
+		printErr(fmt.Errorf("HTTP_MAX_RETRIES can't be negative: %d", httpMaxRetries))
 		return 1
 	}
 
@@ -224,9 +230,14 @@ func run(ctx context.Context) int {
 	})
 	numberOfRequestsCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name:        metricsPrefix + "number_of_requests_count",
-		Help:        "Total number of requests",
+		Help:        "Total number of requests, by final outcome: error=\"true\" means the message was dropped",
 		ConstLabels: constLabels,
 	}, []string{"error"})
+	retriedRequestsCounter := prometheus.NewCounter(prometheus.CounterOpts{
+		Name:        metricsPrefix + "retried_requests_count",
+		Help:        "Total number of HTTP requests retried after failing before reaching the server",
+		ConstLabels: constLabels,
+	})
 	msgGenLag := prometheus.NewCounter(prometheus.CounterOpts{
 		Name:        metricsPrefix + "msg_generation_lag",
 		Help:        "If less than a ms then this is increased meaning there are not enough generators per publishers.",
@@ -245,6 +256,7 @@ func run(ctx context.Context) int {
 	reg.MustRegister(publishRatePerSecond)
 	reg.MustRegister(publishedMessagesCounter)
 	reg.MustRegister(numberOfRequestsCounter)
+	reg.MustRegister(retriedRequestsCounter)
 	reg.MustRegister(msgGenLag)
 	reg.MustRegister(throttled)
 	reg.MustRegister(maxDataReached)
@@ -368,6 +380,15 @@ func run(ctx context.Context) int {
 	// Starting the go routines - START
 	fmt.Printf("Starting %d go routines...\n", concurrency)
 
+	retries := retryPolicy{
+		initialBackoff: 100 * time.Millisecond,
+		maxBackoff:     5 * time.Second,
+		retryable:      producer.IsRetryable,
+	}
+	if mode == modeHTTP || mode == modeHTTP2 {
+		retries.maxRetries = httpMaxRetries
+	}
+
 	for i := 0; i < concurrency; i++ {
 		var localClient publisherCloser
 		if !useOneClientPerSlot {
@@ -417,9 +438,14 @@ func run(ctx context.Context) int {
 						}
 					}
 
-					rb, err := client.PublishTo(ctx, msg.UserID, msg.Payload, map[string]string{
-						"auth":         msg.WriteKey,
-						"anonymous_id": msg.UserID,
+					rb, err := retries.publish(ctx, func() ([]byte, error) {
+						return client.PublishTo(ctx, msg.UserID, msg.Payload, map[string]string{
+							"auth":         msg.WriteKey,
+							"anonymous_id": msg.UserID,
+						})
+					}, func(err error) {
+						retriedRequestsCounter.Inc()
+						printLeakyErr(leakyErrors, fmt.Errorf("error for producer %d: %w", i, err), true)
 					})
 					if ctx.Err() != nil {
 						printErr(ctx.Err())
@@ -444,11 +470,11 @@ func run(ctx context.Context) int {
 					switch mode {
 					case modeHTTP:
 						if strings.Contains(err.Error(), "i/o timeout") {
-							printLeakyErr(leakyErrors, fmt.Errorf("error for producer %d: %w", i, err), true)
+							printLeakyErr(leakyErrors, fmt.Errorf("dropped message, error for producer %d: %w", i, err))
 							continue
 						}
 					}
-					printErr(fmt.Errorf("[non-retryable] error for producer %d: %w", i, err))
+					printErr(fmt.Errorf("dropped message, error for producer %d: %w", i, err))
 					break
 				}
 			}
