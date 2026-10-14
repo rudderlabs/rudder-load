@@ -171,7 +171,10 @@ func (p *HTTPProducer) PublishTo(_ context.Context, key string, message []byte, 
 		return nil, fmt.Errorf("http request failed with status code: %d: %s", res.StatusCode(), res.Body())
 	}
 
-	return res.Body(), err
+	// The body lives in res, which goes back to fasthttp's pool when this returns, so it has to be copied.
+	body := make([]byte, len(res.Body()))
+	copy(body, res.Body())
+	return body, nil
 }
 
 func (p *HTTPProducer) Close() error {
@@ -179,16 +182,39 @@ func (p *HTTPProducer) Close() error {
 	return nil
 }
 
-// IsRetryable reports whether a failed HTTP request can be sent again. Either the connection couldn't be opened (DNS
-// lookup, dial timeout, connection refused), so the request never reached the server, or the server closed the
-// connection before sending any response byte. A server does that to idle keep-alive connections while shutting
-// down, so the request almost certainly wasn't processed. Other errors, like a read timeout or a non-200 status,
-// aren't retryable: the server may have processed the request.
-func IsRetryable(err error) bool {
+// RetryReason returns why a failed HTTP request is worth sending again, as a real client would, or "" if it isn't:
+//   - "dns": a DNS lookup failed, other than with "no such host".
+//   - "dial": the connection couldn't be opened (dial timeout, connection refused).
+//   - "write": the connection broke while the request was being sent. A server that reads the whole body before
+//     acting on it, as ingestion does, can't have processed it.
+//   - "connection_closed": the server closed the connection before sending any response byte. A server does that to
+//     idle keep-alive connections while shutting down, but also when it processed the request and went away before
+//     answering, so this retry can send a request twice.
+//
+// Other errors, like a timeout or a non-200 status, aren't retried: the server may have processed the request.
+func RetryReason(err error) string {
 	var dnsErr *net.DNSError
 	var opErr *net.OpError
-	return errors.Is(err, fasthttp.ErrDialTimeout) ||
-		errors.Is(err, fasthttp.ErrConnectionClosed) ||
-		errors.As(err, &dnsErr) ||
-		(errors.As(err, &opErr) && opErr.Op == "dial")
+	switch {
+	case err == nil:
+		return ""
+	case errors.As(err, &dnsErr):
+		if dnsErr.IsNotFound {
+			return ""
+		}
+		return "dns"
+	case errors.Is(err, fasthttp.ErrDialTimeout), errors.As(err, &opErr) && opErr.Op == "dial":
+		return "dial"
+	case errors.As(err, &opErr) && opErr.Op == "write" && !opErr.Timeout():
+		return "write"
+	case errors.Is(err, fasthttp.ErrConnectionClosed):
+		return "connection_closed"
+	default:
+		return ""
+	}
+}
+
+// IsRetryable reports whether a failed HTTP request is worth sending again (see RetryReason).
+func IsRetryable(err error) bool {
+	return RetryReason(err) != ""
 }

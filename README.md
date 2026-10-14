@@ -257,8 +257,11 @@ env:
   # Target endpoint URL where events will be sent
   HTTP_ENDPOINT: "https://dataplane.rudderstack.com/v1/batch"
 
-  # How many times to retry a request that failed before reaching the server (DNS lookup, dial timeout, connection
-  # refused, or the connection closed before any response byte), backing off from 100ms to 5s. 0 disables retries.
+  # How many times to retry a request after a connection error, in the http and http2 modes: a DNS lookup failure other
+  # than "no such host", a dial timeout or refused connection, the connection breaking while the request is sent, or
+  # the connection closed before any response byte. The last one can resend a request the server already processed.
+  # Backs off from 100ms to 5s with jitter. 0 disables retries. rudder_load_retried_requests_count counts the retries
+  # by reason, and rudder_load_number_of_requests_count{error="true"} counts the requests dropped in the end.
   HTTP_MAX_RETRIES: "10"
 
   # Pulsar Settings

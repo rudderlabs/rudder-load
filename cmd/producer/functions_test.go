@@ -351,4 +351,43 @@ func TestRetryPolicyPublish(t *testing.T) {
 		require.ErrorIs(t, err, context.Canceled)
 		require.Equal(t, 1, calls)
 	})
+
+	t.Run("doesn't retry when the context ends during publish", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		var retries int
+		_, err := policy.publish(ctx, func() ([]byte, error) {
+			cancel()
+			return nil, errRetryable
+		}, func(error) { retries++ })
+		require.ErrorIs(t, err, errRetryable)
+		require.Zero(t, retries)
+	})
+
+	t.Run("backs off exponentially with jitter, up to maxBackoff", func(t *testing.T) {
+		var waits []time.Duration
+		recording := retryPolicy{
+			maxRetries:     5,
+			initialBackoff: 100 * time.Millisecond,
+			maxBackoff:     400 * time.Millisecond,
+			retryable:      policy.retryable,
+			after: func(d time.Duration) <-chan time.Time {
+				waits = append(waits, d)
+				ch := make(chan time.Time, 1)
+				ch <- time.Time{}
+				return ch
+			},
+		}
+		var calls int
+		errs := []error{errRetryable, errRetryable, errRetryable, errRetryable, errRetryable}
+		_, err := recording.publish(context.Background(), failing(&calls, errs...), func(error) {})
+		require.NoError(t, err)
+
+		backoffs := []time.Duration{100, 200, 400, 400, 400}
+		require.Len(t, waits, len(backoffs))
+		for i, b := range backoffs {
+			b *= time.Millisecond
+			require.GreaterOrEqual(t, waits[i], b/2, "wait %d", i)
+			require.LessOrEqual(t, waits[i], b, "wait %d", i)
+		}
+	})
 }

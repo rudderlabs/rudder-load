@@ -233,11 +233,12 @@ func run(ctx context.Context) int {
 		Help:        "Total number of requests, by final outcome: error=\"true\" means the message was dropped",
 		ConstLabels: constLabels,
 	}, []string{"error"})
-	retriedRequestsCounter := prometheus.NewCounter(prometheus.CounterOpts{
-		Name:        metricsPrefix + "retried_requests_count",
-		Help:        "Total number of HTTP requests retried after failing before reaching the server",
+	retriedRequestsCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: metricsPrefix + "retried_requests_count",
+		Help: "Total number of HTTP requests retried after a connection error, by reason: dns, dial, write or " +
+			"connection_closed (the only one that can send a request the server already processed)",
 		ConstLabels: constLabels,
-	})
+	}, []string{"reason"})
 	msgGenLag := prometheus.NewCounter(prometheus.CounterOpts{
 		Name:        metricsPrefix + "msg_generation_lag",
 		Help:        "If less than a ms then this is increased meaning there are not enough generators per publishers.",
@@ -444,7 +445,7 @@ func run(ctx context.Context) int {
 							"anonymous_id": msg.UserID,
 						})
 					}, func(err error) {
-						retriedRequestsCounter.Inc()
+						retriedRequestsCounter.WithLabelValues(producer.RetryReason(err)).Inc()
 						printLeakyErr(leakyErrors, fmt.Errorf("error for producer %d: %w", i, err), true)
 					})
 					if ctx.Err() != nil {
