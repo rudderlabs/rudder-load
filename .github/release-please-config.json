@@ -9,7 +9,7 @@
       "initial-version": "0.1.0",
       "pull-request-title-pattern": "chore: release ${version}",
       "extra-files": [
-        {"type": "generic", "path": "artifacts/helm/soak_values.yaml"}
+        {"type": "generic", "path": "artifacts/helm/pulsar_soak_values.yaml"}
       ],
       "changelog-sections": [
         {"type": "feat", "section": "Features", "hidden": false},
