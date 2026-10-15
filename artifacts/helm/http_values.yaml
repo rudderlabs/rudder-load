@@ -35,6 +35,9 @@ deployment:
     CONCURRENCY: "2000" # these read from the ch
     MESSAGE_GENERATORS: "500" # these push into the ch
     MAX_EVENTS_PER_SECOND: "60000" # set as 0 for no limit
+    # RUN_DEADLINE: optional absolute RFC3339 time after which no more requests are sent. The pods then stay up, idle,
+    # until they're deleted. Being absolute, a pod restart can't extend the run. Unset or empty means no deadline.
+    # RUN_DEADLINE: "2026-10-16T12:00:00Z"
     # SOURCES should be a comma separated list of writeKeys
     # e.g. SOURCES: "write-key-1,write-key-2"
     SOURCES: ""

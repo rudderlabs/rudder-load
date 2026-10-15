@@ -27,6 +27,8 @@ import (
 	"rudder-load/internal/stats"
 	"rudder-load/internal/validator"
 
+	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
+	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/profiler"
 	kitsync "github.com/rudderlabs/rudder-go-kit/sync"
 	"github.com/rudderlabs/rudder-go-kit/throttling"
@@ -85,6 +87,9 @@ func main() {
 }
 
 func run(ctx context.Context) int {
+	conf := kitconfig.New(kitconfig.WithEnvPrefix("RUDDER_LOAD"))
+	log := logger.NewFactory(conf).NewLogger()
+
 	var (
 		hostname              = mustString("HOSTNAME")
 		mode                  = mustProducerMode("MODE")
@@ -107,6 +112,7 @@ func run(ctx context.Context) int {
 		hotSourcesList        = optionalMap("HOT_SOURCES", sourcesList)
 		validatorType         = optionalString("VALIDATOR_TYPE", "")
 		maxData               = optionalBytes("MAX_DATA", 0)
+		runDeadline           = optionalTime("RUN_DEADLINE", time.Time{})
 	)
 
 	if strings.Index(hostname, hostnameSep) != 0 {
@@ -207,6 +213,12 @@ func run(ctx context.Context) int {
 		fmt.Printf("Soft memory limit at 80%% of %s: %s\n", byteCount(uint64(softMemoryLimit)), byteCount(uint64(newMemoryLimit)))
 	}
 
+	// stopCtx stops the load: it's done on SIGTERM, as ctx is, or once RUN_DEADLINE passes. The generators and the
+	// publishers stop on it, while the metrics and profiler servers keep using ctx, so that after the deadline the
+	// process stays up, idle, until SIGTERM: exiting would only get the pod restarted.
+	stopCtx, stop := withRunDeadline(ctx, log, runDeadline)
+	defer stop()
+
 	// PROMETHEUS REGISTRY - START
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(
@@ -256,6 +268,11 @@ func run(ctx context.Context) int {
 		Help:        "Set to 1 when max data limit is reached",
 		ConstLabels: constLabels,
 	})
+	runDeadlineReached := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:        metricsPrefix + "run_deadline_reached",
+		Help:        "Set to 1 once RUN_DEADLINE has passed and the load has stopped, its requests in flight done",
+		ConstLabels: constLabels,
+	})
 	reg.MustRegister(publishRatePerSecond)
 	reg.MustRegister(publishedMessagesCounter)
 	reg.MustRegister(numberOfRequestsCounter)
@@ -263,6 +280,7 @@ func run(ctx context.Context) int {
 	reg.MustRegister(msgGenLag)
 	reg.MustRegister(throttled)
 	reg.MustRegister(maxDataReached)
+	reg.MustRegister(runDeadlineReached)
 	// PROMETHEUS REGISTRY - END
 
 	// Setting up dependencies for publishers - START
@@ -412,7 +430,7 @@ func run(ctx context.Context) int {
 
 			for {
 				select {
-				case <-ctx.Done():
+				case <-stopCtx.Done():
 					return
 				case msg, ok := <-ch:
 					if !ok {
@@ -434,14 +452,22 @@ func run(ctx context.Context) int {
 							}
 							throttled.Inc()
 							select {
-							case <-ctx.Done():
+							case <-stopCtx.Done():
 								return
 							case <-time.After(after):
 							}
 						}
 					}
 
-					rb, err := retries.publish(ctx, func() ([]byte, error) {
+					// select picks at random among ready cases, so this message may have been taken, or let through by
+					// the throttler, after stopCtx was done: check it, so no request starts once the load is stopped.
+					if stopCtx.Err() != nil {
+						return
+					}
+					// A request that has started finishes under its own timeouts: PublishTo gets ctx, which only
+					// SIGTERM cancels, so the deadline doesn't cut it short. It does stop the retries, though: a retry
+					// is a new request.
+					rb, err := retries.publish(stopCtx, func() ([]byte, error) {
 						return client.PublishTo(ctx, msg.UserID, msg.Payload, map[string]string{
 							"auth":         msg.WriteKey,
 							"anonymous_id": msg.UserID,
@@ -503,11 +529,16 @@ func run(ctx context.Context) int {
 
 	fmt.Printf("Publishing messages with %d generators...\n", messageGenerators)
 	startPublishingTime = time.Now()
-	group, gCtx := kitsync.NewEagerGroup(ctx, messageGenerators)
+	group, gCtx := kitsync.NewEagerGroup(stopCtx, messageGenerators)
 	for i := 0; i < messageGenerators; i++ {
 		group.Go(func() error {
 			defer fmt.Printf("Message generator %d is done\n", i)
 			for {
+				// The select below picks at random when gCtx is done and messages has room: check gCtx first, so no
+				// message is generated once the load is stopped.
+				if err := gCtx.Err(); err != nil {
+					return err
+				}
 				if maxData > 0 && processedBytes.Load() >= int64(maxData) {
 					maxDataReached.Set(1)
 					fmt.Printf(
@@ -548,10 +579,18 @@ func run(ctx context.Context) int {
 			}
 		})
 	}
-	if err := group.Wait(); err != nil {
+	// The generators return only once gCtx is done, so the load is stopping: on SIGTERM, or at RUN_DEADLINE.
+	if err := group.Wait(); err != nil && !isRunDeadlineReached(stopCtx) {
 		printErr(fmt.Errorf("error generating messages: %w", err))
 	}
-	close(messages)
+	close(messages) // safe: the generators, the only senders, have returned
 
+	if isRunDeadlineReached(stopCtx) {
+		wg.Wait() // the publishers stop too, once their requests in flight finish
+		// Only publishers update the rate, and none is left: don't keep reporting the last one while idle.
+		publishRatePerSecond.Set(0)
+		runDeadlineReached.Set(1)
+	}
+	// After RUN_DEADLINE the deferred calls keep the metrics server up until SIGTERM.
 	return 0
 }

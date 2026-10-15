@@ -260,6 +260,19 @@ func optionalBytes(s string, def int) int {
 	return i
 }
 
+// optionalTime reads an RFC3339 time from the environment variable s, returning def if it's unset or empty.
+func optionalTime(s string, def time.Time) time.Time {
+	v := os.Getenv(s)
+	if v == "" {
+		return def
+	}
+	t, err := time.Parse(time.RFC3339, v)
+	if err != nil {
+		panic(fmt.Errorf("invalid RFC3339 time: %s: %w", s, err))
+	}
+	return t
+}
+
 func mustString(s string) string {
 	v := os.Getenv(s)
 	if v == "" {
@@ -337,7 +350,7 @@ type retryPolicy struct {
 }
 
 // publish calls publish until it succeeds, fails with an error the policy doesn't retry, runs out of retries or ctx is
-// done. onRetry is called with the error before each retry.
+// done: no retry starts once ctx is done. onRetry is called with the error before each retry.
 func (rp retryPolicy) publish(
 	ctx context.Context, publish func() ([]byte, error), onRetry func(error),
 ) ([]byte, error) {
@@ -359,8 +372,12 @@ func (rp retryPolicy) publish(
 		wait := backoff/2 + time.Duration(int63n(int64(backoff/2)+1))
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
 		case <-after(wait):
+		}
+		// select picks at random when both are ready: check ctx, so no attempt starts once it's done. The error says
+		// why the retries stopped, e.g. the run deadline, and keeps the last attempt's error.
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("retries stopped: %w; last attempt: %w", context.Cause(ctx), err)
 		}
 		backoff = min(2*backoff, rp.maxBackoff)
 	}

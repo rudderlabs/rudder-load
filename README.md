@@ -192,6 +192,15 @@ env:
   # Rate limiting for events (set to 0 for no limit)
   MAX_EVENTS_PER_SECOND: "60000"
 
+  # Optional absolute time, in RFC3339 format (quoted, e.g. "2026-10-16T12:00:00Z"), after which no more requests are
+  # sent, so that an automated run stops by then even if whatever started it can't stop it. Requests already in flight
+  # finish under their timeouts, but none is started or retried after it, and rudder_load_run_deadline_reached is set
+  # to 1 once they're done. The process then stays up, idle, serving its metrics until it gets SIGTERM, so that its
+  # Deployment doesn't restart it. Being absolute, a pod restart can't extend the run: with a deadline already past at
+  # startup nothing is sent. Unset or empty means no deadline; an invalid value makes the producer fail at startup.
+  # A request whose retry the deadline cuts short counts as dropped, logged with "run deadline reached".
+  RUN_DEADLINE: ""
+
   # Source and User Configuration
 
   # Can be either:
