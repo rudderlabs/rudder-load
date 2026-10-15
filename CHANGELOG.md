@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/rudderlabs/rudder-load/compare/v0.2.0...v0.3.0) (2026-10-15)
+
+
+### Features
+
+* **helm:** add a Pulsar soak test profile and optional pod annotations ([#62](https://github.com/rudderlabs/rudder-load/issues/62)) ([20a4300](https://github.com/rudderlabs/rudder-load/commit/20a430000efaab040f9fb9334a4da0205939a9a2))
+* **producer:** stop generating load at RUN_DEADLINE ([#64](https://github.com/rudderlabs/rudder-load/issues/64)) ([f003c16](https://github.com/rudderlabs/rudder-load/commit/f003c1653db214bad61cbeadfb14f76954f5c558))
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/rudderlabs/rudder-go-kit ([#60](https://github.com/rudderlabs/rudder-load/issues/60)) ([1b8bfa8](https://github.com/rudderlabs/rudder-load/commit/1b8bfa809ee18b99e466bdac6dc6bf2eeedb5772))
+* **deps:** bump step-security/harden-runner ([#61](https://github.com/rudderlabs/rudder-load/issues/61)) ([68d4eb7](https://github.com/rudderlabs/rudder-load/commit/68d4eb7a36bb1cfc982607e009919fb5a472da82))
+
 ## [0.2.0](https://github.com/rudderlabs/rudder-load/compare/v0.1.1...v0.2.0) (2026-10-14)
 
 
