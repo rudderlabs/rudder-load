@@ -778,6 +778,25 @@ func TestRunPanics(t *testing.T) {
 			},
 		},
 		{
+			name: "invalid run deadline",
+			env: map[string]string{
+				"MODE":                  "stdout",
+				"HOSTNAME":              "rudder-load-0-test",
+				"CONCURRENCY":           "2",
+				"MESSAGE_GENERATORS":    "1",
+				"TOTAL_USERS":           "100",
+				"SOURCES":               "write-key-1",
+				"EVENT_TYPES":           "track",
+				"HOT_EVENT_TYPES":       "100",
+				"HOT_USER_GROUPS":       "100",
+				"BATCH_SIZES":           "1",
+				"HOT_BATCH_SIZES":       "100",
+				"MAX_EVENTS_PER_SECOND": "100",
+				"SOFT_MEMORY_LIMIT":     "1GB",
+				"RUN_DEADLINE":          "24h", // must be an RFC3339 time, not a duration
+			},
+		},
+		{
 			name: "invalid sources with a comma",
 			env: map[string]string{
 				"MODE":                  "http",

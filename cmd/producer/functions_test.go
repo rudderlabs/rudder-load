@@ -352,6 +352,25 @@ func TestRetryPolicyPublish(t *testing.T) {
 		require.Equal(t, 1, calls)
 	})
 
+	t.Run("doesn't retry when the context ends with the backoff", func(t *testing.T) {
+		// select picks at random among ready cases, so try it enough times for the backoff to win some of them.
+		for range 100 {
+			ctx, cancel := context.WithCancel(context.Background())
+			racing := policy
+			// The backoff is over when the context is done: both select cases are ready.
+			racing.after = func(time.Duration) <-chan time.Time {
+				cancel()
+				ch := make(chan time.Time, 1)
+				ch <- time.Time{}
+				return ch
+			}
+			var calls int
+			_, err := racing.publish(ctx, failing(&calls, errRetryable), func(error) {})
+			require.ErrorIs(t, err, context.Canceled)
+			require.Equal(t, 1, calls, "no attempt should start once the context is done")
+		}
+	})
+
 	t.Run("doesn't retry when the context ends during publish", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		var retries int
