@@ -1,0 +1,54 @@
+# Load profile for the 24h soak test: 30k events/s from one pod.
+#
+# Nothing environment-specific is committed here. The installer supplies:
+#   --set namespace=<namespace>, matching helm's --namespace
+#   --set deployment.name=<name>
+#   --set deployment.env.LOAD_RUN_ID=<run id>
+#   --set deployment.env.RUN_DEADLINE=<deadline>
+#   --set deployment.env.HTTP_ENDPOINT=<url>
+#   -f <file> setting deployment.env.SOURCES to the comma-separated write keys (--set splits values at commas)
+deployment:
+  name: rudder-load-soak
+  image: 422074288268.dkr.ecr.us-east-1.amazonaws.com/rudderstack/rudder-load:0.2.0 # x-release-please-version
+  imagePullPolicy: IfNotPresent
+  restartPolicy: Always
+  command: ["/rudder-load-producer"]
+  replicas: 1
+  nodeSelector:
+    karpenter.sh/nodepool: critical
+  tolerations:
+    - effect: NoSchedule
+      key: type
+      value: critical
+  podAnnotations:
+    karpenter.sh/do-not-disrupt: "true"
+  resources:
+    cpuRequests: 1000m
+    cpuLimits: 1
+    memoryRequests: 6Gi
+    memoryLimits: 12Gi
+  ports:
+    - name: metrics
+      containerPort: 9102
+    - name: profiler
+      containerPort: 7777
+  env:
+    MODE: http
+    CONCURRENCY: "3000"
+    MESSAGE_GENERATORS: "1500"
+    MAX_EVENTS_PER_SECOND: "30000" # the soak's agreed rate
+    USE_ONE_CLIENT_PER_SLOT: "true"
+    ENABLE_SOFT_MEMORY_LIMIT: "true"
+    TOTAL_USERS: "300000"
+    HOT_USER_GROUPS: "100"
+    EVENT_TYPES: "track"
+    HOT_EVENT_TYPES: "100"
+    BATCH_SIZES: "10"
+    HOT_BATCH_SIZES: "100"
+    HTTP_COMPRESSION: "true"
+    HTTP_READ_TIMEOUT: "5s"
+    HTTP_WRITE_TIMEOUT: "5s"
+    HTTP_MAX_IDLE_CONN: "1h"
+    HTTP_MAX_CONNS_PER_HOST: "200000"
+    HTTP_CONCURRENCY: "200000"
+    HTTP_CONTENT_TYPE: "application/json"
