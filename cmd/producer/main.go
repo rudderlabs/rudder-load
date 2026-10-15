@@ -43,8 +43,10 @@ var (
 	// - rudder-load-http-0-68d8995d6c-9td2n
 	// - rudder-load-0-test
 	// - rudder-load-http-0-test
+	// - rudder-load-pulsar-soak-test-0-68d8995d6c-9td2n
 	// - rudder-load-7-special_chars.123!@#
-	hostnameRE = regexp.MustCompile(`rudder-load-(?:[a-z0-9]+-)?(\d+)-([^/]+)`)
+	// The name's words are matched lazily, so the first all-digit word is the instance number.
+	hostnameRE = regexp.MustCompile(`rudder-load-(?:[a-z0-9]+-)*?(\d+)-([^/]+)`)
 )
 
 const (

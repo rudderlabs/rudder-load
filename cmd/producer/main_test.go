@@ -950,6 +950,20 @@ func TestHostname(t *testing.T) {
 			expectedError:          nil,
 		},
 		{
+			name:                   "valid hostname with a one-word name",
+			hostname:               "rudder-load-http-3-68d8995d6c-9td2n",
+			expectedDeploymentName: "68d8995d6c-9td2n",
+			expectedInstanceNumber: 3,
+			expectedError:          nil,
+		},
+		{
+			name:                   "valid hostname with a multi-word name",
+			hostname:               "rudder-load-pulsar-soak-test-0-68d8995d6c-9td2n",
+			expectedDeploymentName: "68d8995d6c-9td2n",
+			expectedInstanceNumber: 0,
+			expectedError:          nil,
+		},
+		{
 			name:                   "valid hostname with special characters in deployment name",
 			hostname:               "rudder-load-7-special_chars.123!@#",
 			expectedDeploymentName: "special_chars.123!@#",

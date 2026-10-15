@@ -8,6 +8,9 @@
       "bump-minor-pre-major": true,
       "initial-version": "0.1.0",
       "pull-request-title-pattern": "chore: release ${version}",
+      "extra-files": [
+        {"type": "generic", "path": "artifacts/helm/pulsar_soak_test_values.yaml"}
+      ],
       "changelog-sections": [
         {"type": "feat", "section": "Features", "hidden": false},
         {"type": "fix", "section": "Bug Fixes", "hidden": false},
