@@ -2,13 +2,13 @@
 #
 # Nothing environment-specific is committed here. The installer supplies:
 #   --set namespace=<namespace>, matching helm's --namespace
-#   --set deployment.name=rudder-load-<word>, one [a-z0-9] word: the producer reads its index from the pod name
+#   --set deployment.name=<name>, optionally: it must start with rudder-load-
 #   --set deployment.env.LOAD_RUN_ID=<run id>
 #   --set deployment.env.RUN_DEADLINE=<deadline>
 #   --set deployment.env.HTTP_ENDPOINT=<url>
 #   -f <file> setting deployment.env.SOURCES to the comma-separated write keys (--set splits values at commas)
 deployment:
-  name: rudder-load-pulsarsoak
+  name: rudder-load-pulsar-soak-test
   image: 422074288268.dkr.ecr.us-east-1.amazonaws.com/rudderstack/rudder-load:0.2.0 # x-release-please-version
   imagePullPolicy: IfNotPresent
   restartPolicy: Always
@@ -37,7 +37,7 @@ deployment:
     MODE: http
     CONCURRENCY: "3000"
     MESSAGE_GENERATORS: "1500"
-    MAX_EVENTS_PER_SECOND: "30000" # the Pulsar soak's agreed rate
+    MAX_EVENTS_PER_SECOND: "30000" # the Pulsar soak test's agreed rate
     USE_ONE_CLIENT_PER_SLOT: "true"
     ENABLE_SOFT_MEMORY_LIMIT: "true"
     TOTAL_USERS: "300000"
