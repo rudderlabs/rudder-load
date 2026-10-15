@@ -198,6 +198,7 @@ env:
   # to 1 once they're done. The process then stays up, idle, serving its metrics until it gets SIGTERM, so that its
   # Deployment doesn't restart it. Being absolute, a pod restart can't extend the run: with a deadline already past at
   # startup nothing is sent. Unset or empty means no deadline; an invalid value makes the producer fail at startup.
+  # A request whose retry the deadline cuts short counts as dropped, logged with "run deadline reached".
   RUN_DEADLINE: ""
 
   # Source and User Configuration

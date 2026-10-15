@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -205,6 +206,33 @@ func TestRunDeadline(t *testing.T) {
 		require.EqualValues(t, sent, sumMetric(metrics, "rudder_load_published_messages_count", ours),
 			"every request the server answered should be counted, the ones in flight at the deadline too")
 		require.Zero(t, sumMetric(metrics, "rudder_load_number_of_requests_count", ours, `error="true"`))
+		require.Zero(t, sumMetric(metrics, "rudder_load_publish_rate_per_second", ours),
+			"an idle producer shouldn't report its last publish rate")
+		require.Equal(t, 0, sigterm())
+	})
+
+	t.Run("starts no retry after the deadline", func(t *testing.T) {
+		raw, err := net.Listen("tcp", "127.0.0.1:0")
+		require.NoError(t, err)
+		deadline := time.Now().Add(2 * time.Second)
+		// A connection dialled just before the deadline can be accepted just after it.
+		l := &closingListener{Listener: raw, late: deadline.Add(100 * time.Millisecond)}
+		srv := &http.Server{Handler: http.NotFoundHandler(), ReadHeaderTimeout: time.Second}
+		go func() { _ = srv.Serve(l) }()
+		t.Cleanup(func() { _ = srv.Close() })
+
+		deployment := deadlineTestDeployment("retries")
+		env := deadlineTestEnv("http", deployment, "http://"+raw.Addr().String(), deadline)
+		env["HTTP_MAX_RETRIES"] = "10"
+		env["MAX_EVENTS_PER_SECOND"] = "0"
+		_, sigterm := startRun(t, env)
+
+		requireLoadStopped(t, deployment)
+		metrics, err := producerMetrics()
+		require.NoError(t, err)
+		require.Positive(t, sumMetric(metrics, "rudder_load_retried_requests_count", `deployment="`+deployment+`"`),
+			"the producer should retry before the deadline")
+		require.Zero(t, l.lateAccepted.Load(), "the producer should open no connection after the deadline")
 		require.Equal(t, 0, sigterm())
 	})
 
@@ -276,6 +304,30 @@ func requireLogged(t *testing.T, log *recordingLogger, prefixes ...string) {
 	require.Len(t, messages, len(prefixes), "logged: %q", messages)
 	for i, prefix := range prefixes {
 		require.True(t, strings.HasPrefix(messages[i], prefix), "logged: %q", messages)
+	}
+}
+
+// closingListener closes every connection it accepts after reading the start of its request, and counts those it
+// accepts after late.
+type closingListener struct {
+	net.Listener
+	late         time.Time
+	lateAccepted atomic.Int64
+}
+
+func (l *closingListener) Accept() (net.Conn, error) {
+	for {
+		conn, err := l.Listener.Accept()
+		if err != nil {
+			return conn, err
+		}
+		if time.Now().After(l.late) {
+			l.lateAccepted.Add(1)
+		}
+		go func() {
+			_, _ = conn.Read(make([]byte, 4096))
+			_ = conn.Close()
+		}()
 	}
 }
 

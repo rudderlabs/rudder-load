@@ -349,6 +349,7 @@ func TestRetryPolicyPublish(t *testing.T) {
 		slow.initialBackoff, slow.maxBackoff = time.Hour, time.Hour
 		_, err := slow.publish(ctx, failing(&calls, errRetryable), func(error) { cancel() })
 		require.ErrorIs(t, err, context.Canceled)
+		require.ErrorIs(t, err, errRetryable, "the error should keep the last attempt's error")
 		require.Equal(t, 1, calls)
 	})
 

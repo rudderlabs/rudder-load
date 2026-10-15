@@ -585,6 +585,8 @@ func run(ctx context.Context) int {
 
 	if isRunDeadlineReached(stopCtx) {
 		wg.Wait() // the publishers stop too, once their requests in flight finish
+		// Only publishers update the rate, and none is left: don't keep reporting the last one while idle.
+		publishRatePerSecond.Set(0)
 		runDeadlineReached.Set(1)
 	}
 	// After RUN_DEADLINE the deferred calls keep the metrics server up until SIGTERM.

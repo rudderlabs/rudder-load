@@ -374,9 +374,10 @@ func (rp retryPolicy) publish(
 		case <-ctx.Done():
 		case <-after(wait):
 		}
-		// select picks at random when both are ready: check ctx, so no attempt starts once it's done.
-		if err := ctx.Err(); err != nil {
-			return nil, err
+		// select picks at random when both are ready: check ctx, so no attempt starts once it's done. The error says
+		// why the retries stopped, e.g. the run deadline, and keeps the last attempt's error.
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("retries stopped: %w; last attempt: %w", context.Cause(ctx), err)
 		}
 		backoff = min(2*backoff, rp.maxBackoff)
 	}
