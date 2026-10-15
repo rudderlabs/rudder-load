@@ -543,3 +543,52 @@ When running in local mode:
 - The `reporting` section is not supported
 - Resource limits are enforced by Docker rather than Kubernetes
 - The test will always use one replica for the load
+
+## Pulsar soak test (`cmd/pulsar-soak-test`)
+
+`cmd/pulsar-soak-test` reconciles an automated 24-hour soak test of a StreamNative Pulsar cluster. A scheduled workflow runs `go run ./cmd/pulsar-soak-test tick` every 15 minutes. Each tick reads its state from a Kubernetes Secret, observes the cluster and the metrics, does whatever is due, and exits. The workflow needs `helm` on the path and a kubeconfig, found with the default loading rules (`$KUBECONFIG`, `~/.kube/config` or in-cluster).
+
+A run goes like this:
+
+- **Detection** — the first tick only records the broker version. A run starts once every broker reports a new version (`pulsar_version_info`), no other version was reported in the last 30 minutes, every broker's image tag carries it, and every broker, bookie and ZooKeeper pod is ready.
+- **Announcement** — a top-level Slack message with the old and new versions, the start, the expected end and the workflow run. Every later message is a reply in its thread. `thread_ts=<ts>` is written to `$GITHUB_OUTPUT` when the announcement is posted.
+- **Start** — while a rudder-load Deployment from another Helm release is in the namespace, or src-router isn't discarding, the run waits and says so once. Then it runs `helm upgrade --install` with the profile, `namespace`, `deployment.name` (when set), `HTTP_ENDPOINT`, `LOAD_RUN_ID` and `RUN_DEADLINE`. The write keys go in a temporary values file that only its owner can read, deleted once helm is done.
+- **During the run** — every tick checks that src-router still discards: the Deployment's env var is `"true"`, its rollout is complete, every pod has it, and no `src_router_http_requests` series in the namespace lacks `discard="true"`. If not, rudder-load is uninstalled at once. If the check can't be done for 30 minutes, the run is aborted too.
+- **Stop and hand-off** — at the deadline rudder-load is uninstalled. The brief goes out once every datasource has data from after the stop (at least 2 minutes after it) or 15 minutes have passed, followed by a reply tagging the `@server-eng` user group.
+- **A newer version mid-run** — the run is uninstalled and superseded, and the new version gets a new thread and run.
+- **Dry run** — with `PULSAR_SOAK_TEST_DRY_RUN=true`, a tick with no run in progress starts one for the current version, with the configured run length. Its messages are marked as a dry run and it doesn't tag `@server-eng`.
+
+Slack messages are posted with `chat.postMessage` only, and never twice: each is recorded as about to be posted before the call and as posted after it, and a message with any record is never posted again. If Slack's answer is lost, later replies go to the channel, naming the run. Everything the tick prints after reading its settings sits inside a `::stop-commands::` block, so text from Slack or Grafana can't issue workflow commands.
+
+### Settings
+
+Every setting is an env var. Secrets are never printed.
+
+- **`PULSAR_SOAK_TEST_NAMESPACE`** — required. The namespace of rudder-load, ingestion and src-router. The state lives there in the Secret `<release>-state`.
+- **`PULSAR_SOAK_TEST_HELM_RELEASE`** — default `rudder-load-pulsar-soak-test`. The soak test's own Helm release; any other rudder-load Deployment in the namespace, from another release or applied without Helm, counts as another load test.
+- **`PULSAR_SOAK_TEST_HELM_CHART_PATH`** — default `artifacts/helm`.
+- **`PULSAR_SOAK_TEST_HELM_PROFILE_PATH`** — default `artifacts/helm/pulsar_soak_test_values.yaml`.
+- **`PULSAR_SOAK_TEST_LOAD_DEPLOYMENT_NAME`** — optional. Overrides the profile's `deployment.name`; it must start with `rudder-load-`.
+- **`PULSAR_SOAK_TEST_LOAD_HTTP_ENDPOINT`** — required. rudder-load's `HTTP_ENDPOINT`.
+- **`PULSAR_SOAK_TEST_LOAD_WRITE_KEYS`** — required, secret. Comma-separated write keys for rudder-load's `SOURCES`.
+- **`PULSAR_SOAK_TEST_SRC_ROUTER_DEPLOYMENT`** — required. src-router's Deployment in the namespace.
+- **`PULSAR_SOAK_TEST_SRC_ROUTER_DISCARD_ENV`** — default `SRC_ROUTER_GATEWAY_DISCARD_MESSAGES`. The env var that must be `"true"`.
+- **`PULSAR_SOAK_TEST_SLACK_CHANNEL`** — required. The channel ID to post in.
+- **`PULSAR_SOAK_TEST_SLACK_RUDDER_ASSIST_USER_ID`** — required. Mentioned in the brief.
+- **`PULSAR_SOAK_TEST_SLACK_SERVER_ENG_GROUP_ID`** — required. The `@server-eng` user group ID, tagged after the brief.
+- **`PULSAR_SOAK_TEST_SLACK_WORKSPACE_URL`** — optional, e.g. `https://example.slack.com`. Used to link a superseded run's thread to the new one; without it the reply has no link.
+- **`PULSAR_SOAK_TEST_SLACK_BOT_TOKEN`** — required, secret. A bot token with `chat:write`.
+- **`PULSAR_SOAK_TEST_GRAFANA_URL`** — required. Grafana's base URL; queries go through its datasource proxy.
+- **`PULSAR_SOAK_TEST_GRAFANA_TOKEN`** — required, secret. A service account token.
+- **`PULSAR_SOAK_TEST_GRAFANA_APP_METRICS_UID`** — required. The Mimir datasource with ingestion and src-router metrics.
+- **`PULSAR_SOAK_TEST_GRAFANA_KUBE_METRICS_UID`** — required. The Thanos datasource with Kubernetes and Pulsar metrics.
+- **`PULSAR_SOAK_TEST_GRAFANA_LOGS_UID`** — required. The Loki datasource.
+- **`PULSAR_SOAK_TEST_PULSAR_CLUSTER`** — required. The `cloud_streamnative_io_cluster` label value.
+- **`PULSAR_SOAK_TEST_PULSAR_KUBE_NAMESPACE`** — required. The `namespace` label of the Pulsar pods in kube-state-metrics, like `<cluster>:<namespace>`.
+- **`PULSAR_SOAK_TEST_BRIEF_TEMPLATE_PATH`** — required. The brief template, with `@RUDDER_ASSIST@`, `@WINDOW_START@` and `@WINDOW_END@`. Every tick fills it with sample times and fails if the result would be over 4,000 bytes, so a broken template stops a run from starting rather than its hand-off.
+- **`PULSAR_SOAK_TEST_RUN_LENGTH`** — default `24h`, from `10m` to `72h`.
+- **`PULSAR_SOAK_TEST_DRY_RUN`** — default `false`.
+- **`GITHUB_SERVER_URL`, `GITHUB_REPOSITORY`, `GITHUB_RUN_ID`** — set by GitHub Actions; together they link the workflow run in the announcement.
+- **`GITHUB_OUTPUT`, `RUNNER_TEMP`** — set by GitHub Actions; the thread's ts goes to the first, the temporary values file to the second.
+
+The kubeconfig's identity needs to get, create and update Secrets, get and list Deployments and list Pods in the namespace, plus what `helm` needs to manage the release. To start over, delete the state Secret: the next tick records the current version as its baseline.
