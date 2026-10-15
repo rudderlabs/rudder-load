@@ -2,7 +2,7 @@
 #
 # Nothing environment-specific is committed here. The installer supplies:
 #   --set namespace=<namespace>, matching helm's --namespace
-#   --set deployment.name=<name>
+#   --set deployment.name=rudder-load-<word>, one [a-z0-9] word: the producer reads its index from the pod name
 #   --set deployment.env.LOAD_RUN_ID=<run id>
 #   --set deployment.env.RUN_DEADLINE=<deadline>
 #   --set deployment.env.HTTP_ENDPOINT=<url>
@@ -21,11 +21,12 @@ deployment:
       key: type
       value: critical
   podAnnotations:
-    karpenter.sh/do-not-disrupt: "true"
+    # Counted from pod start, so a release left behind doesn't pin its node forever.
+    karpenter.sh/do-not-disrupt: "25h"
   resources:
     cpuRequests: 1000m
     cpuLimits: 1
-    memoryRequests: 6Gi
+    memoryRequests: 12Gi # equal to the limit, so node memory pressure doesn't evict it first
     memoryLimits: 12Gi
   ports:
     - name: metrics
