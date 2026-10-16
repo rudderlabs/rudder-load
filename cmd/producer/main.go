@@ -303,7 +303,7 @@ func run(ctx context.Context) int {
 			printErr(fmt.Errorf("cannot create publisher: %v", err))
 			return 1
 		}
-		client = statsFactory.New(p, "global")
+		client = statsFactory.New(p)
 	}
 	// Setting up dependencies for publishers - END
 
@@ -421,7 +421,7 @@ func run(ctx context.Context) int {
 				printErr(fmt.Errorf("cannot create publisher: %v", err))
 				return 1
 			}
-			localClient = statsFactory.New(p, slotName)
+			localClient = statsFactory.New(p)
 		}
 
 		wg.Add(1)

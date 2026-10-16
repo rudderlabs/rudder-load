@@ -20,9 +20,8 @@ type publisher interface {
 }
 
 type Stats struct {
-	p        publisher
-	f        *Factory
-	slotName string
+	p publisher
+	f *Factory
 }
 
 type Data struct {
@@ -58,7 +57,8 @@ func NewFactory(reg *prometheus.Registry, data Data) (*Factory, error) {
 		"total_users": strconv.Itoa(data.TotalUsers),
 	}
 
-	publishDurationSecondsLabels := []string{errorLabel, "slot_name"}
+	// No per-slot label: with one client per slot it adds a series per slot and bucket, and slows down the scrapes.
+	publishDurationSecondsLabels := []string{errorLabel}
 	publishDurationSeconds := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name: data.Prefix + "publish_duration_seconds",
 		Help: "Publish duration in seconds",
@@ -99,11 +99,10 @@ func NewFactory(reg *prometheus.Registry, data Data) (*Factory, error) {
 	}, nil
 }
 
-func (f *Factory) New(p publisher, slotName string) *Stats {
+func (f *Factory) New(p publisher) *Stats {
 	return &Stats{
-		p:        p,
-		f:        f,
-		slotName: slotName,
+		p: p,
+		f: f,
 	}
 }
 
@@ -117,12 +116,11 @@ func (s *Stats) PublishTo(ctx context.Context, key string, message []byte, extra
 	}
 
 	labels := prometheus.Labels{
-		errorLabel:  "false",
-		"slot_name": s.slotName,
+		errorLabel: "false",
 	}
 	if err != nil {
 		s.f.errorRateTotal.Inc()
-		labels["error"] = "true"
+		labels[errorLabel] = "true"
 	} else {
 		s.f.messagesTotal.Inc()
 		s.f.payloadSize.Observe(float64(len(message)))
