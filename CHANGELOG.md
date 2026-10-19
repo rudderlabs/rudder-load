@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/rudderlabs/rudder-load/compare/v0.3.0...v0.3.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **stats:** drop the slot_name label from the publish duration histogram ([#66](https://github.com/rudderlabs/rudder-load/issues/66)) ([e60d47a](https://github.com/rudderlabs/rudder-load/commit/e60d47a4404584204dbb47027e3087cf30a5601b))
+
 ## [0.3.0](https://github.com/rudderlabs/rudder-load/compare/v0.2.0...v0.3.0) (2026-10-15)
 
 
