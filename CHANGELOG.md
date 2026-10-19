@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.2](https://github.com/rudderlabs/rudder-load/compare/v0.3.1...v0.3.2) (2026-10-19)
+
+
+### Bug Fixes
+
+* **stats:** write the publish duration histogram's buckets in seconds ([#69](https://github.com/rudderlabs/rudder-load/issues/69)) ([fe841ea](https://github.com/rudderlabs/rudder-load/commit/fe841ea904fcbc6809902e327612f6cc410d14c4))
+
+
+### Miscellaneous
+
+* **deps:** bump the actions group with 4 updates ([#68](https://github.com/rudderlabs/rudder-load/issues/68)) ([d1da336](https://github.com/rudderlabs/rudder-load/commit/d1da3361d4637af8620ee7162790534f8f9cee7a))
+
 ## [0.3.1](https://github.com/rudderlabs/rudder-load/compare/v0.3.0...v0.3.1) (2026-10-19)
 
 
