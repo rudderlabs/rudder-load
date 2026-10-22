@@ -1,6 +1,6 @@
 module rudder-load
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/apache/pulsar-client-go v0.21.0
