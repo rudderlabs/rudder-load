@@ -8,12 +8,12 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/ory/dockertest/v3 v3.12.0
 	github.com/prometheus/client_golang v1.25.0
-	github.com/rudderlabs/keydb v1.4.1
-	github.com/rudderlabs/rudder-go-kit v0.84.0
-	github.com/rudderlabs/rudder-observability-kit v0.0.7
+	github.com/rudderlabs/keydb v1.5.0
+	github.com/rudderlabs/rudder-go-kit v0.84.2
+	github.com/rudderlabs/rudder-observability-kit v0.0.8
 	github.com/stretchr/testify v1.12.1
 	github.com/sugawarayuuta/sonnet v0.0.0-20231004000330-239c7b6e4ce8
-	github.com/valyala/fasthttp v1.75.0
+	github.com/valyala/fasthttp v1.76.0
 	golang.org/x/net v0.61.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -116,7 +116,7 @@ require (
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20261005182115-fad411399dd8 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20261005182115-fad411399dd8 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
 	google.golang.org/grpc v1.84.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0 // indirect

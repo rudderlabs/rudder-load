@@ -48,7 +48,7 @@ jobs:
       amd64_labels: ${{ steps.amd64_meta.outputs.labels }}
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
 
@@ -108,7 +108,7 @@ jobs:
       id-token: write # OIDC for the ECR role
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
 
@@ -134,7 +134,7 @@ jobs:
               mirrors = ["${{ steps.login-ecr.outputs.registry }}/docker-hub"]
       # Scans the built image for secrets (TruffleHog) before pushing it.
       - name: Build, scan and push
-        uses: rudderlabs/build-scan-push-action@8b0c8fa6e6d526c296bc1de587abb8ed2ee6e903 # v2.3.0
+        uses: rudderlabs/build-scan-push-action@c47115e5eab78162efec1b4961cba4063dfd8d5f # v2.4.0
         with:
           context: .
           platforms: ${{ matrix.build-config.platform }}
@@ -155,7 +155,7 @@ jobs:
       id-token: write # OIDC for the ECR role
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
 
