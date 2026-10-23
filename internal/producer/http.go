@@ -193,19 +193,19 @@ func (p *HTTPProducer) Close() error {
 //
 // Other errors, like a timeout or a non-200 status, aren't retried: the server may have processed the request.
 func RetryReason(err error) string {
-	var dnsErr *net.DNSError
-	var opErr *net.OpError
+	dnsErr, isDNSErr := errors.AsType[*net.DNSError](err)
+	opErr, isOpErr := errors.AsType[*net.OpError](err)
 	switch {
 	case err == nil:
 		return ""
-	case errors.As(err, &dnsErr):
+	case isDNSErr:
 		if dnsErr.IsNotFound {
 			return ""
 		}
 		return "dns"
-	case errors.Is(err, fasthttp.ErrDialTimeout), errors.As(err, &opErr) && opErr.Op == "dial":
+	case errors.Is(err, fasthttp.ErrDialTimeout), isOpErr && opErr.Op == "dial":
 		return "dial"
-	case errors.As(err, &opErr) && opErr.Op == "write" && !opErr.Timeout():
+	case isOpErr && opErr.Op == "write" && !opErr.Timeout():
 		return "write"
 	case errors.Is(err, fasthttp.ErrConnectionClosed):
 		return "connection_closed"

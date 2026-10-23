@@ -2,8 +2,15 @@ version: "2"
 linters:
   default: none
   enable:
+    - forbidigo
     - gosec
   settings:
+    forbidigo:
+      forbid:
+        - pattern: ^errors\.As$
+          pkg: ^errors$
+          msg: use errors.AsType[T](err) instead, it returns the typed value and an ok bool
+      analyze-types: true
     gosec:
       excludes:
         - G112  # Potential slowloris attack (1 finding)
