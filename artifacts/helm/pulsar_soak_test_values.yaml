@@ -9,7 +9,7 @@
 #   -f <file> setting deployment.env.SOURCES to the comma-separated write keys (--set splits values at commas)
 deployment:
   name: rudder-load-pulsar-soak-test
-  image: 422074288268.dkr.ecr.us-east-1.amazonaws.com/rudderstack/rudder-load:0.3.2 # x-release-please-version
+  image: 422074288268.dkr.ecr.us-east-1.amazonaws.com/rudderstack/rudder-load:0.3.3 # x-release-please-version
   imagePullPolicy: IfNotPresent
   restartPolicy: Always
   command: ["/rudder-load-producer"]
