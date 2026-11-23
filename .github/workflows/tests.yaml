@@ -65,38 +65,6 @@ jobs:
           DOCKERHUB_REGISTRY_MIRROR_PASSWORD: >-
             ${{ steps.login-ecr.outputs.docker_password_422074288268_dkr_ecr_us_east_1_amazonaws_com }}
         run: make test
-      - name: Upload coverage report
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: coverage
-          path: coverage.txt
-        if: always()
-  coverage:
-    name: Coverage
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs:
-      - unit
-    if: always()
-    permissions:
-      contents: read
-    steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
-        with:
-          egress-policy: audit
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Download coverage reports
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
-        with:
-          fail_ci_if_error: true
-          files: ./coverage.txt
-          token: ${{ secrets.CODECOV_TOKEN }}
   all-green:
     name: All
     if: always()
@@ -105,7 +73,6 @@ jobs:
     permissions: {}
     needs:
       - unit
-      - coverage
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
