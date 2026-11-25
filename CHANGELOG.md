@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.4](https://github.com/rudderlabs/rudder-load/compare/v0.3.3...v0.3.4) (2026-11-25)
+
+
+### Miscellaneous
+
+* bump Go to 1.27.4 ([#87](https://github.com/rudderlabs/rudder-load/issues/87)) ([4ba2989](https://github.com/rudderlabs/rudder-load/commit/4ba298949f0e521f6a8af84e2e49ea861cb2b6f5))
+* **ci:** remove codecov ([#86](https://github.com/rudderlabs/rudder-load/issues/86)) ([83f52d8](https://github.com/rudderlabs/rudder-load/commit/83f52d8ef2924016a84d459b7377f6e6413dd11b))
+* **ci:** remove unused image build-args ([#89](https://github.com/rudderlabs/rudder-load/issues/89)) ([d2b4518](https://github.com/rudderlabs/rudder-load/commit/d2b4518b5928ca9631f9c280a244e4bebcf0a6c5))
+
 ## [0.3.3](https://github.com/rudderlabs/rudder-load/compare/v0.3.2...v0.3.3) (2026-10-26)
 
 
