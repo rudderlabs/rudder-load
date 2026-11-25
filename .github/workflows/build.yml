@@ -38,9 +38,6 @@ jobs:
       id-token: write # OIDC for the ECR role
     outputs:
       labels: ${{ steps.meta.outputs.labels }}
-      build-date: ${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
-      version: ${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
-      revision: ${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
       tags: ${{ steps.meta.outputs.tags }}
       arm64_tags: ${{ steps.arm64_meta.outputs.tags }}
       arm64_labels: ${{ steps.arm64_meta.outputs.labels }}
@@ -141,11 +138,6 @@ jobs:
           push: true
           tags: ${{ matrix.build-config.tags }}
           labels: ${{ matrix.build-config.labels }}
-          build-args: |
-            BUILD_DATE=${{ needs.docker-meta.outputs.build-date }}
-            VERSION=${{ needs.docker-meta.outputs.version }}
-            COMMIT_HASH=${{ github.sha }}
-            REVISION=${{ needs.docker-meta.outputs.revision }}
   create-manifest:
     runs-on: ubuntu-latest
     timeout-minutes: 10
